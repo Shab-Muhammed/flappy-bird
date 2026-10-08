@@ -25,9 +25,12 @@
   const soundIconOff = document.getElementById('sound-icon-off');
   const srAnnouncements = document.getElementById('sr-announcements');
 
+  const cycleBadge = document.getElementById('cycle-badge');
+  const cycleIcon = document.getElementById('cycle-icon');
+  const cycleText = document.getElementById('cycle-text');
+  const seasonBadge = document.getElementById('season-badge');
   const seasonIcon = document.getElementById('season-icon');
   const seasonText = document.getElementById('season-text');
-  const cycleText = document.getElementById('cycle-text');
 
   const V_WIDTH = 360;
   const V_HEIGHT = 640;
@@ -227,7 +230,8 @@
   const GROUND_HEIGHT = 108;
   const GROUND_Y = V_HEIGHT - GROUND_HEIGHT;
   let groundScrollOffset = 0;
-  let cityScrollOffset = 0;
+  let landmarkScrollOffset = 0;
+  let foothillsScrollOffset = 0;
   let mountainScrollOffset = 0;
 
   // --- Day & Night Cycles & Seasons Engine ---
@@ -239,22 +243,89 @@
   ];
 
   const CYCLES = [
-    { name: 'DAY', skyTop: [12, 45, 96], skyMid: [16, 92, 142], skyBot: [32, 172, 192], sunY: 100, sunAlpha: 1 },
-    { name: 'SUNSET', skyTop: [42, 12, 68], skyMid: [138, 28, 92], skyBot: [248, 112, 48], sunY: 200, sunAlpha: 0.95 },
-    { name: 'NIGHT', skyTop: [5, 7, 18], skyMid: [14, 18, 44], skyBot: [26, 32, 74], sunY: 90, sunAlpha: 0 },
-    { name: 'DAWN', skyTop: [22, 16, 52], skyMid: [90, 42, 98], skyBot: [52, 142, 168], sunY: 210, sunAlpha: 0.8 }
+    {
+      name: 'DAY',
+      icon: '☀️',
+      color: '#ffe600',
+      skyTop: [14, 60, 130],
+      skyMid: [32, 130, 196],
+      skyBot: [80, 204, 235],
+      cloudTop: 'rgba(255, 255, 255, 0.92)',
+      cloudBot: 'rgba(165, 225, 250, 0.45)',
+      cloudRim: 'rgba(255, 255, 255, 0.95)',
+      ambient: 1.0,
+      nightRatio: 0.0,
+      windowGlow: 0.0,
+      sunAlpha: 1.0,
+      mountainTint: 'rgba(18, 48, 88, 0.85)',
+      ridgeGlow: '#00f2fe'
+    },
+    {
+      name: 'SUNSET',
+      icon: '🌅',
+      color: '#ff772e',
+      skyTop: [52, 14, 82],
+      skyMid: [170, 28, 98],
+      skyBot: [255, 118, 38],
+      cloudTop: 'rgba(255, 195, 140, 0.9)',
+      cloudBot: 'rgba(195, 45, 115, 0.55)',
+      cloudRim: 'rgba(255, 230, 160, 0.95)',
+      ambient: 0.88,
+      nightRatio: 0.22,
+      windowGlow: 0.72,
+      sunAlpha: 1.0,
+      mountainTint: 'rgba(42, 18, 55, 0.88)',
+      ridgeGlow: '#ff007f'
+    },
+    {
+      name: 'NIGHT',
+      icon: '🌙',
+      color: '#00f2fe',
+      skyTop: [5, 7, 18],
+      skyMid: [12, 16, 44],
+      skyBot: [26, 32, 75],
+      cloudTop: 'rgba(34, 45, 92, 0.65)',
+      cloudBot: 'rgba(14, 18, 40, 0.35)',
+      cloudRim: 'rgba(0, 242, 254, 0.45)',
+      ambient: 0.52,
+      nightRatio: 1.0,
+      windowGlow: 1.0,
+      sunAlpha: 0.0,
+      mountainTint: 'rgba(10, 14, 30, 0.92)',
+      ridgeGlow: '#00f2fe'
+    },
+    {
+      name: 'DAWN',
+      icon: '🌄',
+      color: '#ff66c4',
+      skyTop: [28, 20, 64],
+      skyMid: [116, 52, 95],
+      skyBot: [238, 148, 118],
+      cloudTop: 'rgba(255, 228, 205, 0.88)',
+      cloudBot: 'rgba(135, 62, 102, 0.48)',
+      cloudRim: 'rgba(255, 245, 195, 0.9)',
+      ambient: 0.80,
+      nightRatio: 0.18,
+      windowGlow: 0.35,
+      sunAlpha: 0.85,
+      mountainTint: 'rgba(32, 24, 60, 0.88)',
+      ridgeGlow: '#ff66c4'
+    }
   ];
 
-  // Each full cycle lasts 2400 frames (~40s), smoothly interpolating
-  const CYCLE_PERIOD = 2400;
+  const CYCLE_MODES = ['AUTO', 'DAY', 'SUNSET', 'NIGHT', 'DAWN'];
+  let currentCycleModeIndex = 0; // 0 = AUTO
+  let cycleProgress = 0.08; // Starts in bright, beautiful morning day
+  let targetManualProgress = null;
   let currentSeasonIndex = 0;
+  let currentCycleNightRatio = 0;
 
-  // Background stars for Night/Dawn
+  // Background stars for Night/Dusk
   const stars = [];
-  for (let i = 0; i < 45; i++) {
+  for (let i = 0; i < 50; i++) {
     stars.push({
       x: Math.random() * V_WIDTH,
-      y: Math.random() * (GROUND_Y - 80),
+      y: Math.random() * (GROUND_Y - 90),
       size: Math.random() * 1.8 + 0.6,
       twinkleOffset: Math.random() * Math.PI * 2,
       color: Math.random() > 0.4 ? '#00f2fe' : (Math.random() > 0.5 ? '#ff007f' : '#ffffff')
@@ -268,7 +339,7 @@
       shootingStar.x += shootingStar.vx;
       shootingStar.y += shootingStar.vy;
       shootingStar.life--;
-    } else if (Math.random() < 0.005) {
+    } else if (Math.random() < 0.007) {
       shootingStar.x = Math.random() * V_WIDTH * 0.7;
       shootingStar.y = Math.random() * 120 + 20;
       shootingStar.vx = Math.random() * 4 + 5;
@@ -277,20 +348,75 @@
     }
   }
 
-  // Seasonal floating weather/particles
+  // --- Parallax Moving Clouds ---
+  const clouds = [
+    { x: 30, y: 40, scale: 0.95, speed: 0.18, opacity: 0.68 },
+    { x: 145, y: 74, scale: 1.25, speed: 0.24, opacity: 0.55 },
+    { x: 260, y: 32, scale: 0.80, speed: 0.15, opacity: 0.70 },
+    { x: 375, y: 88, scale: 1.10, speed: 0.22, opacity: 0.52 },
+    { x: 490, y: 52, scale: 0.88, speed: 0.19, opacity: 0.62 }
+  ];
+
+  function updateClouds() {
+    if (currentState === STATE.PLAYING || currentState === STATE.READY) {
+      clouds.forEach(cl => {
+        // Move backward across the sky
+        cl.x -= cl.speed * GAME_SPEED;
+        if (cl.x + 130 * cl.scale < -40) {
+          cl.x = V_WIDTH + 40 + Math.random() * 60;
+          cl.y = 26 + Math.random() * 75;
+        }
+      });
+    }
+  }
+
+  function drawClouds(cycle) {
+    clouds.forEach(cl => {
+      ctx.save();
+      ctx.translate(cl.x, cl.y);
+      ctx.scale(cl.scale, cl.scale);
+      ctx.globalAlpha = cl.opacity;
+
+      const grad = ctx.createLinearGradient(0, -15, 0, 30);
+      grad.addColorStop(0, cycle.cloudTop);
+      grad.addColorStop(1, cycle.cloudBot);
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(20, 15, 18, 0, Math.PI * 2);
+      ctx.arc(42, 8, 24, 0, Math.PI * 2);
+      ctx.arc(68, 14, 19, 0, Math.PI * 2);
+      ctx.arc(88, 20, 14, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Top Highlight Rim
+      ctx.strokeStyle = cycle.cloudRim;
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.arc(42, 8, 24, Math.PI * 1.05, Math.PI * 1.85);
+      ctx.stroke();
+
+      ctx.restore();
+    });
+  }
+
+  // --- Seasonal & Night Weather Particles ---
   const seasonalParticles = [];
   function updateSeasonalParticles(seasonIdx) {
-    if (seasonalParticles.length < 24 && Math.random() < 0.25) {
+    if (seasonalParticles.length < 28 && Math.random() < 0.3) {
+      const isFirefly = currentCycleNightRatio > 0.4 && Math.random() < 0.35;
       seasonalParticles.push({
-        x: V_WIDTH + 10,
-        y: Math.random() * (GROUND_Y - 20),
-        vx: -(Math.random() * 1.2 + 0.8),
-        vy: Math.sin(Math.random() * 10) * 0.6 + (seasonIdx === 3 ? 0.8 : 0.2), // snowflakes fall down
+        x: V_WIDTH + 15,
+        y: isFirefly ? GROUND_Y - 20 - Math.random() * 120 : Math.random() * (GROUND_Y - 15),
+        vx: -(Math.random() * 1.4 + 1.0), // Moves backward in the breeze
+        vy: isFirefly ? (Math.random() - 0.5) * 0.8 : (seasonIdx === 3 ? Math.random() * 0.9 + 0.6 : (Math.random() - 0.5) * 0.5),
         rot: Math.random() * Math.PI * 2,
         rotSpd: (Math.random() - 0.5) * 0.08,
-        size: Math.random() * 4 + 3,
+        size: isFirefly ? Math.random() * 2.5 + 1.5 : Math.random() * 4 + 3,
         season: seasonIdx,
-        alpha: Math.random() * 0.5 + 0.5
+        isFirefly,
+        alpha: Math.random() * 0.4 + 0.6
       });
     }
 
@@ -299,20 +425,29 @@
       sp.x += sp.vx;
       sp.y += sp.vy;
       sp.rot += sp.rotSpd;
-      if (sp.x < -20 || sp.y > GROUND_Y) {
+      if (sp.x < -20 || sp.y > GROUND_Y || sp.y < 0) {
         seasonalParticles.splice(i, 1);
       }
     }
   }
 
-  function drawSeasonalParticles() {
+  function drawSeasonalParticles(cycle) {
     seasonalParticles.forEach(sp => {
       ctx.save();
       ctx.globalAlpha = sp.alpha;
       ctx.translate(sp.x, sp.y);
       ctx.rotate(sp.rot);
 
-      if (sp.season === 0) {
+      if (sp.isFirefly) {
+        // Night Bioluminescent Firefly
+        const glow = Math.sin(globalFrame * 0.15 + sp.x) * 0.3 + 0.7;
+        ctx.fillStyle = '#39ff14';
+        ctx.shadowColor = '#39ff14';
+        ctx.shadowBlur = 10 * glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, sp.size * glow, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (sp.season === 0) {
         // Spring: Pink Sakura Petal
         ctx.fillStyle = '#ff66c4';
         ctx.shadowColor = '#ff66c4';
@@ -321,7 +456,7 @@
         ctx.ellipse(0, 0, sp.size * 1.3, sp.size * 0.7, 0.3, 0, Math.PI * 2);
         ctx.fill();
       } else if (sp.season === 1) {
-        // Summer: Neon Cyan Mote / Glint
+        // Summer: Neon Cyan Cyber Mote
         ctx.fillStyle = '#00f2fe';
         ctx.shadowColor = '#00f2fe';
         ctx.shadowBlur = 8;
@@ -329,7 +464,7 @@
         ctx.arc(0, 0, sp.size * 0.7, 0, Math.PI * 2);
         ctx.fill();
       } else if (sp.season === 2) {
-        // Autumn: Glowing Orange Maple Leaf / Ember
+        // Autumn: Glowing Maple Leaf / Golden Ember
         ctx.fillStyle = '#ff772e';
         ctx.shadowColor = '#ff5500';
         ctx.shadowBlur = 6;
@@ -343,7 +478,7 @@
         ctx.closePath();
         ctx.fill();
       } else {
-        // Winter: Glowing Neon Snowflake
+        // Winter: Neon Snowflake
         ctx.strokeStyle = '#e0f7fa';
         ctx.shadowColor = '#00f2fe';
         ctx.shadowBlur = 8;
@@ -362,10 +497,32 @@
 
   // --- Dynamic Interpolated Environment Rendering ---
   function getCycleState() {
-    const cycleProgress = (globalFrame % CYCLE_PERIOD) / CYCLE_PERIOD;
+    // Mode handling: AUTO progression vs smooth manual transitions
+    const mode = CYCLE_MODES[currentCycleModeIndex];
+
+    if (mode === 'AUTO') {
+      // Smooth continuous advance (~42 seconds per full day/night cycle)
+      cycleProgress = (cycleProgress + 0.00035) % 1.0;
+    } else {
+      // Manual mode targets
+      let targetP = 0.0;
+      if (mode === 'DAY') targetP = 0.0;
+      else if (mode === 'SUNSET') targetP = 0.25;
+      else if (mode === 'NIGHT') targetP = 0.50;
+      else if (mode === 'DAWN') targetP = 0.75;
+
+      let diff = targetP - cycleProgress;
+      // Handle modular wrap distance
+      if (diff > 0.5) diff -= 1.0;
+      if (diff < -0.5) diff += 1.0;
+      cycleProgress = (cycleProgress + diff * 0.06 + 1.0) % 1.0;
+    }
+
     const stageFloat = cycleProgress * 4;
     const stageIndex = Math.floor(stageFloat);
     const stageLerp = stageFloat - stageIndex;
+    // Cosine smoothing for cinematic day/night blending
+    const smoothT = (1 - Math.cos(stageLerp * Math.PI)) / 2;
 
     const fromCycle = CYCLES[stageIndex % 4];
     const toCycle = CYCLES[(stageIndex + 1) % 4];
@@ -378,31 +535,46 @@
       ];
     }
 
-    const skyTop = lerpColor(fromCycle.skyTop, toCycle.skyTop, stageLerp);
-    const skyMid = lerpColor(fromCycle.skyMid, toCycle.skyMid, stageLerp);
-    const skyBot = lerpColor(fromCycle.skyBot, toCycle.skyBot, stageLerp);
-    const sunY = fromCycle.sunY + (toCycle.sunY - fromCycle.sunY) * stageLerp;
-    const sunAlpha = fromCycle.sunAlpha + (toCycle.sunAlpha - fromCycle.sunAlpha) * stageLerp;
+    const skyTop = lerpColor(fromCycle.skyTop, toCycle.skyTop, smoothT);
+    const skyMid = lerpColor(fromCycle.skyMid, toCycle.skyMid, smoothT);
+    const skyBot = lerpColor(fromCycle.skyBot, toCycle.skyBot, smoothT);
 
-    // Season index shifts every full day-night cycle or every 15 points
-    const calculatedSeason = Math.floor(globalFrame / (CYCLE_PERIOD * 1.5) + score / 8) % 4;
-    if (calculatedSeason !== currentSeasonIndex) {
-      currentSeasonIndex = calculatedSeason;
-      seasonIcon.textContent = SEASONS[currentSeasonIndex].icon;
-      seasonText.textContent = SEASONS[currentSeasonIndex].name;
-      seasonText.style.color = SEASONS[currentSeasonIndex].color;
+    const ambient = fromCycle.ambient + (toCycle.ambient - fromCycle.ambient) * smoothT;
+    const nightRatio = fromCycle.nightRatio + (toCycle.nightRatio - fromCycle.nightRatio) * smoothT;
+    const windowGlow = fromCycle.windowGlow + (toCycle.windowGlow - fromCycle.windowGlow) * smoothT;
+
+    currentCycleNightRatio = nightRatio;
+
+    // Active cycle display name
+    const activeCycleName = stageLerp < 0.5 ? fromCycle.name : toCycle.name;
+    const activeCycleIcon = stageLerp < 0.5 ? fromCycle.icon : toCycle.icon;
+
+    if (cycleText && cycleIcon) {
+      if (mode === 'AUTO') {
+        cycleText.textContent = activeCycleName;
+        cycleIcon.textContent = activeCycleIcon;
+      } else {
+        cycleText.textContent = mode;
+        cycleIcon.textContent = fromCycle.icon;
+      }
     }
-
-    cycleText.textContent = fromCycle.name;
 
     return {
       skyTop: `rgb(${skyTop[0]},${skyTop[1]},${skyTop[2]})`,
       skyMid: `rgb(${skyMid[0]},${skyMid[1]},${skyMid[2]})`,
       skyBot: `rgb(${skyBot[0]},${skyBot[1]},${skyBot[2]})`,
-      sunY,
-      sunAlpha,
-      isNight: fromCycle.name === 'NIGHT' || toCycle.name === 'NIGHT',
-      nightRatio: stageIndex === 2 ? 1 - Math.abs(stageLerp - 0.5) * 2 : (stageIndex === 1 ? stageLerp : (stageIndex === 3 ? 1 - stageLerp : 0))
+      cloudTop: toCycle.cloudTop,
+      cloudBot: toCycle.cloudBot,
+      cloudRim: toCycle.cloudRim,
+      ambient,
+      nightRatio,
+      windowGlow,
+      stageIndex,
+      stageLerp,
+      cycleProgress,
+      activeName: activeCycleName,
+      ridgeGlow: fromCycle.ridgeGlow,
+      mountainTint: fromCycle.mountainTint
     };
   }
 
@@ -414,8 +586,8 @@
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
-    // Night stars & shooting star
-    if (cycle.nightRatio > 0.05) {
+    // Night Stars & Shooting Star
+    if (cycle.nightRatio > 0.08) {
       stars.forEach(st => {
         const twinkle = Math.sin(globalFrame * 0.08 + st.twinkleOffset) * 0.4 + 0.6;
         ctx.save();
@@ -445,60 +617,100 @@
       }
     }
 
-    // Celestial Body: Sun or Neon Moon
-    if (cycle.sunAlpha > 0.1) {
-      // Synthwave / Neon Sun
-      const sunX = V_WIDTH * 0.72;
-      const sunY = cycle.sunY;
-      ctx.save();
-      ctx.globalAlpha = cycle.sunAlpha;
+    // --- Dynamic Celestial Body: Sun & Moon Traveling on Arcs ---
+    // Sun is active during Day, Sunset, and Dawn (cycleProgress 0.0 -> 0.45 or 0.85 -> 1.0)
+    const isSunTime = cycle.cycleProgress < 0.46 || cycle.cycleProgress > 0.82;
+    if (isSunTime) {
+      // Map sun progress along arc: 0.82 (dawn rising) -> 0.12 (noon high) -> 0.45 (sunset sinking)
+      let sunNorm = cycle.cycleProgress < 0.5 ? (cycle.cycleProgress + 0.18) / 0.64 : (cycle.cycleProgress - 0.82) / 0.64;
+      sunNorm = Math.max(0, Math.min(1, sunNorm));
 
-      // Outer Sun Glow
-      const haloGrad = ctx.createRadialGradient(sunX, sunY, 15, sunX, sunY, 70);
-      haloGrad.addColorStop(0, 'rgba(255, 0, 127, 0.6)');
-      haloGrad.addColorStop(0.5, 'rgba(255, 230, 0, 0.25)');
-      haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      const sunX = V_WIDTH * 0.15 + sunNorm * (V_WIDTH * 0.70);
+      const sunY = 70 + Math.pow(sunNorm - 0.5, 2) * 440;
+      const isSunset = cycle.cycleProgress > 0.22 && cycle.cycleProgress < 0.46;
+
+      ctx.save();
+      const sunAlpha = Math.max(0, 1 - cycle.nightRatio * 1.5);
+      ctx.globalAlpha = sunAlpha;
+
+      // Outer Sun Radiant Corona
+      const haloR = isSunset ? 80 : 70;
+      const haloGrad = ctx.createRadialGradient(sunX, sunY, 12, sunX, sunY, haloR);
+      if (isSunset) {
+        haloGrad.addColorStop(0, 'rgba(255, 0, 127, 0.75)');
+        haloGrad.addColorStop(0.5, 'rgba(255, 115, 36, 0.35)');
+        haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      } else {
+        haloGrad.addColorStop(0, 'rgba(255, 245, 160, 0.8)');
+        haloGrad.addColorStop(0.5, 'rgba(0, 242, 254, 0.25)');
+        haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      }
       ctx.fillStyle = haloGrad;
       ctx.beginPath();
-      ctx.arc(sunX, sunY, 70, 0, Math.PI * 2);
+      ctx.arc(sunX, sunY, haloR, 0, Math.PI * 2);
       ctx.fill();
 
-      // Segmented Synthwave Sun (stripes)
-      const sunR = 30;
+      // Main Sun Body
+      const sunR = isSunset ? 32 : 28;
       ctx.save();
       ctx.beginPath();
       ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
       ctx.clip();
 
       const sunGrad = ctx.createLinearGradient(sunX, sunY - sunR, sunX, sunY + sunR);
-      sunGrad.addColorStop(0, '#ffe600');
-      sunGrad.addColorStop(0.5, '#ff007f');
-      sunGrad.addColorStop(1, '#9d4edd');
+      if (isSunset) {
+        sunGrad.addColorStop(0, '#ffe600');
+        sunGrad.addColorStop(0.5, '#ff007f');
+        sunGrad.addColorStop(1, '#9d4edd');
+      } else {
+        sunGrad.addColorStop(0, '#ffffff');
+        sunGrad.addColorStop(0.5, '#fff275');
+        sunGrad.addColorStop(1, '#ff9900');
+      }
       ctx.fillStyle = sunGrad;
       ctx.fillRect(sunX - sunR, sunY - sunR, sunR * 2, sunR * 2);
 
-      // Horizontal retro cutout stripes
-      ctx.fillStyle = cycle.skyMid;
-      for (let sy = sunY - 4; sy < sunY + sunR; sy += 7) {
-        ctx.fillRect(sunX - sunR, sy, sunR * 2, 2.5);
+      // Horizontal retro cutout stripes during Sunset
+      if (isSunset) {
+        ctx.fillStyle = cycle.skyMid;
+        for (let sy = sunY - 4; sy < sunY + sunR; sy += 7) {
+          ctx.fillRect(sunX - sunR, sy, sunR * 2, 2.5);
+        }
       }
       ctx.restore();
       ctx.restore();
-    } else if (cycle.nightRatio > 0.4) {
-      // Neon Crescent Moon
-      const moonX = V_WIDTH * 0.76;
-      const moonY = 88;
+    }
+
+    // Moon is active during Night & Twilight (cycleProgress 0.38 -> 0.90)
+    const isMoonTime = cycle.cycleProgress > 0.38 && cycle.cycleProgress < 0.90;
+    if (isMoonTime && cycle.nightRatio > 0.15) {
+      let moonNorm = (cycle.cycleProgress - 0.38) / 0.52;
+      moonNorm = Math.max(0, Math.min(1, moonNorm));
+
+      const moonX = V_WIDTH * 0.18 + moonNorm * (V_WIDTH * 0.64);
+      const moonY = 66 + Math.pow(moonNorm - 0.5, 2) * 360;
+
       ctx.save();
       ctx.globalAlpha = cycle.nightRatio;
+
+      // Lunar Outer Halo
+      const moonHalo = ctx.createRadialGradient(moonX, moonY, 15, moonX, moonY, 65);
+      moonHalo.addColorStop(0, 'rgba(0, 242, 254, 0.35)');
+      moonHalo.addColorStop(1, 'rgba(0, 242, 254, 0)');
+      ctx.fillStyle = moonHalo;
+      ctx.beginPath();
+      ctx.arc(moonX, moonY, 65, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing Cyan Crescent Moon
       ctx.shadowColor = '#00f2fe';
       ctx.shadowBlur = 18;
-
       ctx.fillStyle = '#00f2fe';
       ctx.beginPath();
       ctx.arc(moonX, moonY, 22, 0, Math.PI * 2);
       ctx.fill();
 
-      // Mask for crescent
+      // Crescent Mask matching sky
       ctx.fillStyle = cycle.skyTop;
       ctx.beginPath();
       ctx.arc(moonX + 9, moonY - 5, 19, 0, Math.PI * 2);
@@ -506,15 +718,15 @@
       ctx.restore();
     }
 
-    // Winter: Aurora Borealis Curtains
+    // Winter: Aurora Borealis Waves across Northern Sky
     if (currentSeasonIndex === 3) {
       ctx.save();
       const wave = Math.sin(globalFrame * 0.02) * 20;
       const wave2 = Math.cos(globalFrame * 0.025) * 25;
       const aurGrad = ctx.createLinearGradient(0, 40, 0, 220);
       aurGrad.addColorStop(0, 'rgba(0, 242, 254, 0)');
-      aurGrad.addColorStop(0.5, 'rgba(57, 255, 20, 0.28)');
-      aurGrad.addColorStop(0.8, 'rgba(157, 78, 221, 0.22)');
+      aurGrad.addColorStop(0.5, `rgba(57, 255, 20, ${0.18 + cycle.nightRatio * 0.2})`);
+      aurGrad.addColorStop(0.8, `rgba(157, 78, 221, ${0.15 + cycle.nightRatio * 0.15})`);
       aurGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = aurGrad;
 
@@ -529,193 +741,249 @@
     }
   }
 
-  // --- Moving Places & Parallax Landscapes ---
-  function drawMovingPlaces() {
+  // --- Continuous Parallax Mountains & Landscapes Moving Backward ---
+  function drawMovingPlaces(cycle) {
     if (currentState === STATE.PLAYING || currentState === STATE.READY) {
-      mountainScrollOffset = (mountainScrollOffset + GAME_SPEED * 0.18) % 180;
-      cityScrollOffset = (cityScrollOffset + GAME_SPEED * 0.35) % 180;
+      mountainScrollOffset += GAME_SPEED * 0.16;
+      foothillsScrollOffset += GAME_SPEED * 0.32;
+      landmarkScrollOffset += GAME_SPEED * 0.58;
     }
 
-    // LAYER 1: Distant Neon Mountain / Crystal Ridge
+    // LAYER 1: Distant High Mountain Range (Moving Backward seamlessly)
     ctx.save();
-    const mBaseY = GROUND_Y - 45;
+    const mBaseY = GROUND_Y - 42;
+    const M_TILE_W = 140;
+    const mStart = -(mountainScrollOffset % M_TILE_W) - M_TILE_W;
 
-    // Distant Neon Wireframe Peaks
-    ctx.strokeStyle = currentSeasonIndex === 3 ? 'rgba(0, 242, 254, 0.35)' : 'rgba(157, 78, 221, 0.25)';
-    ctx.fillStyle = currentSeasonIndex === 3 ? 'rgba(8, 24, 48, 0.85)' : 'rgba(15, 12, 34, 0.85)';
-    ctx.lineWidth = 1.8;
+    ctx.fillStyle = cycle.mountainTint;
+    ctx.strokeStyle = cycle.ridgeGlow;
+    ctx.lineWidth = 1.6;
 
-    for (let x = -mountainScrollOffset - 180; x < V_WIDTH + 180; x += 140) {
+    for (let x = mStart; x < V_WIDTH + M_TILE_W; x += M_TILE_W) {
       ctx.beginPath();
       ctx.moveTo(x, mBaseY);
-      ctx.lineTo(x + 70, mBaseY - 85);
+      ctx.lineTo(x + 70, mBaseY - 86);
       ctx.lineTo(x + 140, mBaseY);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Peak Neon Highlight
-      ctx.strokeStyle = currentSeasonIndex === 0 ? '#ff66c4' : (currentSeasonIndex === 3 ? '#00f2fe' : '#ffe600');
+      // Peak Highlight Crest
       ctx.beginPath();
-      ctx.moveTo(x + 55, mBaseY - 65);
-      ctx.lineTo(x + 70, mBaseY - 85);
-      ctx.lineTo(x + 85, mBaseY - 65);
+      ctx.moveTo(x + 55, mBaseY - 66);
+      ctx.lineTo(x + 70, mBaseY - 86);
+      ctx.lineTo(x + 85, mBaseY - 66);
       ctx.stroke();
-      ctx.strokeStyle = currentSeasonIndex === 3 ? 'rgba(0, 242, 254, 0.35)' : 'rgba(157, 78, 221, 0.25)';
     }
     ctx.restore();
 
-    // LAYER 2: Seasonal Landmark Scenery
+    // LAYER 2: Secondary Mid-Distance Foothills (Moving Backward seamlessly)
+    ctx.save();
+    const fBaseY = GROUND_Y - 26;
+    const F_TILE_W = 110;
+    const fStart = -(foothillsScrollOffset % F_TILE_W) - F_TILE_W;
+
+    ctx.fillStyle = 'rgba(10, 14, 28, 0.88)';
+    ctx.strokeStyle = currentSeasonIndex === 3 ? 'rgba(0, 242, 254, 0.3)' : 'rgba(255, 0, 127, 0.22)';
+    ctx.lineWidth = 1.4;
+
+    for (let x = fStart; x < V_WIDTH + F_TILE_W; x += F_TILE_W) {
+      ctx.beginPath();
+      ctx.moveTo(x, fBaseY);
+      ctx.quadraticCurveTo(x + 35, fBaseY - 48, x + 70, fBaseY - 32);
+      ctx.quadraticCurveTo(x + 90, fBaseY - 42, x + F_TILE_W, fBaseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // LAYER 3: Seasonal Landmarks (Moving Backward seamlessly)
     if (currentSeasonIndex === 0) {
-      // SPRING: Neon Sakura Grove with Japanese Pagodas & Torii Gates
-      drawSakuraPagodas();
+      drawSakuraPagodas(cycle);
     } else if (currentSeasonIndex === 1) {
-      // SUMMER: Cyber Metropolis with Highway Traffic & Holograms
-      drawCyberMetropolis();
+      drawCyberMetropolis(cycle);
     } else if (currentSeasonIndex === 2) {
-      // AUTUMN: Floating Ancient Runic Obelisks
-      drawAutumnObelisks();
+      drawAutumnObelisks(cycle);
     } else {
-      // WINTER: Glacial Ice Spire Citadel
-      drawWinterIcePeaks();
+      drawWinterIcePeaks(cycle);
     }
   }
 
-  function drawSakuraPagodas() {
+  function drawSakuraPagodas(cycle) {
     ctx.save();
-    const baseY = GROUND_Y - 15;
-    for (let x = -cityScrollOffset - 80; x < V_WIDTH + 80; x += 160) {
+    const baseY = GROUND_Y - 14;
+    const TILE_W = 200;
+    const startX = -(landmarkScrollOffset % TILE_W) - TILE_W;
+
+    for (let x = startX; x < V_WIDTH + TILE_W; x += TILE_W) {
       // Floating Pagoda Silhouette
-      ctx.fillStyle = '#1c0f2b';
+      ctx.fillStyle = '#170c24';
       ctx.strokeStyle = '#ff007f';
       ctx.shadowColor = '#ff007f';
       ctx.shadowBlur = 8;
       ctx.lineWidth = 1.5;
 
-      // Tier 1 Roof
+      // Tier 1 Curved Roof
       ctx.beginPath();
-      ctx.moveTo(x + 10, baseY - 40);
-      ctx.lineTo(x + 50, baseY - 55);
-      ctx.lineTo(x + 90, baseY - 40);
-      ctx.lineTo(x + 75, baseY - 45);
-      ctx.lineTo(x + 25, baseY - 45);
+      ctx.moveTo(x + 10, baseY - 38);
+      ctx.lineTo(x + 45, baseY - 52);
+      ctx.lineTo(x + 80, baseY - 38);
+      ctx.lineTo(x + 68, baseY - 43);
+      ctx.lineTo(x + 22, baseY - 43);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Tier 2 Roof
+      // Tier 2 Curved Roof
       ctx.beginPath();
-      ctx.moveTo(x + 25, baseY - 60);
-      ctx.lineTo(x + 50, baseY - 74);
-      ctx.lineTo(x + 75, baseY - 60);
-      ctx.lineTo(x + 65, baseY - 64);
-      ctx.lineTo(x + 35, baseY - 64);
+      ctx.moveTo(x + 22, baseY - 56);
+      ctx.lineTo(x + 45, baseY - 70);
+      ctx.lineTo(x + 68, baseY - 56);
+      ctx.lineTo(x + 58, baseY - 60);
+      ctx.lineTo(x + 32, baseY - 60);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Pagoda Finial Spire
+      // Pagoda Spire
       ctx.beginPath();
-      ctx.moveTo(x + 50, baseY - 74);
-      ctx.lineTo(x + 50, baseY - 88);
+      ctx.moveTo(x + 45, baseY - 70);
+      ctx.lineTo(x + 45, baseY - 84);
       ctx.stroke();
 
-      // Glowing Sakura Blossom Silhouetted Tree
+      // Hanging Lantern (Illuminates warmly at night!)
+      const lanternGlow = 0.4 + cycle.windowGlow * 0.6;
+      ctx.fillStyle = cycle.windowGlow > 0.4 ? '#ff9900' : '#ff007f';
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 10 * lanternGlow;
+      ctx.beginPath();
+      ctx.arc(x + 45, baseY - 26, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Torii Gate
+      ctx.strokeStyle = '#ff007f';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 95, baseY);
+      ctx.lineTo(x + 95, baseY - 35);
+      ctx.moveTo(x + 115, baseY);
+      ctx.lineTo(x + 115, baseY - 35);
+      ctx.moveTo(x + 90, baseY - 32);
+      ctx.lineTo(x + 120, baseY - 32);
+      ctx.stroke();
+
+      // Blooming Cherry Blossom Tree Silhouette
       ctx.fillStyle = '#ff66c4';
       ctx.shadowColor = '#ff66c4';
       ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.arc(x + 125, baseY - 28, 16, 0, Math.PI * 2);
-      ctx.arc(x + 138, baseY - 36, 14, 0, Math.PI * 2);
-      ctx.arc(x + 115, baseY - 38, 12, 0, Math.PI * 2);
+      ctx.arc(x + 155, baseY - 26, 16, 0, Math.PI * 2);
+      ctx.arc(x + 168, baseY - 34, 14, 0, Math.PI * 2);
+      ctx.arc(x + 145, baseY - 36, 12, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
   }
 
-  function drawCyberMetropolis() {
+  function drawCyberMetropolis(cycle) {
     ctx.save();
     const baseY = GROUND_Y - 8;
+    const TILE_W = 340;
+    const startX = -(landmarkScrollOffset % TILE_W) - TILE_W;
+
     const buildings = [
-      { x: -10, w: 32, h: 70, glow: '#00f2fe' },
-      { x: 26, w: 28, h: 95, glow: '#ff007f' },
-      { x: 58, w: 42, h: 60, glow: '#39ff14' },
-      { x: 104, w: 30, h: 88, glow: '#ffe600' },
-      { x: 138, w: 46, h: 68, glow: '#00f2fe' },
-      { x: 188, w: 32, h: 106, glow: '#ff007f' },
-      { x: 224, w: 38, h: 75, glow: '#00f2fe' },
-      { x: 266, w: 26, h: 90, glow: '#ffe600' },
-      { x: 296, w: 40, h: 62, glow: '#ff007f' },
-      { x: 340, w: 36, h: 98, glow: '#00f2fe' }
+      { rx: 0, w: 32, h: 72, glow: '#00f2fe' },
+      { rx: 34, w: 28, h: 98, glow: '#ff007f' },
+      { rx: 64, w: 42, h: 62, glow: '#39ff14' },
+      { rx: 108, w: 30, h: 90, glow: '#ffe600' },
+      { rx: 140, w: 44, h: 70, glow: '#00f2fe' },
+      { rx: 186, w: 32, h: 108, glow: '#ff007f' },
+      { rx: 220, w: 38, h: 76, glow: '#00f2fe' },
+      { rx: 260, w: 28, h: 92, glow: '#ffe600' },
+      { rx: 290, w: 42, h: 64, glow: '#ff007f' }
     ];
 
-    buildings.forEach(b => {
-      const bx = b.x - cityScrollOffset * 0.6;
-      ctx.fillStyle = '#0a0d1e';
-      ctx.fillRect(bx, baseY - b.h, b.w, b.h);
+    for (let tileX = startX; tileX < V_WIDTH + TILE_W; tileX += TILE_W) {
+      buildings.forEach(b => {
+        const bx = tileX + b.rx;
+        if (bx + b.w < -20 || bx > V_WIDTH + 20) return;
 
-      // Neon Top Border Antenna
-      ctx.strokeStyle = b.glow;
-      ctx.shadowColor = b.glow;
-      ctx.shadowBlur = 8;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(bx, baseY - b.h, b.w, b.h);
+        ctx.fillStyle = '#0a0d1e';
+        ctx.fillRect(bx, baseY - b.h, b.w, b.h);
 
-      // Antenna tip beacon
-      ctx.fillStyle = b.glow;
-      ctx.beginPath();
-      ctx.arc(bx + b.w / 2, baseY - b.h - 5, 2, 0, Math.PI * 2);
-      ctx.fill();
+        // Neon Skyline Trim
+        ctx.strokeStyle = b.glow;
+        ctx.shadowColor = b.glow;
+        ctx.shadowBlur = 8;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(bx, baseY - b.h, b.w, b.h);
 
-      // Cyber Matrix Window grids
-      for (let wy = baseY - b.h + 8; wy < baseY - 10; wy += 14) {
-        ctx.fillRect(bx + 5, wy, 4, 5);
-        if (b.w > 28) ctx.fillRect(bx + b.w - 9, wy, 4, 5);
-      }
-    });
+        // Blinking Antenna Beacon on Roof
+        const blink = Math.sin(globalFrame * 0.12 + bx) > 0;
+        if (blink) {
+          ctx.fillStyle = b.glow;
+          ctx.beginPath();
+          ctx.arc(bx + b.w / 2, baseY - b.h - 5, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
 
-    // Elevated Highway with Speeding Light-Streak Traffic
-    const hwyY = GROUND_Y - 14;
-    ctx.strokeStyle = 'rgba(0, 242, 254, 0.5)';
+        // Dynamic Illuminated Windows (Light up brightly at Sunset & Night!)
+        const winAlpha = 0.15 + cycle.windowGlow * 0.85;
+        ctx.fillStyle = cycle.windowGlow > 0.4 ? (Math.sin(bx) > 0 ? '#ffe600' : '#00f2fe') : 'rgba(0, 242, 254, 0.3)';
+        ctx.globalAlpha = winAlpha;
+
+        for (let wy = baseY - b.h + 8; wy < baseY - 8; wy += 14) {
+          ctx.fillRect(bx + 5, wy, 4, 5);
+          if (b.w > 26) ctx.fillRect(bx + b.w - 9, wy, 4, 5);
+        }
+        ctx.globalAlpha = 1.0;
+      });
+    }
+
+    // Elevated Highway with Speeding Vehicle Trails (Moving Backward)
+    const hwyY = GROUND_Y - 12;
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.55)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, hwyY);
     ctx.lineTo(V_WIDTH, hwyY);
     ctx.stroke();
 
-    // Red and Cyan Speeding Vehicle Light Streaks
-    const trafficOff1 = (globalFrame * 4.5) % (V_WIDTH + 80);
-    const trafficOff2 = (globalFrame * 3.8 + 140) % (V_WIDTH + 80);
+    const traffic1 = (globalFrame * 4.8) % (V_WIDTH + 80);
+    const traffic2 = (globalFrame * 4.2 + 130) % (V_WIDTH + 80);
 
     ctx.strokeStyle = '#ff007f';
     ctx.shadowColor = '#ff007f';
     ctx.shadowBlur = 8;
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.moveTo(V_WIDTH - trafficOff1, hwyY - 2);
-    ctx.lineTo(V_WIDTH - trafficOff1 + 22, hwyY - 2);
+    ctx.moveTo(V_WIDTH - traffic1, hwyY - 2);
+    ctx.lineTo(V_WIDTH - traffic1 + 24, hwyY - 2);
     ctx.stroke();
 
     ctx.strokeStyle = '#00f2fe';
     ctx.shadowColor = '#00f2fe';
     ctx.beginPath();
-    ctx.moveTo(trafficOff2 - 80, hwyY + 1.5);
-    ctx.lineTo(trafficOff2 - 58, hwyY + 1.5);
+    ctx.moveTo(traffic2 - 70, hwyY + 1.5);
+    ctx.lineTo(traffic2 - 46, hwyY + 1.5);
     ctx.stroke();
 
     ctx.restore();
   }
 
-  function drawAutumnObelisks() {
+  function drawAutumnObelisks(cycle) {
     ctx.save();
-    const baseY = GROUND_Y - 20;
-    for (let x = -cityScrollOffset - 60; x < V_WIDTH + 80; x += 130) {
-      // Floating Obelisk with Glowing Glyphs
-      const floatY = Math.sin(globalFrame * 0.05 + x) * 6;
-      const ox = x + 30;
-      const oy = baseY - 50 + floatY;
+    const baseY = GROUND_Y - 18;
+    const TILE_W = 190;
+    const startX = -(landmarkScrollOffset % TILE_W) - TILE_W;
 
-      ctx.fillStyle = '#18121f';
+    for (let x = startX; x < V_WIDTH + TILE_W; x += TILE_W) {
+      const floatY = Math.sin(globalFrame * 0.05 + x) * 7;
+      const ox = x + 40;
+      const oy = baseY - 52 + floatY;
+
+      ctx.fillStyle = '#16101e';
       ctx.strokeStyle = '#ff772e';
       ctx.shadowColor = '#ff772e';
       ctx.shadowBlur = 10;
@@ -723,10 +991,10 @@
 
       // Hexagonal / Diamond Obelisk
       ctx.beginPath();
-      ctx.moveTo(ox, oy - 40);
+      ctx.moveTo(ox, oy - 42);
       ctx.lineTo(ox + 16, oy);
-      ctx.lineTo(ox + 12, oy + 45);
-      ctx.lineTo(ox - 12, oy + 45);
+      ctx.lineTo(ox + 12, oy + 46);
+      ctx.lineTo(ox - 12, oy + 46);
       ctx.lineTo(ox - 16, oy);
       ctx.closePath();
       ctx.fill();
@@ -735,19 +1003,22 @@
       // Glowing Center Rune Glyph
       ctx.fillStyle = '#ffe600';
       ctx.shadowColor = '#ffe600';
+      ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.arc(ox, oy + 6, 3.5, 0, Math.PI * 2);
+      ctx.arc(ox, oy + 6, 4, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
   }
 
-  function drawWinterIcePeaks() {
+  function drawWinterIcePeaks(cycle) {
     ctx.save();
-    const baseY = GROUND_Y - 12;
-    for (let x = -cityScrollOffset - 70; x < V_WIDTH + 70; x += 110) {
-      // Sharp Glacial Crystal Ice Spires
-      ctx.fillStyle = '#0a1a2e';
+    const baseY = GROUND_Y - 10;
+    const TILE_W = 180;
+    const startX = -(landmarkScrollOffset % TILE_W) - TILE_W;
+
+    for (let x = startX; x < V_WIDTH + TILE_W; x += TILE_W) {
+      ctx.fillStyle = '#081729';
       ctx.strokeStyle = '#00f2fe';
       ctx.shadowColor = '#00f2fe';
       ctx.shadowBlur = 10;
@@ -755,25 +1026,25 @@
 
       ctx.beginPath();
       ctx.moveTo(x, baseY);
-      ctx.lineTo(x + 18, baseY - 55);
-      ctx.lineTo(x + 34, baseY - 82);
-      ctx.lineTo(x + 50, baseY - 48);
-      ctx.lineTo(x + 65, baseY);
+      ctx.lineTo(x + 20, baseY - 58);
+      ctx.lineTo(x + 38, baseY - 86);
+      ctx.lineTo(x + 56, baseY - 50);
+      ctx.lineTo(x + 72, baseY);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Crystal facet line
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      // Crystal facet light line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
       ctx.beginPath();
-      ctx.moveTo(x + 34, baseY - 82);
-      ctx.lineTo(x + 34, baseY);
+      ctx.moveTo(x + 38, baseY - 86);
+      ctx.lineTo(x + 38, baseY);
       ctx.stroke();
     }
     ctx.restore();
   }
 
-  // --- Synthwave Neon Ground / Cyber Grid ---
+  // --- Synthwave Neon Ground / Cyber Grid Moving Backward ---
   function drawGround() {
     if (currentState === STATE.PLAYING || currentState === STATE.READY) {
       groundScrollOffset = (groundScrollOffset + GAME_SPEED) % 24;
@@ -784,7 +1055,7 @@
     ctx.save();
     ctx.strokeStyle = curSeason.color;
     ctx.shadowColor = curSeason.color;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 14;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(0, GROUND_Y);
@@ -799,11 +1070,9 @@
     ctx.fillStyle = floorGrad;
     ctx.fillRect(0, GROUND_Y + 2, V_WIDTH, GROUND_HEIGHT - 2);
 
-    // Scrolling Neon Perspective Grid Lines
+    // Horizontal Perspective Grid Rungs
     ctx.strokeStyle = 'rgba(0, 242, 254, 0.22)';
     ctx.lineWidth = 1.2;
-
-    // Horizontal grid perspective rungs
     const rungs = [GROUND_Y + 14, GROUND_Y + 32, GROUND_Y + 54, GROUND_Y + 80, GROUND_Y + 104];
     rungs.forEach(ry => {
       ctx.beginPath();
@@ -812,7 +1081,7 @@
       ctx.stroke();
     });
 
-    // Scrolling diagonal perspective lines
+    // Scrolling Diagonal Perspective Lines Moving Backward
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, GROUND_Y, V_WIDTH, GROUND_HEIGHT);
@@ -1146,6 +1415,25 @@
       ctx.fill();
       ctx.restore();
 
+      // Night Forward Searchlight Beam
+      if (currentCycleNightRatio > 0.15) {
+        ctx.save();
+        const beamAlpha = currentCycleNightRatio * 0.35;
+        const beamGrad = ctx.createRadialGradient(10, -5, 2, 75, -5, 65);
+        beamGrad.addColorStop(0, `rgba(0, 242, 254, ${beamAlpha})`);
+        beamGrad.addColorStop(0.5, `rgba(0, 242, 254, ${beamAlpha * 0.4})`);
+        beamGrad.addColorStop(1, 'rgba(0, 242, 254, 0)');
+        ctx.fillStyle = beamGrad;
+        ctx.beginPath();
+        ctx.moveTo(10, -7);
+        ctx.lineTo(80, -26);
+        ctx.lineTo(80, 16);
+        ctx.lineTo(10, -3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
       // 6. Glowing Beak
       ctx.save();
       const beakGrad = ctx.createLinearGradient(11, 0, 22, 3);
@@ -1445,7 +1733,7 @@
 
     ctx.font = '500 12.5px "Fredoka", sans-serif';
     ctx.fillStyle = '#00f2fe';
-    ctx.fillText('Neon Worlds • Day & Night Cycles', V_WIDTH / 2, promptY + 74);
+    ctx.fillText('Press T: Day/Night • Press S: Seasons', V_WIDTH / 2, promptY + 74);
 
     ctx.restore();
   }
@@ -1709,6 +1997,49 @@
     sound.playTone(480, 0.08, 'sine');
   }
 
+  // --- Interactive World & Day/Night Controls ---
+  function toggleCycle() {
+    currentCycleModeIndex = (currentCycleModeIndex + 1) % CYCLE_MODES.length;
+    const mode = CYCLE_MODES[currentCycleModeIndex];
+    if (mode === 'AUTO') {
+      sound.playTone(620, 0.08, 'triangle');
+      srAnnouncements.textContent = 'Day/Night Cycle set to Auto';
+    } else {
+      sound.playTone(740, 0.08, 'sine');
+      srAnnouncements.textContent = `Time of Day set to: ${mode}`;
+    }
+  }
+
+  function toggleSeason() {
+    currentSeasonIndex = (currentSeasonIndex + 1) % SEASONS.length;
+    updateSeasonBadgeUI();
+    sound.playTone(520, 0.09, 'triangle');
+    srAnnouncements.textContent = `World changed to: ${SEASONS[currentSeasonIndex].name}`;
+  }
+
+  function updateSeasonBadgeUI() {
+    if (seasonIcon && seasonText) {
+      seasonIcon.textContent = SEASONS[currentSeasonIndex].icon;
+      seasonText.textContent = SEASONS[currentSeasonIndex].name;
+      seasonText.style.color = SEASONS[currentSeasonIndex].color;
+    }
+  }
+  updateSeasonBadgeUI();
+
+  if (cycleBadge) {
+    cycleBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleCycle();
+    });
+  }
+
+  if (seasonBadge) {
+    seasonBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSeason();
+    });
+  }
+
   window.addEventListener('pointerdown', (e) => {
     if (e.target === canvas || e.target.id === 'game-container') {
       handleAction(e);
@@ -1719,6 +2050,15 @@
     if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
       e.preventDefault();
       handleAction(e);
+    } else if (e.key === 't' || e.key === 'T') {
+      e.preventDefault();
+      toggleCycle();
+    } else if (e.key === 's' || e.key === 'S') {
+      e.preventDefault();
+      toggleSeason();
+    } else if (e.key === 'm' || e.key === 'M') {
+      e.preventDefault();
+      sound.toggleMute();
     }
   });
 
@@ -1752,14 +2092,18 @@
     const cycle = getCycleState();
     drawSky(cycle);
 
-    // 2. Moving Places & Parallax Landscapes
-    drawMovingPlaces();
+    // 2. Parallax Atmospheric Clouds Moving Backward
+    updateClouds();
+    drawClouds(cycle);
 
-    // 3. Seasonal Weather Particles (Sakura petals, cyber motes, leaves, snowflakes)
+    // 3. Parallax Mountains & Landmark Scenery Moving Backward
+    drawMovingPlaces(cycle);
+
+    // 4. Seasonal & Weather Particles Moving Backward
     updateSeasonalParticles(currentSeasonIndex);
-    drawSeasonalParticles();
+    drawSeasonalParticles(cycle);
 
-    // 4. Pipes
+    // 5. Pipes
     if (currentState === STATE.PLAYING) {
       pipeTimer++;
       if (pipeTimer >= PIPE_SPAWN_INTERVAL) {
@@ -1774,6 +2118,9 @@
         if (!p.passed && p.x + p.w < bird.x) {
           p.passed = true;
           score++;
+          if (CYCLE_MODES[currentCycleModeIndex] === 'AUTO') {
+            cycleProgress = (cycleProgress + 0.016) % 1.0;
+          }
           createScoreSparkles(bird.x + 10, bird.y);
           sound.playScore();
           srAnnouncements.textContent = `Score: ${score}`;

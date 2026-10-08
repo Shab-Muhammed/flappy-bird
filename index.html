@@ -29,15 +29,19 @@
         </svg>
       </button>
 
-      <!-- Dynamic Season & Time of Day Indicator -->
-      <div id="season-badge" class="header-pill season-pill">
+      <!-- Interactive Day/Night Cycle Button -->
+      <button id="cycle-badge" class="header-pill cycle-pill" aria-label="Toggle Time of Day" title="Click or Press 'T' to Change Day/Night">
+        <span id="cycle-icon">☀️</span>
+        <span id="cycle-text" class="pill-time">DAY</span>
+      </button>
+
+      <!-- Interactive Season World Button -->
+      <button id="season-badge" class="header-pill season-pill" aria-label="Toggle Season World" title="Click or Press 'S' to Change World">
         <span id="season-icon">🌸</span>
         <span id="season-text" class="pill-season">SPRING</span>
-        <span class="pill-divider">•</span>
-        <span id="cycle-text" class="pill-time">DAY</span>
-      </div>
+      </button>
 
-      <div class="header-pill">
+      <div class="header-pill best-pill">
         <span class="pill-label">BEST</span>
         <span id="best-score-badge" class="pill-value">0</span>
       </div>

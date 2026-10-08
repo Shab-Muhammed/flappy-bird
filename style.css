@@ -81,15 +81,15 @@ html, body {
 /* Floating Glassmorphic Neon UI Header */
 #ui-header {
   position: absolute;
-  top: 14px;
-  left: 12px;
-  right: 12px;
+  top: 10px;
+  left: 8px;
+  right: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 20;
   pointer-events: none;
-  gap: 8px;
+  gap: 5px;
 }
 
 /* Stylized Neon Buttons */
@@ -101,8 +101,9 @@ html, body {
   color: var(--text-light);
   border: 1.5px solid rgba(0, 242, 254, 0.4);
   border-radius: 50%;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,37 +132,85 @@ html, body {
 /* General Header Pill */
 .header-pill {
   pointer-events: auto;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 5px;
   background: var(--cyber-panel);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  padding: 6px 13px;
-  border-radius: 22px;
+  padding: 5px 9px;
+  border-radius: 20px;
   border: 1.5px solid rgba(0, 242, 254, 0.35);
   box-shadow: 
     0 4px 14px rgba(0, 0, 0, 0.5),
-    0 0 12px rgba(0, 242, 254, 0.2);
+    0 0 10px rgba(0, 242, 254, 0.18);
+  font-family: inherit;
+  color: #fff;
+  cursor: default;
+}
+
+button.header-pill {
+  cursor: pointer;
+  outline: none;
+  touch-action: manipulation;
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+button.header-pill:hover {
+  transform: translateY(-1px) scale(1.05);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 5px 16px rgba(0, 242, 254, 0.35);
+}
+
+button.header-pill:active {
+  transform: translateY(1px) scale(0.95);
 }
 
 .pill-label {
   font-family: var(--font-arcade);
-  font-size: 9px;
+  font-size: 8px;
   color: var(--neon-gold);
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   text-shadow: 0 0 8px rgba(255, 230, 0, 0.6);
 }
 
 .pill-value {
   font-family: var(--font-arcade);
-  font-size: 11px;
+  font-size: 10px;
   color: #ffffff;
   font-weight: 700;
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
 }
 
-/* Dynamic Season & Cycle Badge */
+/* Interactive Cycle Pill */
+.cycle-pill {
+  border-color: rgba(255, 230, 0, 0.45);
+  box-shadow: 
+    0 4px 14px rgba(0, 0, 0, 0.5),
+    0 0 12px rgba(255, 230, 0, 0.25);
+}
+
+.cycle-pill:hover {
+  border-color: var(--neon-gold);
+  box-shadow: 0 4px 18px rgba(255, 230, 0, 0.45);
+}
+
+#cycle-icon {
+  font-size: 12px;
+  filter: drop-shadow(0 0 6px rgba(255, 230, 0, 0.65));
+}
+
+.pill-time {
+  font-family: var(--font-arcade);
+  font-size: 8px;
+  color: var(--neon-gold);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-shadow: 0 0 8px rgba(255, 230, 0, 0.8);
+}
+
+/* Interactive Season Pill */
 .season-pill {
   border-color: rgba(255, 0, 127, 0.45);
   box-shadow: 
@@ -169,32 +218,27 @@ html, body {
     0 0 14px rgba(255, 0, 127, 0.28);
 }
 
+.season-pill:hover {
+  border-color: var(--neon-pink);
+  box-shadow: 0 4px 18px rgba(255, 0, 127, 0.45);
+}
+
 #season-icon {
-  font-size: 13px;
+  font-size: 12px;
   filter: drop-shadow(0 0 6px rgba(255, 0, 127, 0.6));
 }
 
 .pill-season {
   font-family: var(--font-arcade);
-  font-size: 9px;
+  font-size: 8px;
   color: var(--neon-pink);
   font-weight: 700;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
   text-shadow: 0 0 10px rgba(255, 0, 127, 0.8);
 }
 
-.pill-divider {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 10px;
-}
-
-.pill-time {
-  font-family: var(--font-arcade);
-  font-size: 9px;
-  color: var(--neon-cyan);
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-shadow: 0 0 10px rgba(0, 242, 254, 0.8);
+.best-pill {
+  padding: 5px 8px;
 }
 
 /* HTML5 Canvas */
