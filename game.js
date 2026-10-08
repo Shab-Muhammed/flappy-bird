@@ -1,18 +1,22 @@
 /**
- * Flappy Bird - Visually Stylized & Smooth Paced Edition
+ * Flappy Bird - Neon Seasons & Cyber Arcade Edition
  * Features:
- * - Calibrated relaxed game speed & floaty jump physics
- * - Multi-layer parallax scenery (Glow Sun, Snow-Capped Mountains, City Silhouettes, Rolling Hills)
- * - Highly detailed stylized bird (Top crest feather, wagging tail, layered wing, eye shines, blush)
- * - Deluxe 3D shaded pipes with brass trim rings and hanging ivy accents
- * - Floating score text popups (+1), feather wind puffs, and star sparkle bursts
- * - Web Audio API synthesized retro sound effects
+ * - Full Neon Synthwave / Cyberpunk Aesthetic with Real-time Glow FX
+ * - Dynamic Day / Sunset / Night / Dawn Cycles with Smooth Color Transitions
+ * - 4 Seasonal Moving Worlds:
+ *    • Spring: Neon Sakura Grove with floating pagodas & drifting cherry blossom petals
+ *    • Summer: Cyber Metropolis with holographic towers & light-trail traffic highway
+ *    • Autumn: Golden Ember Ruins with floating glowing obelisks & swirling leaves
+ *    • Winter: Aurora Borealis Frost-land with undulating aurora waves & falling snowflakes
+ * - Glowing Cyber Bird with neon visor, luminous layered wings, and light ribbon trails
+ * - Obsidian Cyber Pipes with vibrant neon laser cores, circuit lines & glowing rims
+ * - Procedural Web Audio API sound effects with audio mute toggle
  */
 
 (() => {
   'use strict';
 
-  // --- Canvas & High-DPI Scaling ---
+  // --- Canvas Setup & High-DPI Support ---
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d');
   const bestScoreBadge = document.getElementById('best-score-badge');
@@ -20,6 +24,10 @@
   const soundIconOn = document.getElementById('sound-icon-on');
   const soundIconOff = document.getElementById('sound-icon-off');
   const srAnnouncements = document.getElementById('sr-announcements');
+
+  const seasonIcon = document.getElementById('season-icon');
+  const seasonText = document.getElementById('season-text');
+  const cycleText = document.getElementById('cycle-text');
 
   const V_WIDTH = 360;
   const V_HEIGHT = 640;
@@ -64,7 +72,7 @@
       this.muted = !this.muted;
       localStorage.setItem('flappy_muted', this.muted);
       this.updateIcons();
-      if (!this.muted) this.playTone(540, 0.08, 'sine');
+      if (!this.muted) this.playTone(560, 0.08, 'sine');
     }
 
     updateIcons() {
@@ -87,8 +95,8 @@
       const gain = this.ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(360, t);
-      osc.frequency.exponentialRampToValueAtTime(740, t + 0.12);
+      osc.frequency.setValueAtTime(380, t);
+      osc.frequency.exponentialRampToValueAtTime(780, t + 0.12);
 
       gain.gain.setValueAtTime(0.24, t);
       gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
@@ -109,16 +117,16 @@
       const gain = this.ctx.createGain();
 
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(880, t);
-      osc.frequency.setValueAtTime(1320, t + 0.09);
+      osc.frequency.setValueAtTime(920, t);
+      osc.frequency.setValueAtTime(1380, t + 0.09);
 
-      gain.gain.setValueAtTime(0.25, t);
-      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.32);
+      gain.gain.setValueAtTime(0.26, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.34);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(t);
-      osc.stop(t + 0.33);
+      osc.stop(t + 0.35);
     }
 
     playHit() {
@@ -131,16 +139,16 @@
       const gain = this.ctx.createGain();
 
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(180, t);
-      osc.frequency.exponentialRampToValueAtTime(40, t + 0.18);
+      osc.frequency.setValueAtTime(220, t);
+      osc.frequency.exponentialRampToValueAtTime(35, t + 0.2);
 
-      gain.gain.setValueAtTime(0.32, t);
-      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+      gain.gain.setValueAtTime(0.35, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(t);
-      osc.stop(t + 0.19);
+      osc.stop(t + 0.21);
     }
 
     playDie() {
@@ -153,10 +161,10 @@
       const gain = this.ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(460, t);
-      osc.frequency.exponentialRampToValueAtTime(130, t + 0.38);
+      osc.frequency.setValueAtTime(500, t);
+      osc.frequency.exponentialRampToValueAtTime(110, t + 0.38);
 
-      gain.gain.setValueAtTime(0.24, t);
+      gain.gain.setValueAtTime(0.25, t);
       gain.gain.exponentialRampToValueAtTime(0.01, t + 0.38);
 
       osc.connect(gain);
@@ -204,14 +212,8 @@
     return false;
   }
 
-  // --- Game State & Calibrated Speed Tuning ---
-  const STATE = {
-    READY: 0,
-    PLAYING: 1,
-    DYING: 2,
-    GAMEOVER: 3
-  };
-
+  // --- Game Engine Variables ---
+  const STATE = { READY: 0, PLAYING: 1, DYING: 2, GAMEOVER: 3 };
   let currentState = STATE.READY;
   let score = 0;
   let isNewHighScore = false;
@@ -220,403 +222,617 @@
   let flashWhiteAlpha = 0;
   let globalFrame = 0;
 
-  // Calibrated Smooth Speed Tuning (30% more relaxed and fluid than original)
+  // Calibrated smooth speed
   const GAME_SPEED = 1.62;
   const GROUND_HEIGHT = 108;
   const GROUND_Y = V_HEIGHT - GROUND_HEIGHT;
   let groundScrollOffset = 0;
-  let hillScrollOffset = 0;
+  let cityScrollOffset = 0;
+  let mountainScrollOffset = 0;
 
-  // --- Particle Systems & Popups ---
-  const particles = [];
-  const scorePopups = [];
-
-  function createFeathers(x, y, count = 8) {
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const spd = Math.random() * 2.4 + 1.0;
-      particles.push({
-        type: 'feather',
-        x,
-        y,
-        vx: Math.cos(angle) * spd,
-        vy: Math.sin(angle) * spd - 1.2,
-        rot: Math.random() * Math.PI * 2,
-        rotSpd: (Math.random() - 0.5) * 0.25,
-        size: Math.random() * 4 + 3,
-        color: Math.random() > 0.4 ? '#fdd835' : '#ffffff',
-        alpha: 1,
-        life: 0.022 + Math.random() * 0.018
-      });
-    }
-  }
-
-  function createFlapPuff(x, y) {
-    // Gentle white puff circle behind bird when flapping
-    particles.push({
-      type: 'puff',
-      x: x - 14,
-      y: y + 4,
-      vx: -GAME_SPEED * 0.6,
-      vy: 0.4,
-      rot: 0,
-      rotSpd: 0,
-      size: 6,
-      maxSize: 18,
-      alpha: 0.6,
-      life: 0.035
-    });
-  }
-
-  function createScoreSparkles(x, y) {
-    for (let i = 0; i < 12; i++) {
-      const angle = (Math.PI * 2 * i) / 12 + (Math.random() - 0.5) * 0.3;
-      const spd = Math.random() * 2.8 + 1.2;
-      particles.push({
-        type: 'sparkle',
-        x,
-        y,
-        vx: Math.cos(angle) * spd,
-        vy: Math.sin(angle) * spd,
-        rot: Math.random() * Math.PI,
-        rotSpd: 0.15,
-        size: Math.random() * 4 + 3,
-        color: Math.random() > 0.3 ? '#fff566' : '#ffffff',
-        alpha: 1,
-        life: 0.032
-      });
-    }
-
-    // Add floating "+1" text popup
-    scorePopups.push({
-      text: '+1',
-      x: x + 16,
-      y: y - 10,
-      vy: -1.8,
-      alpha: 1,
-      scale: 1.4
-    });
-  }
-
-  function updateParticles() {
-    for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      if (p.type === 'feather') {
-        p.vy += 0.08;
-      } else if (p.type === 'puff') {
-        p.size += (p.maxSize - p.size) * 0.12;
-      }
-      p.rot += p.rotSpd;
-      p.alpha -= p.life;
-      if (p.alpha <= 0) {
-        particles.splice(i, 1);
-      }
-    }
-
-    // Update score popups
-    for (let i = scorePopups.length - 1; i >= 0; i--) {
-      const sp = scorePopups[i];
-      sp.y += sp.vy;
-      sp.vy *= 0.94;
-      sp.scale = Math.max(1, sp.scale - 0.03);
-      sp.alpha -= 0.024;
-      if (sp.alpha <= 0) {
-        scorePopups.splice(i, 1);
-      }
-    }
-  }
-
-  function drawParticles() {
-    particles.forEach(p => {
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, p.alpha);
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rot);
-
-      if (p.type === 'feather') {
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, p.size * 1.5, p.size * 0.8, 0, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (p.type === 'puff') {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.beginPath();
-        ctx.arc(0, 0, p.size, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (p.type === 'sparkle') {
-        ctx.fillStyle = p.color;
-        // 4-point star
-        ctx.beginPath();
-        ctx.moveTo(0, -p.size);
-        ctx.lineTo(p.size * 0.3, -p.size * 0.3);
-        ctx.lineTo(p.size, 0);
-        ctx.lineTo(p.size * 0.3, p.size * 0.3);
-        ctx.lineTo(0, p.size);
-        ctx.lineTo(-p.size * 0.3, p.size * 0.3);
-        ctx.lineTo(-p.size, 0);
-        ctx.lineTo(-p.size * 0.3, -p.size * 0.3);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
-    });
-
-    // Draw floating score popups
-    scorePopups.forEach(sp => {
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, sp.alpha);
-      ctx.translate(sp.x, sp.y);
-      ctx.scale(sp.scale, sp.scale);
-      ctx.font = '900 24px "Fredoka", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      // Outline
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 4;
-      ctx.strokeText(sp.text, 0, 0);
-      // Bright gold inner
-      ctx.fillStyle = '#ffe438';
-      ctx.fillText(sp.text, 0, 0);
-      ctx.restore();
-    });
-  }
-
-  // --- Stylized Environment & Multi-Layer Parallax ---
-  const clouds = [
-    { x: 30, y: 70, s: 0.9, spd: 0.18, a: 0.75 },
-    { x: 170, y: 110, s: 1.15, spd: 0.24, a: 0.85 },
-    { x: 310, y: 50, s: 0.75, spd: 0.14, a: 0.65 }
+  // --- Day & Night Cycles & Seasons Engine ---
+  const SEASONS = [
+    { name: 'SPRING', icon: '🌸', color: '#ff66c4', accent: '#00f2fe' },
+    { name: 'SUMMER', icon: '🌴', color: '#00f2fe', accent: '#ff007f' },
+    { name: 'AUTUMN', icon: '🍁', color: '#ff772e', accent: '#ffe600' },
+    { name: 'WINTER', icon: '❄️', color: '#68d8d6', accent: '#a18cd1' }
   ];
 
-  function drawSkyAndSun() {
-    // Rich Stylized Sky Gradient
+  const CYCLES = [
+    { name: 'DAY', skyTop: [12, 45, 96], skyMid: [16, 92, 142], skyBot: [32, 172, 192], sunY: 100, sunAlpha: 1 },
+    { name: 'SUNSET', skyTop: [42, 12, 68], skyMid: [138, 28, 92], skyBot: [248, 112, 48], sunY: 200, sunAlpha: 0.95 },
+    { name: 'NIGHT', skyTop: [5, 7, 18], skyMid: [14, 18, 44], skyBot: [26, 32, 74], sunY: 90, sunAlpha: 0 },
+    { name: 'DAWN', skyTop: [22, 16, 52], skyMid: [90, 42, 98], skyBot: [52, 142, 168], sunY: 210, sunAlpha: 0.8 }
+  ];
+
+  // Each full cycle lasts 2400 frames (~40s), smoothly interpolating
+  const CYCLE_PERIOD = 2400;
+  let currentSeasonIndex = 0;
+
+  // Background stars for Night/Dawn
+  const stars = [];
+  for (let i = 0; i < 45; i++) {
+    stars.push({
+      x: Math.random() * V_WIDTH,
+      y: Math.random() * (GROUND_Y - 80),
+      size: Math.random() * 1.8 + 0.6,
+      twinkleOffset: Math.random() * Math.PI * 2,
+      color: Math.random() > 0.4 ? '#00f2fe' : (Math.random() > 0.5 ? '#ff007f' : '#ffffff')
+    });
+  }
+
+  // Shooting star
+  let shootingStar = { x: -100, y: 0, vx: 0, vy: 0, life: 0 };
+  function updateShootingStar() {
+    if (shootingStar.life > 0) {
+      shootingStar.x += shootingStar.vx;
+      shootingStar.y += shootingStar.vy;
+      shootingStar.life--;
+    } else if (Math.random() < 0.005) {
+      shootingStar.x = Math.random() * V_WIDTH * 0.7;
+      shootingStar.y = Math.random() * 120 + 20;
+      shootingStar.vx = Math.random() * 4 + 5;
+      shootingStar.vy = Math.random() * 2 + 2;
+      shootingStar.life = 25;
+    }
+  }
+
+  // Seasonal floating weather/particles
+  const seasonalParticles = [];
+  function updateSeasonalParticles(seasonIdx) {
+    if (seasonalParticles.length < 24 && Math.random() < 0.25) {
+      seasonalParticles.push({
+        x: V_WIDTH + 10,
+        y: Math.random() * (GROUND_Y - 20),
+        vx: -(Math.random() * 1.2 + 0.8),
+        vy: Math.sin(Math.random() * 10) * 0.6 + (seasonIdx === 3 ? 0.8 : 0.2), // snowflakes fall down
+        rot: Math.random() * Math.PI * 2,
+        rotSpd: (Math.random() - 0.5) * 0.08,
+        size: Math.random() * 4 + 3,
+        season: seasonIdx,
+        alpha: Math.random() * 0.5 + 0.5
+      });
+    }
+
+    for (let i = seasonalParticles.length - 1; i >= 0; i--) {
+      const sp = seasonalParticles[i];
+      sp.x += sp.vx;
+      sp.y += sp.vy;
+      sp.rot += sp.rotSpd;
+      if (sp.x < -20 || sp.y > GROUND_Y) {
+        seasonalParticles.splice(i, 1);
+      }
+    }
+  }
+
+  function drawSeasonalParticles() {
+    seasonalParticles.forEach(sp => {
+      ctx.save();
+      ctx.globalAlpha = sp.alpha;
+      ctx.translate(sp.x, sp.y);
+      ctx.rotate(sp.rot);
+
+      if (sp.season === 0) {
+        // Spring: Pink Sakura Petal
+        ctx.fillStyle = '#ff66c4';
+        ctx.shadowColor = '#ff66c4';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, sp.size * 1.3, sp.size * 0.7, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (sp.season === 1) {
+        // Summer: Neon Cyan Mote / Glint
+        ctx.fillStyle = '#00f2fe';
+        ctx.shadowColor = '#00f2fe';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(0, 0, sp.size * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (sp.season === 2) {
+        // Autumn: Glowing Orange Maple Leaf / Ember
+        ctx.fillStyle = '#ff772e';
+        ctx.shadowColor = '#ff5500';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(0, -sp.size);
+        ctx.lineTo(sp.size * 0.8, -sp.size * 0.3);
+        ctx.lineTo(sp.size, sp.size * 0.5);
+        ctx.lineTo(0, sp.size * 0.8);
+        ctx.lineTo(-sp.size, sp.size * 0.5);
+        ctx.lineTo(-sp.size * 0.8, -sp.size * 0.3);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        // Winter: Glowing Neon Snowflake
+        ctx.strokeStyle = '#e0f7fa';
+        ctx.shadowColor = '#00f2fe';
+        ctx.shadowBlur = 8;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let a = 0; a < 3; a++) {
+          const angle = (a * Math.PI) / 3;
+          ctx.moveTo(Math.cos(angle) * sp.size, Math.sin(angle) * sp.size);
+          ctx.lineTo(-Math.cos(angle) * sp.size, -Math.sin(angle) * sp.size);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+  }
+
+  // --- Dynamic Interpolated Environment Rendering ---
+  function getCycleState() {
+    const cycleProgress = (globalFrame % CYCLE_PERIOD) / CYCLE_PERIOD;
+    const stageFloat = cycleProgress * 4;
+    const stageIndex = Math.floor(stageFloat);
+    const stageLerp = stageFloat - stageIndex;
+
+    const fromCycle = CYCLES[stageIndex % 4];
+    const toCycle = CYCLES[(stageIndex + 1) % 4];
+
+    function lerpColor(c1, c2, t) {
+      return [
+        Math.round(c1[0] + (c2[0] - c1[0]) * t),
+        Math.round(c1[1] + (c2[1] - c1[1]) * t),
+        Math.round(c1[2] + (c2[2] - c1[2]) * t)
+      ];
+    }
+
+    const skyTop = lerpColor(fromCycle.skyTop, toCycle.skyTop, stageLerp);
+    const skyMid = lerpColor(fromCycle.skyMid, toCycle.skyMid, stageLerp);
+    const skyBot = lerpColor(fromCycle.skyBot, toCycle.skyBot, stageLerp);
+    const sunY = fromCycle.sunY + (toCycle.sunY - fromCycle.sunY) * stageLerp;
+    const sunAlpha = fromCycle.sunAlpha + (toCycle.sunAlpha - fromCycle.sunAlpha) * stageLerp;
+
+    // Season index shifts every full day-night cycle or every 15 points
+    const calculatedSeason = Math.floor(globalFrame / (CYCLE_PERIOD * 1.5) + score / 8) % 4;
+    if (calculatedSeason !== currentSeasonIndex) {
+      currentSeasonIndex = calculatedSeason;
+      seasonIcon.textContent = SEASONS[currentSeasonIndex].icon;
+      seasonText.textContent = SEASONS[currentSeasonIndex].name;
+      seasonText.style.color = SEASONS[currentSeasonIndex].color;
+    }
+
+    cycleText.textContent = fromCycle.name;
+
+    return {
+      skyTop: `rgb(${skyTop[0]},${skyTop[1]},${skyTop[2]})`,
+      skyMid: `rgb(${skyMid[0]},${skyMid[1]},${skyMid[2]})`,
+      skyBot: `rgb(${skyBot[0]},${skyBot[1]},${skyBot[2]})`,
+      sunY,
+      sunAlpha,
+      isNight: fromCycle.name === 'NIGHT' || toCycle.name === 'NIGHT',
+      nightRatio: stageIndex === 2 ? 1 - Math.abs(stageLerp - 0.5) * 2 : (stageIndex === 1 ? stageLerp : (stageIndex === 3 ? 1 - stageLerp : 0))
+    };
+  }
+
+  function drawSky(cycle) {
     const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-    skyGrad.addColorStop(0, '#2fa6ce');
-    skyGrad.addColorStop(0.45, '#56c8de');
-    skyGrad.addColorStop(0.85, '#a4ebef');
-    skyGrad.addColorStop(1, '#daf6f5');
+    skyGrad.addColorStop(0, cycle.skyTop);
+    skyGrad.addColorStop(0.55, cycle.skyMid);
+    skyGrad.addColorStop(1, cycle.skyBot);
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
-    // Glowing Sun
-    const sunX = V_WIDTH * 0.75;
-    const sunY = 90;
+    // Night stars & shooting star
+    if (cycle.nightRatio > 0.05) {
+      stars.forEach(st => {
+        const twinkle = Math.sin(globalFrame * 0.08 + st.twinkleOffset) * 0.4 + 0.6;
+        ctx.save();
+        ctx.globalAlpha = cycle.nightRatio * twinkle;
+        ctx.fillStyle = st.color;
+        ctx.shadowColor = st.color;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.arc(st.x, st.y, st.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
 
-    // Sun Radial Glow Halo
-    const haloGrad = ctx.createRadialGradient(sunX, sunY, 15, sunX, sunY, 65);
-    haloGrad.addColorStop(0, 'rgba(255, 250, 210, 0.55)');
-    haloGrad.addColorStop(0.5, 'rgba(255, 235, 170, 0.2)');
-    haloGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = haloGrad;
-    ctx.beginPath();
-    ctx.arc(sunX, sunY, 65, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Solid Sun Disc
-    ctx.fillStyle = '#fffdf0';
-    ctx.beginPath();
-    ctx.arc(sunX, sunY, 22, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  function drawClouds() {
-    clouds.forEach(c => {
-      if (currentState === STATE.PLAYING || currentState === STATE.READY) {
-        c.x -= c.spd;
-        if (c.x < -90) c.x = V_WIDTH + 80;
+      updateShootingStar();
+      if (shootingStar.life > 0) {
+        ctx.save();
+        ctx.globalAlpha = cycle.nightRatio * (shootingStar.life / 25);
+        ctx.strokeStyle = '#00f2fe';
+        ctx.shadowColor = '#00f2fe';
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(shootingStar.x, shootingStar.y);
+        ctx.lineTo(shootingStar.x - shootingStar.vx * 3, shootingStar.y - shootingStar.vy * 3);
+        ctx.stroke();
+        ctx.restore();
       }
+    }
 
+    // Celestial Body: Sun or Neon Moon
+    if (cycle.sunAlpha > 0.1) {
+      // Synthwave / Neon Sun
+      const sunX = V_WIDTH * 0.72;
+      const sunY = cycle.sunY;
       ctx.save();
-      ctx.translate(c.x, c.y);
-      ctx.scale(c.s, c.s);
-      ctx.fillStyle = `rgba(255, 255, 255, ${c.a})`;
+      ctx.globalAlpha = cycle.sunAlpha;
+
+      // Outer Sun Glow
+      const haloGrad = ctx.createRadialGradient(sunX, sunY, 15, sunX, sunY, 70);
+      haloGrad.addColorStop(0, 'rgba(255, 0, 127, 0.6)');
+      haloGrad.addColorStop(0.5, 'rgba(255, 230, 0, 0.25)');
+      haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = haloGrad;
       ctx.beginPath();
-      ctx.arc(0, 0, 24, 0, Math.PI * 2);
-      ctx.arc(22, -10, 20, 0, Math.PI * 2);
-      ctx.arc(44, 0, 22, 0, Math.PI * 2);
-      ctx.arc(22, 8, 18, 0, Math.PI * 2);
+      ctx.arc(sunX, sunY, 70, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Segmented Synthwave Sun (stripes)
+      const sunR = 30;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+      ctx.clip();
+
+      const sunGrad = ctx.createLinearGradient(sunX, sunY - sunR, sunX, sunY + sunR);
+      sunGrad.addColorStop(0, '#ffe600');
+      sunGrad.addColorStop(0.5, '#ff007f');
+      sunGrad.addColorStop(1, '#9d4edd');
+      ctx.fillStyle = sunGrad;
+      ctx.fillRect(sunX - sunR, sunY - sunR, sunR * 2, sunR * 2);
+
+      // Horizontal retro cutout stripes
+      ctx.fillStyle = cycle.skyMid;
+      for (let sy = sunY - 4; sy < sunY + sunR; sy += 7) {
+        ctx.fillRect(sunX - sunR, sy, sunR * 2, 2.5);
+      }
+      ctx.restore();
+      ctx.restore();
+    } else if (cycle.nightRatio > 0.4) {
+      // Neon Crescent Moon
+      const moonX = V_WIDTH * 0.76;
+      const moonY = 88;
+      ctx.save();
+      ctx.globalAlpha = cycle.nightRatio;
+      ctx.shadowColor = '#00f2fe';
+      ctx.shadowBlur = 18;
+
+      ctx.fillStyle = '#00f2fe';
+      ctx.beginPath();
+      ctx.arc(moonX, moonY, 22, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Mask for crescent
+      ctx.fillStyle = cycle.skyTop;
+      ctx.beginPath();
+      ctx.arc(moonX + 9, moonY - 5, 19, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-    });
+    }
+
+    // Winter: Aurora Borealis Curtains
+    if (currentSeasonIndex === 3) {
+      ctx.save();
+      const wave = Math.sin(globalFrame * 0.02) * 20;
+      const wave2 = Math.cos(globalFrame * 0.025) * 25;
+      const aurGrad = ctx.createLinearGradient(0, 40, 0, 220);
+      aurGrad.addColorStop(0, 'rgba(0, 242, 254, 0)');
+      aurGrad.addColorStop(0.5, 'rgba(57, 255, 20, 0.28)');
+      aurGrad.addColorStop(0.8, 'rgba(157, 78, 221, 0.22)');
+      aurGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = aurGrad;
+
+      ctx.beginPath();
+      ctx.moveTo(0, 70 + wave);
+      ctx.bezierCurveTo(V_WIDTH * 0.3, 30 + wave2, V_WIDTH * 0.7, 100 + wave, V_WIDTH, 60 + wave2);
+      ctx.lineTo(V_WIDTH, 220);
+      ctx.lineTo(0, 220);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
-  function drawMountains() {
-    // Distant Majestic Mountain Range with Snow Caps
-    ctx.save();
-    const baseY = GROUND_Y - 45;
+  // --- Moving Places & Parallax Landscapes ---
+  function drawMovingPlaces() {
+    if (currentState === STATE.PLAYING || currentState === STATE.READY) {
+      mountainScrollOffset = (mountainScrollOffset + GAME_SPEED * 0.18) % 180;
+      cityScrollOffset = (cityScrollOffset + GAME_SPEED * 0.35) % 180;
+    }
 
-    // Mountain 1 (Left)
-    drawSingleMountain(10, baseY, 130, 95, '#7bbcc4', '#66aab3');
-    // Mountain 2 (Right)
-    drawSingleMountain(180, baseY, 150, 115, '#74b5bd', '#5fa2ab');
-    // Mountain 3 (Center distant)
-    drawSingleMountain(110, baseY, 110, 80, '#8cc7ce', '#7bbcc4');
+    // LAYER 1: Distant Neon Mountain / Crystal Ridge
+    ctx.save();
+    const mBaseY = GROUND_Y - 45;
+
+    // Distant Neon Wireframe Peaks
+    ctx.strokeStyle = currentSeasonIndex === 3 ? 'rgba(0, 242, 254, 0.35)' : 'rgba(157, 78, 221, 0.25)';
+    ctx.fillStyle = currentSeasonIndex === 3 ? 'rgba(8, 24, 48, 0.85)' : 'rgba(15, 12, 34, 0.85)';
+    ctx.lineWidth = 1.8;
+
+    for (let x = -mountainScrollOffset - 180; x < V_WIDTH + 180; x += 140) {
+      ctx.beginPath();
+      ctx.moveTo(x, mBaseY);
+      ctx.lineTo(x + 70, mBaseY - 85);
+      ctx.lineTo(x + 140, mBaseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Peak Neon Highlight
+      ctx.strokeStyle = currentSeasonIndex === 0 ? '#ff66c4' : (currentSeasonIndex === 3 ? '#00f2fe' : '#ffe600');
+      ctx.beginPath();
+      ctx.moveTo(x + 55, mBaseY - 65);
+      ctx.lineTo(x + 70, mBaseY - 85);
+      ctx.lineTo(x + 85, mBaseY - 65);
+      ctx.stroke();
+      ctx.strokeStyle = currentSeasonIndex === 3 ? 'rgba(0, 242, 254, 0.35)' : 'rgba(157, 78, 221, 0.25)';
+    }
+    ctx.restore();
+
+    // LAYER 2: Seasonal Landmark Scenery
+    if (currentSeasonIndex === 0) {
+      // SPRING: Neon Sakura Grove with Japanese Pagodas & Torii Gates
+      drawSakuraPagodas();
+    } else if (currentSeasonIndex === 1) {
+      // SUMMER: Cyber Metropolis with Highway Traffic & Holograms
+      drawCyberMetropolis();
+    } else if (currentSeasonIndex === 2) {
+      // AUTUMN: Floating Ancient Runic Obelisks
+      drawAutumnObelisks();
+    } else {
+      // WINTER: Glacial Ice Spire Citadel
+      drawWinterIcePeaks();
+    }
+  }
+
+  function drawSakuraPagodas() {
+    ctx.save();
+    const baseY = GROUND_Y - 15;
+    for (let x = -cityScrollOffset - 80; x < V_WIDTH + 80; x += 160) {
+      // Floating Pagoda Silhouette
+      ctx.fillStyle = '#1c0f2b';
+      ctx.strokeStyle = '#ff007f';
+      ctx.shadowColor = '#ff007f';
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = 1.5;
+
+      // Tier 1 Roof
+      ctx.beginPath();
+      ctx.moveTo(x + 10, baseY - 40);
+      ctx.lineTo(x + 50, baseY - 55);
+      ctx.lineTo(x + 90, baseY - 40);
+      ctx.lineTo(x + 75, baseY - 45);
+      ctx.lineTo(x + 25, baseY - 45);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Tier 2 Roof
+      ctx.beginPath();
+      ctx.moveTo(x + 25, baseY - 60);
+      ctx.lineTo(x + 50, baseY - 74);
+      ctx.lineTo(x + 75, baseY - 60);
+      ctx.lineTo(x + 65, baseY - 64);
+      ctx.lineTo(x + 35, baseY - 64);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Pagoda Finial Spire
+      ctx.beginPath();
+      ctx.moveTo(x + 50, baseY - 74);
+      ctx.lineTo(x + 50, baseY - 88);
+      ctx.stroke();
+
+      // Glowing Sakura Blossom Silhouetted Tree
+      ctx.fillStyle = '#ff66c4';
+      ctx.shadowColor = '#ff66c4';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(x + 125, baseY - 28, 16, 0, Math.PI * 2);
+      ctx.arc(x + 138, baseY - 36, 14, 0, Math.PI * 2);
+      ctx.arc(x + 115, baseY - 38, 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawCyberMetropolis() {
+    ctx.save();
+    const baseY = GROUND_Y - 8;
+    const buildings = [
+      { x: -10, w: 32, h: 70, glow: '#00f2fe' },
+      { x: 26, w: 28, h: 95, glow: '#ff007f' },
+      { x: 58, w: 42, h: 60, glow: '#39ff14' },
+      { x: 104, w: 30, h: 88, glow: '#ffe600' },
+      { x: 138, w: 46, h: 68, glow: '#00f2fe' },
+      { x: 188, w: 32, h: 106, glow: '#ff007f' },
+      { x: 224, w: 38, h: 75, glow: '#00f2fe' },
+      { x: 266, w: 26, h: 90, glow: '#ffe600' },
+      { x: 296, w: 40, h: 62, glow: '#ff007f' },
+      { x: 340, w: 36, h: 98, glow: '#00f2fe' }
+    ];
+
+    buildings.forEach(b => {
+      const bx = b.x - cityScrollOffset * 0.6;
+      ctx.fillStyle = '#0a0d1e';
+      ctx.fillRect(bx, baseY - b.h, b.w, b.h);
+
+      // Neon Top Border Antenna
+      ctx.strokeStyle = b.glow;
+      ctx.shadowColor = b.glow;
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(bx, baseY - b.h, b.w, b.h);
+
+      // Antenna tip beacon
+      ctx.fillStyle = b.glow;
+      ctx.beginPath();
+      ctx.arc(bx + b.w / 2, baseY - b.h - 5, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Cyber Matrix Window grids
+      for (let wy = baseY - b.h + 8; wy < baseY - 10; wy += 14) {
+        ctx.fillRect(bx + 5, wy, 4, 5);
+        if (b.w > 28) ctx.fillRect(bx + b.w - 9, wy, 4, 5);
+      }
+    });
+
+    // Elevated Highway with Speeding Light-Streak Traffic
+    const hwyY = GROUND_Y - 14;
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, hwyY);
+    ctx.lineTo(V_WIDTH, hwyY);
+    ctx.stroke();
+
+    // Red and Cyan Speeding Vehicle Light Streaks
+    const trafficOff1 = (globalFrame * 4.5) % (V_WIDTH + 80);
+    const trafficOff2 = (globalFrame * 3.8 + 140) % (V_WIDTH + 80);
+
+    ctx.strokeStyle = '#ff007f';
+    ctx.shadowColor = '#ff007f';
+    ctx.shadowBlur = 8;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(V_WIDTH - trafficOff1, hwyY - 2);
+    ctx.lineTo(V_WIDTH - trafficOff1 + 22, hwyY - 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#00f2fe';
+    ctx.shadowColor = '#00f2fe';
+    ctx.beginPath();
+    ctx.moveTo(trafficOff2 - 80, hwyY + 1.5);
+    ctx.lineTo(trafficOff2 - 58, hwyY + 1.5);
+    ctx.stroke();
 
     ctx.restore();
   }
 
-  function drawSingleMountain(cx, baseY, width, height, lightColor, shadowColor) {
-    const leftX = cx - width / 2;
-    const rightX = cx + width / 2;
-    const peakX = cx;
-    const peakY = baseY - height;
+  function drawAutumnObelisks() {
+    ctx.save();
+    const baseY = GROUND_Y - 20;
+    for (let x = -cityScrollOffset - 60; x < V_WIDTH + 80; x += 130) {
+      // Floating Obelisk with Glowing Glyphs
+      const floatY = Math.sin(globalFrame * 0.05 + x) * 6;
+      const ox = x + 30;
+      const oy = baseY - 50 + floatY;
 
-    // Left side (light)
-    ctx.fillStyle = lightColor;
-    ctx.beginPath();
-    ctx.moveTo(leftX, baseY);
-    ctx.lineTo(peakX, peakY);
-    ctx.lineTo(peakX, baseY);
-    ctx.closePath();
-    ctx.fill();
+      ctx.fillStyle = '#18121f';
+      ctx.strokeStyle = '#ff772e';
+      ctx.shadowColor = '#ff772e';
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 1.8;
 
-    // Right side (shadow)
-    ctx.fillStyle = shadowColor;
-    ctx.beginPath();
-    ctx.moveTo(peakX, peakY);
-    ctx.lineTo(rightX, baseY);
-    ctx.lineTo(peakX, baseY);
-    ctx.closePath();
-    ctx.fill();
-
-    // Snow Cap
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.moveTo(peakX, peakY);
-    ctx.lineTo(peakX - width * 0.16, peakY + height * 0.28);
-    ctx.lineTo(peakX - width * 0.05, peakY + height * 0.24);
-    ctx.lineTo(peakX, peakY + height * 0.29);
-    ctx.lineTo(peakX + width * 0.08, peakY + height * 0.22);
-    ctx.lineTo(peakX + width * 0.16, peakY + height * 0.28);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  function drawCityscape() {
-    // Stylized Pastel City Skyline
-    ctx.fillStyle = '#8bd0c8';
-    const baseY = GROUND_Y - 10;
-    const skyline = [
-      { x: -5, w: 32, h: 58 },
-      { x: 27, w: 26, h: 78 },
-      { x: 53, w: 38, h: 48 },
-      { x: 91, w: 28, h: 72 },
-      { x: 119, w: 42, h: 54 },
-      { x: 161, w: 32, h: 86 },
-      { x: 193, w: 36, h: 62 },
-      { x: 229, w: 42, h: 48 },
-      { x: 271, w: 26, h: 76 },
-      { x: 297, w: 36, h: 60 },
-      { x: 333, w: 35, h: 82 }
-    ];
-
-    skyline.forEach(b => {
-      ctx.fillRect(b.x, baseY - b.h, b.w, b.h);
-      // Soft windows
-      ctx.fillStyle = '#bdf1eb';
-      for (let wy = baseY - b.h + 8; wy < baseY - 8; wy += 13) {
-        ctx.fillRect(b.x + 5, wy, 4, 5);
-        if (b.w > 26) ctx.fillRect(b.x + b.w - 9, wy, 4, 5);
-      }
-      ctx.fillStyle = '#8bd0c8';
-    });
-  }
-
-  function drawRollingHills() {
-    if (currentState === STATE.PLAYING || currentState === STATE.READY) {
-      hillScrollOffset = (hillScrollOffset + GAME_SPEED * 0.35) % 80;
-    }
-
-    // Lush Mid-ground Rolling Green Hills
-    ctx.fillStyle = '#6ec485';
-    for (let x = -hillScrollOffset - 80; x < V_WIDTH + 80; x += 75) {
+      // Hexagonal / Diamond Obelisk
       ctx.beginPath();
-      ctx.arc(x + 40, GROUND_Y + 10, 48, Math.PI, 0);
+      ctx.moveTo(ox, oy - 40);
+      ctx.lineTo(ox + 16, oy);
+      ctx.lineTo(ox + 12, oy + 45);
+      ctx.lineTo(ox - 12, oy + 45);
+      ctx.lineTo(ox - 16, oy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Glowing Center Rune Glyph
+      ctx.fillStyle = '#ffe600';
+      ctx.shadowColor = '#ffe600';
+      ctx.beginPath();
+      ctx.arc(ox, oy + 6, 3.5, 0, Math.PI * 2);
       ctx.fill();
     }
-
-    // Foreground soft bushes with highlights
-    ctx.fillStyle = '#55b26d';
-    for (let x = -hillScrollOffset - 40; x < V_WIDTH + 40; x += 45) {
-      ctx.beginPath();
-      ctx.arc(x + 22, GROUND_Y + 4, 25, Math.PI, 0);
-      ctx.fill();
-    }
+    ctx.restore();
   }
 
-  // --- Ground Layer with Foliage Tufts ---
+  function drawWinterIcePeaks() {
+    ctx.save();
+    const baseY = GROUND_Y - 12;
+    for (let x = -cityScrollOffset - 70; x < V_WIDTH + 70; x += 110) {
+      // Sharp Glacial Crystal Ice Spires
+      ctx.fillStyle = '#0a1a2e';
+      ctx.strokeStyle = '#00f2fe';
+      ctx.shadowColor = '#00f2fe';
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 1.8;
+
+      ctx.beginPath();
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x + 18, baseY - 55);
+      ctx.lineTo(x + 34, baseY - 82);
+      ctx.lineTo(x + 50, baseY - 48);
+      ctx.lineTo(x + 65, baseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Crystal facet line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.beginPath();
+      ctx.moveTo(x + 34, baseY - 82);
+      ctx.lineTo(x + 34, baseY);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // --- Synthwave Neon Ground / Cyber Grid ---
   function drawGround() {
     if (currentState === STATE.PLAYING || currentState === STATE.READY) {
       groundScrollOffset = (groundScrollOffset + GAME_SPEED) % 24;
     }
 
-    // Top lush grass strip
-    const grassGrad = ctx.createLinearGradient(0, GROUND_Y, 0, GROUND_Y + 16);
-    grassGrad.addColorStop(0, '#75cc2b');
-    grassGrad.addColorStop(1, '#5ca71d');
-    ctx.fillStyle = grassGrad;
-    ctx.fillRect(0, GROUND_Y, V_WIDTH, 16);
+    // Top Neon Laser Line
+    const curSeason = SEASONS[currentSeasonIndex];
+    ctx.save();
+    ctx.strokeStyle = curSeason.color;
+    ctx.shadowColor = curSeason.color;
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    ctx.lineTo(V_WIDTH, GROUND_Y);
+    ctx.stroke();
 
-    // Deep shadow line under grass
-    ctx.fillStyle = '#457f13';
-    ctx.fillRect(0, GROUND_Y + 14, V_WIDTH, 3);
+    // Dark Cyber Floor Base
+    const floorGrad = ctx.createLinearGradient(0, GROUND_Y, 0, V_HEIGHT);
+    floorGrad.addColorStop(0, '#0c0f24');
+    floorGrad.addColorStop(0.5, '#070815');
+    floorGrad.addColorStop(1, '#020308');
+    ctx.fillStyle = floorGrad;
+    ctx.fillRect(0, GROUND_Y + 2, V_WIDTH, GROUND_HEIGHT - 2);
 
-    // Stratified Earth Body
-    const dirtGrad = ctx.createLinearGradient(0, GROUND_Y + 17, 0, V_HEIGHT);
-    dirtGrad.addColorStop(0, '#e5d99b');
-    dirtGrad.addColorStop(0.3, '#d8cb8a');
-    dirtGrad.addColorStop(1, '#b5a563');
-    ctx.fillStyle = dirtGrad;
-    ctx.fillRect(0, GROUND_Y + 17, V_WIDTH, GROUND_HEIGHT - 17);
+    // Scrolling Neon Perspective Grid Lines
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.22)';
+    ctx.lineWidth = 1.2;
 
-    // Scrolling crosshatch dirt diagonal patterns
-    ctx.fillStyle = '#c7b86b';
+    // Horizontal grid perspective rungs
+    const rungs = [GROUND_Y + 14, GROUND_Y + 32, GROUND_Y + 54, GROUND_Y + 80, GROUND_Y + 104];
+    rungs.forEach(ry => {
+      ctx.beginPath();
+      ctx.moveTo(0, ry);
+      ctx.lineTo(V_WIDTH, ry);
+      ctx.stroke();
+    });
+
+    // Scrolling diagonal perspective lines
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, GROUND_Y + 17, V_WIDTH, GROUND_HEIGHT - 17);
+    ctx.rect(0, GROUND_Y, V_WIDTH, GROUND_HEIGHT);
     ctx.clip();
 
-    const stripeWidth = 12;
-    for (let x = -groundScrollOffset - 24; x < V_WIDTH + 24; x += 24) {
-      ctx.beginPath();
-      ctx.moveTo(x, GROUND_Y + 17);
-      ctx.lineTo(x + stripeWidth, GROUND_Y + 17);
-      ctx.lineTo(x, V_HEIGHT);
-      ctx.lineTo(x - stripeWidth, V_HEIGHT);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Tiny decorative pebbles on ground
-    ctx.fillStyle = '#a6974e';
-    for (let x = -groundScrollOffset; x < V_WIDTH + 30; x += 48) {
-      ctx.beginPath();
-      ctx.arc(x + 12, GROUND_Y + 36, 2.5, 0, Math.PI * 2);
-      ctx.arc(x + 32, GROUND_Y + 68, 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.restore();
-
-    // Grass blades on top of the rim
-    ctx.fillStyle = '#8ce03f';
-    for (let x = -groundScrollOffset; x < V_WIDTH + 20; x += 16) {
+    for (let x = -groundScrollOffset - 24; x < V_WIDTH + 30; x += 24) {
       ctx.beginPath();
       ctx.moveTo(x, GROUND_Y);
-      ctx.lineTo(x + 3, GROUND_Y - 4);
-      ctx.lineTo(x + 6, GROUND_Y);
-      ctx.closePath();
-      ctx.fill();
+      ctx.lineTo(x + (x - V_WIDTH / 2) * 0.45, V_HEIGHT);
+      ctx.stroke();
     }
+    ctx.restore();
+    ctx.restore();
   }
 
-  // --- Deluxe Stylized Pipes ---
+  // --- Obsidian & Neon Laser Pipes ---
   const pipes = [];
   const PIPE_WIDTH = 62;
-  const PIPE_GAP = 152; // Relaxed comfortable gap
-  const PIPE_SPAWN_INTERVAL = 145; // Well-spaced obstacles for relaxed rhythm
+  const PIPE_GAP = 152;
+  const PIPE_SPAWN_INTERVAL = 145;
   let pipeTimer = 0;
 
   class PipePair {
@@ -630,6 +846,7 @@
       this.bottomY = this.gapCenter + PIPE_GAP / 2;
       this.bottomHeight = GROUND_Y - this.bottomY;
       this.passed = false;
+      this.neonHue = (globalFrame * 0.5) % 360;
     }
 
     update() {
@@ -637,90 +854,78 @@
     }
 
     draw() {
-      // Ambient Drop Shadow Behind Pipes onto background
-      ctx.save();
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+      const curSeason = SEASONS[currentSeasonIndex];
+      // Ambient shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
       ctx.fillRect(this.x + 8, 0, this.w, this.topHeight);
       ctx.fillRect(this.x + 8, this.bottomY, this.w, this.bottomHeight);
-      ctx.restore();
 
-      // Top Pipe
-      this.drawPipeSection(this.x, 0, this.w, this.topHeight, true);
-      // Bottom Pipe
-      this.drawPipeSection(this.x, this.bottomY, this.w, this.bottomHeight, false);
+      // Top & Bottom Pipes
+      this.drawPipeSection(this.x, 0, this.w, this.topHeight, true, curSeason);
+      this.drawPipeSection(this.x, this.bottomY, this.w, this.bottomHeight, false, curSeason);
     }
 
-    drawPipeSection(x, y, w, h, isTop) {
+    drawPipeSection(x, y, w, h, isTop, season) {
       const lipHeight = 28;
-      const lipOverlap = 5;
+      const lipOverlap = 6;
       const lipWidth = w + lipOverlap * 2;
       const lipX = x - lipOverlap;
       const lipY = isTop ? y + h - lipHeight : y;
       const shaftY = isTop ? y : y + lipHeight;
       const shaftHeight = Math.max(0, isTop ? h - lipHeight : h - lipHeight);
 
-      // --- Pipe Shaft Cylinder Shading ---
-      const shaftGrad = ctx.createLinearGradient(x, 0, x + w, 0);
-      shaftGrad.addColorStop(0, '#428a21');
-      shaftGrad.addColorStop(0.18, '#5cb52f');
-      shaftGrad.addColorStop(0.38, '#9ced4a');
-      shaftGrad.addColorStop(0.68, '#58af2d');
-      shaftGrad.addColorStop(0.9, '#39751c');
-      shaftGrad.addColorStop(1, '#275213');
+      // 1. Dark Obsidian Body
+      const bodyGrad = ctx.createLinearGradient(x, 0, x + w, 0);
+      bodyGrad.addColorStop(0, '#101426');
+      bodyGrad.addColorStop(0.35, '#222842');
+      bodyGrad.addColorStop(0.65, '#161a2e');
+      bodyGrad.addColorStop(1, '#090b14');
 
-      ctx.fillStyle = shaftGrad;
+      ctx.fillStyle = bodyGrad;
       ctx.fillRect(x, shaftY, w, shaftHeight);
 
+      // 2. Center Glowing Neon Laser Strip
+      ctx.save();
+      ctx.fillStyle = season.color;
+      ctx.shadowColor = season.color;
+      ctx.shadowBlur = 12;
+      ctx.fillRect(x + w * 0.45, shaftY, 5, shaftHeight);
+
+      // Vertical holographic circuit notches
+      ctx.fillStyle = season.accent;
+      ctx.shadowColor = season.accent;
+      for (let cy = shaftY + 12; cy < shaftY + shaftHeight - 12; cy += 22) {
+        ctx.fillRect(x + w * 0.3, cy, 4, 3);
+        ctx.fillRect(x + w * 0.65, cy + 6, 4, 3);
+      }
+      ctx.restore();
+
       // Shaft Outline
-      ctx.strokeStyle = '#1e3f0e';
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
+      ctx.lineWidth = 2;
       ctx.strokeRect(x, shaftY, w, shaftHeight);
 
-      // Vertical glossy specular highlight line
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-      ctx.fillRect(x + w * 0.32, shaftY, 3, shaftHeight);
-
-      // --- Lip Collar Section ---
-      const lipGrad = ctx.createLinearGradient(lipX, 0, lipX + lipWidth, 0);
-      lipGrad.addColorStop(0, '#428a21');
-      lipGrad.addColorStop(0.2, '#5cb52f');
-      lipGrad.addColorStop(0.42, '#b2f458');
-      lipGrad.addColorStop(0.72, '#55ab2b');
-      lipGrad.addColorStop(1, '#224810');
-
-      ctx.fillStyle = lipGrad;
+      // 3. Collar Lip Section
+      ctx.fillStyle = bodyGrad;
       ctx.beginPath();
       this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 4);
       ctx.fill();
 
-      ctx.strokeStyle = '#18330b';
+      // Neon Collar Rim Ring
+      ctx.save();
+      ctx.strokeStyle = season.color;
+      ctx.shadowColor = season.color;
+      ctx.shadowBlur = 14;
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      // Golden Brass Trim Ring on Pipe Lip
-      const brassY = isTop ? lipY + 4 : lipY + lipHeight - 7;
-      const brassGrad = ctx.createLinearGradient(lipX, 0, lipX + lipWidth, 0);
-      brassGrad.addColorStop(0, '#c68d18');
-      brassGrad.addColorStop(0.35, '#ffdc52');
-      brassGrad.addColorStop(0.75, '#b97f10');
-      brassGrad.addColorStop(1, '#7e5204');
-      ctx.fillStyle = brassGrad;
-      ctx.fillRect(lipX + 3, brassY, lipWidth - 6, 3.5);
-
-      // Little decorative brass rivets
-      ctx.fillStyle = '#ffe985';
-      ctx.beginPath();
-      ctx.arc(lipX + 10, brassY + 1.8, 1.3, 0, Math.PI * 2);
-      ctx.arc(lipX + lipWidth - 10, brassY + 1.8, 1.3, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Hanging Ivy Leaf Cling on Lips
-      ctx.fillStyle = '#2d6816';
-      const leafX = isTop ? lipX + 12 : lipX + lipWidth - 18;
-      const leafY = isTop ? lipY + lipHeight : lipY;
-      ctx.beginPath();
-      ctx.ellipse(leafX, leafY + (isTop ? 6 : -4), 4.5, 6.5, isTop ? 0.3 : -0.3, 0, Math.PI * 2);
-      ctx.fill();
+      // Glowing Neon Energy Band on Lip
+      const bandY = isTop ? lipY + 6 : lipY + lipHeight - 10;
+      ctx.fillStyle = season.accent;
+      ctx.shadowColor = season.accent;
+      ctx.shadowBlur = 10;
+      ctx.fillRect(lipX + 4, bandY, lipWidth - 8, 4);
+      ctx.restore();
     }
 
     roundRect(context, rx, ry, rw, rh, radius) {
@@ -738,7 +943,7 @@
     }
   }
 
-  // --- Stylized Cute Bird Class ---
+  // --- Glowing Neon Cyber Bird ---
   class Bird {
     constructor() {
       this.reset();
@@ -749,7 +954,6 @@
       this.y = V_HEIGHT * 0.42;
       this.radius = 16;
       this.vy = 0;
-      // Floaty, forgiving physics
       this.gravity = 0.22;
       this.jumpStrength = -5.2;
       this.maxVelocity = 7.0;
@@ -758,18 +962,29 @@
       this.wingSpeed = 0.22;
       this.idleFloatOffset = 0;
       this.tailWag = 0;
+      this.trail = [];
     }
 
     jump() {
       this.vy = this.jumpStrength;
-      this.rotation = -0.42; // Upward tilt
-      createFlapPuff(this.x, this.y);
+      this.rotation = -0.42;
+      createNeonPuff(this.x, this.y);
       createFeathers(this.x - 12, this.y + 4, 3);
       sound.playFlap();
     }
 
     update() {
       this.tailWag += 0.15;
+
+      // Store trail points for glowing ribbon tail
+      if (globalFrame % 2 === 0) {
+        this.trail.unshift({
+          x: this.x - 14,
+          y: (currentState === STATE.READY ? this.y + this.idleFloatOffset : this.y) + 2,
+          alpha: 1
+        });
+        if (this.trail.length > 8) this.trail.pop();
+      }
 
       if (currentState === STATE.READY) {
         this.idleFloatOffset = Math.sin(globalFrame * 0.07) * 7;
@@ -778,12 +993,10 @@
         return;
       }
 
-      // Physics integration
       this.vy += this.gravity;
       if (this.vy > this.maxVelocity) this.vy = this.maxVelocity;
       this.y += this.vy;
 
-      // Realistic angular pitch transition
       if (this.vy < 0) {
         this.rotation = Math.max(-0.46, this.rotation - 0.07);
       } else {
@@ -798,20 +1011,39 @@
     draw() {
       const drawY = currentState === STATE.READY ? this.y + this.idleFloatOffset : this.y;
 
+      // Draw Light Ribbon Trail
+      ctx.save();
+      for (let i = 0; i < this.trail.length - 1; i++) {
+        const t1 = this.trail[i];
+        const t2 = this.trail[i + 1];
+        const progress = 1 - i / this.trail.length;
+        ctx.strokeStyle = `rgba(0, 242, 254, ${progress * 0.7})`;
+        ctx.shadowColor = '#00f2fe';
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = progress * 6;
+        ctx.beginPath();
+        ctx.moveTo(t1.x, t1.y);
+        ctx.lineTo(t2.x, t2.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
       ctx.save();
       ctx.translate(this.x, drawY);
       ctx.rotate(this.rotation);
 
-      // --- 1. Tail Feathers ---
+      // 1. Neon Tail Feathers
       const wag = Math.sin(this.tailWag) * 3;
       ctx.save();
       ctx.translate(-15, 2);
       ctx.rotate(wag * 0.05);
-      ctx.fillStyle = '#e5970c';
-      ctx.strokeStyle = '#754003';
-      ctx.lineWidth = 1.8;
 
-      // 3 overlapping tail feathers
+      ctx.fillStyle = '#ff007f';
+      ctx.shadowColor = '#ff007f';
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = '#00f2fe';
+      ctx.lineWidth = 1.5;
+
       ctx.beginPath();
       ctx.ellipse(-4, -4, 6, 3, -0.4, 0, Math.PI * 2);
       ctx.fill();
@@ -828,114 +1060,103 @@
       ctx.stroke();
       ctx.restore();
 
-      // --- 2. Head Crest Feather Tuft ---
-      ctx.fillStyle = '#ffb300';
-      ctx.strokeStyle = '#754003';
-      ctx.lineWidth = 1.8;
+      // 2. Head Crest Antenna
+      ctx.save();
+      ctx.fillStyle = '#00f2fe';
+      ctx.shadowColor = '#00f2fe';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.ellipse(-2, -15, 3.5, 6, -0.35, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
+      ctx.restore();
 
-      // --- 3. Bird Body ---
-      // Soft drop shadow
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
-      ctx.beginPath();
-      ctx.ellipse(-2, 4, 18, 14, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Main golden gradient body
+      // 3. Main Glowing Cyber Bird Body
+      ctx.save();
       const bodyGrad = ctx.createRadialGradient(-3, -4, 3, 1, 2, 18);
-      bodyGrad.addColorStop(0, '#fff25c');
-      bodyGrad.addColorStop(0.55, '#fdbf18');
-      bodyGrad.addColorStop(0.95, '#ea8e05');
-      bodyGrad.addColorStop(1, '#c96f00');
+      bodyGrad.addColorStop(0, '#fff466');
+      bodyGrad.addColorStop(0.55, '#ffbb00');
+      bodyGrad.addColorStop(0.9, '#ff007f');
+      bodyGrad.addColorStop(1, '#9d4edd');
 
       ctx.fillStyle = bodyGrad;
-      ctx.strokeStyle = '#633703';
+      ctx.strokeStyle = '#00f2fe';
+      ctx.shadowColor = '#00f2fe';
+      ctx.shadowBlur = 12;
       ctx.lineWidth = 2.4;
       ctx.beginPath();
       ctx.ellipse(0, 0, 17, 13.5, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      // Peach Cream Belly
-      const bellyGrad = ctx.createLinearGradient(-10, 0, 8, 12);
-      bellyGrad.addColorStop(0, '#ffffff');
-      bellyGrad.addColorStop(0.6, '#fff0bd');
-      bellyGrad.addColorStop(1, '#ffd894');
-      ctx.fillStyle = bellyGrad;
+      // Holographic Belly Plate
+      ctx.fillStyle = 'rgba(0, 242, 254, 0.35)';
       ctx.beginPath();
       ctx.ellipse(-2, 4.5, 11, 7.5, -0.15, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
-      // --- 4. Layered Animated Wing ---
+      // 4. Layered Animated Wing
       const wingFlap = Math.sin(this.wingAngle) * 7;
       ctx.save();
       ctx.translate(-5, 0);
       ctx.rotate(wingFlap * 0.08);
 
-      // Wing base
       const wingGrad = ctx.createLinearGradient(-10, -6, 6, 8);
       wingGrad.addColorStop(0, '#ffffff');
-      wingGrad.addColorStop(0.35, '#fee150');
-      wingGrad.addColorStop(0.85, '#f59a0b');
-      wingGrad.addColorStop(1, '#cf7302');
+      wingGrad.addColorStop(0.4, '#00f2fe');
+      wingGrad.addColorStop(1, '#ff007f');
 
       ctx.fillStyle = wingGrad;
-      ctx.strokeStyle = '#633703';
+      ctx.strokeStyle = '#ffe600';
+      ctx.shadowColor = '#ff007f';
+      ctx.shadowBlur = 10;
       ctx.lineWidth = 2;
 
       ctx.beginPath();
       ctx.ellipse(-4, -1 + wingFlap * 0.35, 10, 7.2, -0.22, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-
-      // Wing feather lines
-      ctx.strokeStyle = '#995906';
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.arc(-4, -1 + wingFlap * 0.35, 5, 0.4, 2.2);
-      ctx.stroke();
       ctx.restore();
 
-      // --- 5. Expressive Big Eye ---
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#4a2902';
+      // 5. Cyber Visor / Glowing Scanner Eye
+      ctx.save();
+      ctx.fillStyle = '#0a0d1e';
+      ctx.strokeStyle = '#ff007f';
+      ctx.shadowColor = '#ff007f';
+      ctx.shadowBlur = 12;
       ctx.lineWidth = 2.2;
       ctx.beginPath();
-      ctx.ellipse(7.5, -5, 7, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(7.5, -5, 7.5, 8.5, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      // Pupil
-      ctx.fillStyle = '#1e2430';
+      // Visor Scanner Beam (Moving laser glint)
+      const scanX = 7.5 + Math.sin(globalFrame * 0.15) * 3;
+      ctx.fillStyle = '#00f2fe';
+      ctx.shadowColor = '#00f2fe';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
-      ctx.arc(9.5, -5, 3.6, 0, Math.PI * 2);
+      ctx.arc(scanX, -5, 3.2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Eye Shines (Large and small specular reflection)
+      // Glint dot
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(10.8, -6.6, 1.6, 0, Math.PI * 2);
-      ctx.arc(8.5, -3.8, 0.9, 0, Math.PI * 2);
+      ctx.arc(scanX + 1, -6.5, 1.2, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
-      // Cute Peach Cheek Blush
-      ctx.fillStyle = 'rgba(255, 95, 95, 0.48)';
-      ctx.beginPath();
-      ctx.arc(4, 3.5, 3.8, 0, Math.PI * 2);
-      ctx.fill();
-
-      // --- 6. Bright Orange Beak ---
+      // 6. Glowing Beak
+      ctx.save();
       const beakGrad = ctx.createLinearGradient(11, 0, 22, 3);
-      beakGrad.addColorStop(0, '#ff832b');
-      beakGrad.addColorStop(0.7, '#ff5a17');
-      beakGrad.addColorStop(1, '#db3804');
+      beakGrad.addColorStop(0, '#ffe600');
+      beakGrad.addColorStop(1, '#ff5a17');
 
       ctx.fillStyle = beakGrad;
-      ctx.strokeStyle = '#5a1f01';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ff007f';
+      ctx.shadowColor = '#ffe600';
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.moveTo(11, -1.5);
       ctx.lineTo(22, 2);
@@ -943,14 +1164,7 @@
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-
-      // Beak seam line
-      ctx.strokeStyle = '#541700';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.moveTo(11, 2.2);
-      ctx.lineTo(20, 2.2);
-      ctx.stroke();
+      ctx.restore();
 
       ctx.restore();
     }
@@ -966,6 +1180,156 @@
   }
 
   const bird = new Bird();
+
+  // --- Particles & Score FX ---
+  const particles = [];
+  const scorePopups = [];
+
+  function createFeathers(x, y, count = 8) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 2.4 + 1.0;
+      particles.push({
+        type: 'feather',
+        x,
+        y,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd - 1.2,
+        rot: Math.random() * Math.PI * 2,
+        rotSpd: (Math.random() - 0.5) * 0.25,
+        size: Math.random() * 4 + 3,
+        color: Math.random() > 0.5 ? '#00f2fe' : '#ff007f',
+        alpha: 1,
+        life: 0.024
+      });
+    }
+  }
+
+  function createNeonPuff(x, y) {
+    particles.push({
+      type: 'puff',
+      x: x - 14,
+      y: y + 4,
+      vx: -GAME_SPEED * 0.7,
+      vy: 0.3,
+      rot: 0,
+      rotSpd: 0,
+      size: 5,
+      maxSize: 18,
+      alpha: 0.75,
+      life: 0.038
+    });
+  }
+
+  function createScoreSparkles(x, y) {
+    for (let i = 0; i < 14; i++) {
+      const angle = (Math.PI * 2 * i) / 14 + (Math.random() - 0.5) * 0.3;
+      const spd = Math.random() * 2.8 + 1.4;
+      particles.push({
+        type: 'sparkle',
+        x,
+        y,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        rot: Math.random() * Math.PI,
+        rotSpd: 0.15,
+        size: Math.random() * 4 + 3,
+        color: Math.random() > 0.5 ? '#00f2fe' : '#ffe600',
+        alpha: 1,
+        life: 0.032
+      });
+    }
+
+    scorePopups.push({
+      text: '+1',
+      x: x + 16,
+      y: y - 10,
+      vy: -1.8,
+      alpha: 1,
+      scale: 1.4
+    });
+  }
+
+  function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.type === 'feather') p.vy += 0.08;
+      else if (p.type === 'puff') p.size += (p.maxSize - p.size) * 0.12;
+      p.rot += p.rotSpd;
+      p.alpha -= p.life;
+      if (p.alpha <= 0) particles.splice(i, 1);
+    }
+
+    for (let i = scorePopups.length - 1; i >= 0; i--) {
+      const sp = scorePopups[i];
+      sp.y += sp.vy;
+      sp.vy *= 0.94;
+      sp.scale = Math.max(1, sp.scale - 0.03);
+      sp.alpha -= 0.024;
+      if (sp.alpha <= 0) scorePopups.splice(i, 1);
+    }
+  }
+
+  function drawParticles() {
+    particles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+
+      if (p.type === 'feather') {
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size * 1.5, p.size * 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.type === 'puff') {
+        ctx.fillStyle = 'rgba(0, 242, 254, 0.6)';
+        ctx.shadowColor = '#00f2fe';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.type === 'sparkle') {
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.moveTo(0, -p.size);
+        ctx.lineTo(p.size * 0.3, -p.size * 0.3);
+        ctx.lineTo(p.size, 0);
+        ctx.lineTo(p.size * 0.3, p.size * 0.3);
+        ctx.lineTo(0, p.size);
+        ctx.lineTo(-p.size * 0.3, p.size * 0.3);
+        ctx.lineTo(-p.size, 0);
+        ctx.lineTo(-p.size * 0.3, -p.size * 0.3);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    scorePopups.forEach(sp => {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, sp.alpha);
+      ctx.translate(sp.x, sp.y);
+      ctx.scale(sp.scale, sp.scale);
+      ctx.font = '900 24px "Fredoka", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.strokeText(sp.text, 0, 0);
+      ctx.fillStyle = '#00f2fe';
+      ctx.shadowColor = '#00f2fe';
+      ctx.shadowBlur = 12;
+      ctx.fillText(sp.text, 0, 0);
+      ctx.restore();
+    });
+  }
 
   // --- Collision Engine ---
   function checkCollisions() {
@@ -990,7 +1354,6 @@
         }
       }
     }
-
     return false;
   }
 
@@ -1010,12 +1373,12 @@
     srAnnouncements.textContent = `Game Over. Final score: ${score}. Best: ${highScore}.`;
   }
 
-  // --- HUD & Score Banner ---
+  // --- Neon UI HUD & Menus ---
   function drawScoreHUD() {
     if (currentState !== STATE.PLAYING && currentState !== STATE.DYING) return;
 
     ctx.save();
-    ctx.font = '800 40px "Fredoka", sans-serif';
+    ctx.font = '900 42px "Fredoka", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 
@@ -1023,17 +1386,15 @@
     const x = V_WIDTH / 2;
     const y = 56;
 
-    // Thick drop shadow outline
+    // Outer neon glow
+    ctx.shadowColor = '#00f2fe';
+    ctx.shadowBlur = 18;
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 6.5;
+    ctx.lineWidth = 7;
     ctx.lineJoin = 'round';
     ctx.strokeText(text, x, y);
 
-    // 3D Extrusion shadow
-    ctx.fillStyle = '#0f172a';
-    ctx.fillText(text, x, y + 2.5);
-
-    // Inner vibrant white
+    // Inner bright white
     ctx.fillStyle = '#ffffff';
     ctx.fillText(text, x, y);
     ctx.restore();
@@ -1045,46 +1406,36 @@
 
     const titleY = 162 + Math.sin(globalFrame * 0.05) * 5;
 
-    // Stylized Arcade Logo: "FLAPPY BIRD"
+    // Glowing Synthwave Logo: "FLAPPY BIRD"
     ctx.font = '900 38px "Fredoka", sans-serif';
-    ctx.strokeStyle = '#1b3f0c';
-    ctx.lineWidth = 8;
+    ctx.shadowColor = '#ff007f';
+    ctx.shadowBlur = 20;
+    ctx.strokeStyle = '#00f2fe';
+    ctx.lineWidth = 7;
     ctx.lineJoin = 'round';
     ctx.strokeText('FLAPPY BIRD', V_WIDTH / 2, titleY);
 
-    // Shadow Layer
-    ctx.fillStyle = '#b35d00';
-    ctx.fillText('FLAPPY BIRD', V_WIDTH / 2, titleY + 3.5);
-
-    // Golden Gradient Face
     const titleGrad = ctx.createLinearGradient(0, titleY - 24, 0, titleY + 14);
-    titleGrad.addColorStop(0, '#fff76a');
-    titleGrad.addColorStop(0.45, '#ffc414');
-    titleGrad.addColorStop(1, '#f07400');
+    titleGrad.addColorStop(0, '#ffe600');
+    titleGrad.addColorStop(0.5, '#ff007f');
+    titleGrad.addColorStop(1, '#9d4edd');
     ctx.fillStyle = titleGrad;
     ctx.fillText('FLAPPY BIRD', V_WIDTH / 2, titleY);
 
-    // Subtle Logo Star Glint
-    const glintProgress = (globalFrame * 0.03) % 2;
-    if (glintProgress < 0.6) {
-      const gx = V_WIDTH / 2 - 100 + glintProgress * 300;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      ctx.beginPath();
-      ctx.arc(gx, titleY - 8, 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Glassmorphic Tap Prompt Card
+    // Tap Prompt Card with Neon Frame
     const promptY = 375;
-    ctx.fillStyle = 'rgba(12, 18, 30, 0.52)';
+    ctx.fillStyle = 'rgba(7, 9, 22, 0.75)';
     ctx.beginPath();
     roundRect(ctx, 36, promptY - 26, V_WIDTH - 72, 115, 22);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = 1.5;
+
+    ctx.strokeStyle = '#00f2fe';
+    ctx.shadowColor = '#00f2fe';
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 1.8;
     ctx.stroke();
 
-    // Animated Tap Ripple Indicator
+    // Pulse dot
     const tapOffset = Math.sin(globalFrame * 0.11) * 5;
     drawTapIcon(V_WIDTH / 2, promptY + 10 + tapOffset);
 
@@ -1093,8 +1444,8 @@
     ctx.fillText('TAP OR PRESS SPACE', V_WIDTH / 2, promptY + 52);
 
     ctx.font = '500 12.5px "Fredoka", sans-serif';
-    ctx.fillStyle = '#bfe5f5';
-    ctx.fillText('Smooth flight • Dodge the pipes', V_WIDTH / 2, promptY + 74);
+    ctx.fillStyle = '#00f2fe';
+    ctx.fillText('Neon Worlds • Day & Night Cycles', V_WIDTH / 2, promptY + 74);
 
     ctx.restore();
   }
@@ -1103,20 +1454,20 @@
     ctx.save();
     ctx.translate(cx, cy);
 
-    // Glowing Pulse
     const pulse = (globalFrame % 45) / 45;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 - pulse * 0.85})`;
+    ctx.strokeStyle = `rgba(0, 242, 254, ${0.9 - pulse * 0.9})`;
+    ctx.shadowColor = '#00f2fe';
+    ctx.shadowBlur = 10;
     ctx.lineWidth = 2.2;
     ctx.beginPath();
     ctx.arc(0, 0, 11 + pulse * 16, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Finger Dot
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(0, 0, 8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#ff7b00';
+    ctx.fillStyle = '#ff007f';
     ctx.beginPath();
     ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
     ctx.fill();
@@ -1124,13 +1475,7 @@
     ctx.restore();
   }
 
-  // --- Deluxe Game Over Scorecard ---
-  const restartButtonRect = {
-    x: 75,
-    y: 436,
-    w: 210,
-    h: 54
-  };
+  const restartButtonRect = { x: 75, y: 436, w: 210, h: 54 };
 
   function drawGameOverScreen() {
     ctx.save();
@@ -1140,19 +1485,21 @@
     const modalY = 146 + (1 - ease) * 130;
 
     // Dark backdrop overlay
-    ctx.fillStyle = `rgba(9, 14, 25, ${0.5 * ease})`;
+    ctx.fillStyle = `rgba(5, 7, 15, ${0.65 * ease})`;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
     // "GAME OVER" Ribbon Header
     ctx.font = '900 38px "Fredoka", sans-serif';
+    ctx.shadowColor = '#ff007f';
+    ctx.shadowBlur = 22;
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 7;
     ctx.lineJoin = 'round';
     ctx.strokeText('GAME OVER', V_WIDTH / 2, modalY);
 
     const goGrad = ctx.createLinearGradient(0, modalY - 22, 0, modalY + 14);
-    goGrad.addColorStop(0, '#ff7056');
-    goGrad.addColorStop(1, '#d32f2f');
+    goGrad.addColorStop(0, '#ff007f');
+    goGrad.addColorStop(1, '#9d4edd');
     ctx.fillStyle = goGrad;
     ctx.fillText('GAME OVER', V_WIDTH / 2, modalY);
 
@@ -1162,53 +1509,51 @@
     const cardW = V_WIDTH - 64;
     const cardH = 184;
 
-    // Card drop shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
-    roundRect(ctx, cardX + 3, cardY + 6, cardW, cardH, 22);
-    ctx.fill();
-
-    // Card Surface Gradient
-    const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
-    cardGrad.addColorStop(0, '#fefbf0');
-    cardGrad.addColorStop(1, '#e5dcb8');
-    ctx.fillStyle = cardGrad;
+    // Scorecard cyber panel
+    ctx.fillStyle = 'rgba(12, 16, 34, 0.88)';
     roundRect(ctx, cardX, cardY, cardW, cardH, 22);
     ctx.fill();
 
-    // Card Border
-    ctx.strokeStyle = '#bfa15f';
-    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#00f2fe';
+    ctx.shadowColor = '#00f2fe';
+    ctx.shadowBlur = 14;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Award Medal
     drawMedal(cardX + 50, cardY + 96, score);
 
-    // Stats Section
     ctx.textAlign = 'right';
 
-    // SCORE
     ctx.font = '700 12px "Press Start 2P", monospace';
-    ctx.fillStyle = '#f57c00';
+    ctx.fillStyle = '#ff007f';
+    ctx.shadowColor = '#ff007f';
+    ctx.shadowBlur = 8;
     ctx.fillText('SCORE', cardX + cardW - 22, cardY + 46);
 
     ctx.font = '800 28px "Fredoka", sans-serif';
-    ctx.fillStyle = '#1e293b';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 10;
     ctx.fillText(score.toString(), cardX + cardW - 22, cardY + 82);
 
-    // BEST
     ctx.font = '700 12px "Press Start 2P", monospace';
-    ctx.fillStyle = '#f57c00';
+    ctx.fillStyle = '#ffe600';
+    ctx.shadowColor = '#ffe600';
+    ctx.shadowBlur = 8;
     ctx.fillText('BEST', cardX + cardW - 22, cardY + 124);
 
     ctx.font = '800 28px "Fredoka", sans-serif';
-    ctx.fillStyle = '#1e293b';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 10;
     ctx.fillText(highScore.toString(), cardX + cardW - 22, cardY + 160);
 
-    // "NEW" High Score Ribbon
     if (isNewHighScore && score > 0) {
       ctx.save();
       ctx.translate(cardX + cardW - 96, cardY + 106);
-      ctx.fillStyle = '#e53935';
+      ctx.fillStyle = '#ff007f';
+      ctx.shadowColor = '#ff007f';
+      ctx.shadowBlur = 10;
       roundRect(ctx, 0, 0, 42, 17, 5);
       ctx.fill();
       ctx.fillStyle = '#ffffff';
@@ -1218,7 +1563,6 @@
       ctx.restore();
     }
 
-    // Play Again Button
     if (ease >= 0.75) {
       drawRestartButton(restartButtonRect);
     }
@@ -1234,101 +1578,70 @@
 
     if (finalScore >= 35) {
       tier = 'PLATINUM';
-      colorA = '#ffffff';
+      colorA = '#00f2fe';
       colorB = '#91a4b5';
       label = 'P';
     } else if (finalScore >= 20) {
       tier = 'GOLD';
-      colorA = '#fff176';
+      colorA = '#ffe600';
       colorB = '#c79100';
       label = 'G';
     } else if (finalScore >= 10) {
       tier = 'SILVER';
-      colorA = '#f5f5f5';
-      colorB = '#9e9e9e';
+      colorA = '#e0f7fa';
+      colorB = '#78909c';
       label = 'S';
     } else if (finalScore >= 4) {
       tier = 'BRONZE';
-      colorA = '#f1a868';
-      colorB = '#965214';
+      colorA = '#ff772e';
+      colorB = '#a04000';
       label = 'B';
     }
 
-    // Medal Slot Base
-    ctx.strokeStyle = '#b8a698';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(cx, cy, 33, 0, Math.PI * 2);
     ctx.stroke();
 
     if (!tier) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
       ctx.fill();
       return;
     }
 
-    // Ribbon
-    ctx.fillStyle = '#3949ab';
-    ctx.beginPath();
-    ctx.moveTo(cx - 10, cy - 33);
-    ctx.lineTo(cx - 19, cy - 50);
-    ctx.lineTo(cx + 19, cy - 50);
-    ctx.lineTo(cx + 10, cy - 33);
-    ctx.closePath();
-    ctx.fill();
-
-    // Medal Disc with Radial Glow
+    // Glowing Cyber Disc
     const grad = ctx.createRadialGradient(cx - 8, cy - 8, 3, cx, cy, 29);
     grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.35, colorA);
+    grad.addColorStop(0.4, colorA);
     grad.addColorStop(1, colorB);
 
     ctx.fillStyle = grad;
+    ctx.shadowColor = colorA;
+    ctx.shadowBlur = 14;
     ctx.beginPath();
     ctx.arc(cx, cy, 27, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = colorB;
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Inner Embossed Ring
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 22, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Tier Letter
     ctx.font = '900 19px "Fredoka", sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, cx, cy);
-
-    // Rotating Sparkles on Gold / Platinum Medals
-    if (tier === 'GOLD' || tier === 'PLATINUM') {
-      const spRot = globalFrame * 0.08;
-      const sparkleX = cx + Math.sin(spRot) * 20;
-      const sparkleY = cy + Math.cos(spRot) * 20;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(sparkleX, sparkleY, 2.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
   }
 
   function drawRestartButton(btn) {
     ctx.save();
-    // Drop Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
-    roundRect(ctx, btn.x, btn.y + 4, btn.w, btn.h, 27);
-    ctx.fill();
-
-    // Button Gradient
     const bGrad = ctx.createLinearGradient(btn.x, btn.y, btn.x, btn.y + btn.h);
-    bGrad.addColorStop(0, '#4cd964');
-    bGrad.addColorStop(1, '#24ab3e');
+    bGrad.addColorStop(0, '#00f2fe');
+    bGrad.addColorStop(1, '#0072ff');
+
     ctx.fillStyle = bGrad;
+    ctx.shadowColor = '#00f2fe';
+    ctx.shadowBlur = 16;
     roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 27);
     ctx.fill();
 
@@ -1336,7 +1649,6 @@
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Label
     ctx.font = '700 20px "Fredoka", sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
@@ -1359,7 +1671,7 @@
     context.closePath();
   }
 
-  // --- Input Handlers (Mobile Touch, Pointer & Keyboard) ---
+  // --- Input Handlers ---
   function handleAction(event) {
     if (event) {
       if (event.target && event.target.closest('#ui-header')) {
@@ -1394,7 +1706,7 @@
     bird.reset();
     currentState = STATE.READY;
     srAnnouncements.textContent = 'Game reset. Ready to fly.';
-    sound.playTone(460, 0.08, 'sine');
+    sound.playTone(480, 0.08, 'sine');
   }
 
   window.addEventListener('pointerdown', (e) => {
@@ -1410,27 +1722,21 @@
     }
   });
 
-  // Mobile safety against gesture zooming
   document.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 1) {
-      e.preventDefault();
-    }
+    if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
 
   let lastTouchEnd = 0;
   document.addEventListener('touchend', (e) => {
     const now = Date.now();
-    if (now - lastTouchEnd <= 300) {
-      e.preventDefault();
-    }
+    if (now - lastTouchEnd <= 300) e.preventDefault();
     lastTouchEnd = now;
   }, { passive: false });
 
-  // --- Main Animation Loop (60 FPS) ---
+  // --- Main Animation Loop ---
   function gameLoop() {
     globalFrame++;
 
-    // 1. Screen Shake calculations
     let shakeX = 0;
     let shakeY = 0;
     if (screenShakeTimer > 0) {
@@ -1442,14 +1748,18 @@
     ctx.save();
     ctx.translate(shakeX, shakeY);
 
-    // 2. Parallax Backdrop
-    drawSkyAndSun();
-    drawMountains();
-    drawClouds();
-    drawCityscape();
-    drawRollingHills();
+    // 1. Dynamic Day & Night Cycle Sky
+    const cycle = getCycleState();
+    drawSky(cycle);
 
-    // 3. Pipes Update & Draw
+    // 2. Moving Places & Parallax Landscapes
+    drawMovingPlaces();
+
+    // 3. Seasonal Weather Particles (Sakura petals, cyber motes, leaves, snowflakes)
+    updateSeasonalParticles(currentSeasonIndex);
+    drawSeasonalParticles();
+
+    // 4. Pipes
     if (currentState === STATE.PLAYING) {
       pipeTimer++;
       if (pipeTimer >= PIPE_SPAWN_INTERVAL) {
@@ -1461,7 +1771,6 @@
         const p = pipes[i];
         p.update();
 
-        // Check scoring point
         if (!p.passed && p.x + p.w < bird.x) {
           p.passed = true;
           score++;
@@ -1470,22 +1779,19 @@
           srAnnouncements.textContent = `Score: ${score}`;
         }
 
-        if (p.x + p.w < -30) {
-          pipes.splice(i, 1);
-        }
+        if (p.x + p.w < -30) pipes.splice(i, 1);
       }
     }
-
     pipes.forEach(p => p.draw());
 
-    // 4. Ground Layer
+    // 5. Synthwave Ground
     drawGround();
 
-    // 5. Bird Update & Draw
+    // 6. Glowing Neon Bird
     bird.update();
     bird.draw();
 
-    // 6. Collision Checking & States
+    // 7. Collision Detection
     if (currentState === STATE.PLAYING) {
       checkCollisions();
     } else if (currentState === STATE.DYING) {
@@ -1498,28 +1804,23 @@
       gameOverTimer++;
     }
 
-    // 7. Particles & Popups
+    // 8. Particles & Popups
     updateParticles();
     drawParticles();
 
-    // 8. HUD & Overlays
-    if (currentState === STATE.READY) {
-      drawStartScreen();
-    } else if (currentState === STATE.PLAYING || currentState === STATE.DYING) {
-      drawScoreHUD();
-    } else if (currentState === STATE.GAMEOVER) {
-      drawGameOverScreen();
-    }
+    // 9. UI Screens
+    if (currentState === STATE.READY) drawStartScreen();
+    else if (currentState === STATE.PLAYING || currentState === STATE.DYING) drawScoreHUD();
+    else if (currentState === STATE.GAMEOVER) drawGameOverScreen();
 
-    // 9. Impact White Flash
+    // 10. Hit Flash
     if (flashWhiteAlpha > 0) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${flashWhiteAlpha})`;
+      ctx.fillStyle = `rgba(255, 0, 127, ${flashWhiteAlpha * 0.7})`;
       ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
       flashWhiteAlpha = Math.max(0, flashWhiteAlpha - 0.08);
     }
 
     ctx.restore();
-
     requestAnimationFrame(gameLoop);
   }
 
