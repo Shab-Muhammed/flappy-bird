@@ -231,9 +231,9 @@
 
   // Gradual difficulty: scroll speed eases up as the score climbs.
   // Tune these three numbers to make the ramp gentler or harsher.
-  const BASE_SPEED = 1.62;
-  const MAX_SPEED = 2.7;
-  const SPEED_PER_POINT = 0.03;   // reaches MAX_SPEED around score 36
+  const BASE_SPEED = 2.0;
+  const MAX_SPEED = 4.0;
+  const SPEED_PER_POINT = 0.07;   // reaches MAX_SPEED around score 29
   let gameSpeed = BASE_SPEED;
   function targetSpeed() {
     return Math.min(MAX_SPEED, BASE_SPEED + score * SPEED_PER_POINT);
@@ -1938,7 +1938,7 @@
     // 6. Hand-Crafted Green Pipes
     if (currentState === STATE.PLAYING) {
       // Ease toward the speed for the current score (no sudden jumps)
-      gameSpeed += (targetSpeed() - gameSpeed) * 0.02;
+      gameSpeed += (targetSpeed() - gameSpeed) * 0.035;
 
       pipeTimer += gameSpeed;
       if (pipeTimer >= PIPE_SPACING) {

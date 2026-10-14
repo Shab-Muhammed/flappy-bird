@@ -13,7 +13,8 @@
     databaseURL: '',
     collection: 'scores',
     topN: 10,
-    timeoutMs: 6000
+    timeoutMs: 6000,
+    pollMs: 5000 // how often an open board re-fetches so every player sees new scores
   };
 
   const NAME_KEY = 'flappy_player_name';
@@ -82,7 +83,7 @@
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), CONFIG.timeoutMs);
     try {
-      const res = await fetch(url, { ...options, signal: ctrl.signal });
+      const res = await fetch(url, { cache: 'no-store', ...options, signal: ctrl.signal });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return await res.json();
     } finally {
@@ -147,8 +148,31 @@
     });
   }
 
-  async function refresh() {
-    setStatus('Loading scores…');
+  let pollTimer = null;
+  let refreshing = false;
+
+  function startPolling() {
+    stopPolling();
+    if (isOnline) pollTimer = setInterval(() => { if (!busy) refresh(true); }, CONFIG.pollMs);
+  }
+
+  function stopPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
+  async function refresh(silent = false) {
+    if (refreshing) return;
+    refreshing = true;
+    try {
+      await loadBoard(silent);
+    } finally {
+      refreshing = false;
+    }
+  }
+
+  async function loadBoard(silent) {
+    if (!silent) setStatus('Loading scores…');
     if (!isOnline) {
       render(sortScores(readLocal()));
       setStatus('Showing scores from this device. The online board is not set up yet.');
@@ -156,7 +180,7 @@
     }
     try {
       render(await fetchOnline());
-      setStatus(`Global top ${CONFIG.topN}`);
+      setStatus(`Global top ${CONFIG.topN} · live`);
     } catch (e) {
       render(sortScores(readLocal()));
       setStatus("Can't reach the server. Showing scores from this device.");
@@ -216,10 +240,12 @@
       setTimeout(() => ui.name.focus({ preventScroll: true }), 60);
     }
     refresh();
+    startPolling();
   }
 
   function close() {
     visible = false;
+    stopPolling();
     overlay.classList.add('hidden');
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
