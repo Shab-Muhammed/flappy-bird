@@ -34,7 +34,7 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
 - Pipes are spaced by distance, so gaps stay evenly spaced at every speed.
 
 ### 🏆 Online Leaderboard
-- Top 10 board with name entry, opened from the 🏆 BEST pill or automatically after a personal best (or a score of 5+).
+- Top 10 board. You pick a name once, then every run updates your single entry (best score), and **Change name** renames it without creating a duplicate. It opens after every run, from the start menu, and from the 🏆 BEST pill.
 - Works in **local mode** (this device only) until you connect a database. See setup below.
 
 ### 🪙 Coins & Bird Store
@@ -53,7 +53,7 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
 ## 🌐 Leaderboard Setup (Firebase Realtime Database, free tier)
 
 1. Create a project at <https://console.firebase.google.com> and add a **Realtime Database** (start in locked mode).
-2. In **Rules**, paste this and publish:
+2. In **Rules**, paste this and publish (it was updated: entries are now keyed by a player id so each player has one row):
    ```json
    {
      "rules": {
@@ -61,8 +61,8 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
          ".read": true,
          ".indexOn": ["score"],
          "$id": {
-           ".write": "!data.exists()",
-           ".validate": "newData.hasChildren(['name','score','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 500"
+           ".write": "!data.exists() || newData.child('score').val() >= data.child('score').val()",
+           ".validate": "$id.matches(/^[a-z0-9]{16,40}$/) && newData.hasChildren(['name','score','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 500"
          }
        }
      }
@@ -70,7 +70,7 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
    ```
 3. Copy the database URL (looks like `https://your-project-default-rtdb.firebaseio.com`) into `CONFIG.databaseURL` at the top of `leaderboard.js`.
 
-Entries can be created but never edited or deleted by players. This is a casual board: because the game runs in the browser, a determined player could still post a fake score. The rules above cap names and scores, and `MAX_SCORE` in `leaderboard.js` must match the cap.
+Each player gets one entry. It can be created and then only raised (or renamed at the same score), never lowered or deleted. If you used an older version, delete the old `scores` node in the console once so the board starts clean. This is a casual board: because the game runs in the browser, a determined player could still post a fake score. The rules above cap names and scores, and `MAX_SCORE` in `leaderboard.js` must match the cap.
 
 ---
 

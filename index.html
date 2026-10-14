@@ -69,11 +69,18 @@
         <h2 id="lb-title">LEADERBOARD</h2>
         <p id="lb-status" class="lb-status" aria-live="polite"></p>
 
+        <div id="lb-player" class="lb-player hidden">
+          <span>Playing as <b id="lb-player-name"></b></span>
+          <button id="lb-rename" class="lb-link" type="button">Change name</button>
+        </div>
+        <p id="lb-note" class="lb-note" aria-live="polite"></p>
+
         <div id="lb-submit" class="lb-submit hidden">
-          <div class="lb-your-score">Your score: <b id="lb-score">0</b></div>
+          <div id="lb-score-line" class="lb-your-score">Your score: <b id="lb-score">0</b></div>
+          <p id="lb-hint" class="lb-hint"></p>
           <div class="lb-row">
             <input id="lb-name" type="text" maxlength="12" placeholder="Your name" autocomplete="off" autocapitalize="words" spellcheck="false" aria-label="Your name">
-            <button id="lb-submit-btn" class="lb-btn" type="button">Submit</button>
+            <button id="lb-submit-btn" class="lb-btn" type="button">Save</button>
           </div>
         </div>
 

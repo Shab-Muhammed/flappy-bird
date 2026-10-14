@@ -1,16 +1,18 @@
 /**
  * Flappy Bird - Online Leaderboard
  *
- * Talks to a Firebase Realtime Database over plain REST (no SDK, no build step).
- * Until you paste your database URL below, the board runs in "local" mode and
- * shows the scores saved on this device only. See README.md for the 2-minute setup.
+ * One entry per player: the first time you finish a run you pick a name, and after that
+ * every run quietly updates the SAME entry (your best score), so there are no duplicates.
+ * Entries are stored under a random per-browser player id in a Firebase Realtime Database
+ * over plain REST (no SDK, no build step). Until you paste your database URL below, the
+ * board runs in "local" mode and shows scores from this device only. See README.md.
  */
 (() => {
   'use strict';
 
   const CONFIG = {
     // e.g. 'https://your-project-default-rtdb.firebaseio.com'
-    databaseURL: 'https://flappy-bird-ae650-default-rtdb.asia-southeast1.firebasedatabase.app/',
+    databaseURL: '',
     collection: 'scores',
     topN: 10,
     timeoutMs: 6000,
@@ -18,6 +20,7 @@
   };
 
   const NAME_KEY = 'flappy_player_name';
+  const ID_KEY = 'flappy_player_id';
   const LOCAL_KEY = 'flappy_local_scores';
   const MAX_NAME = 12;
   const MAX_SCORE = 500; // keep in sync with the database rule in README.md
@@ -28,8 +31,14 @@
 
   const ui = {
     status: $('lb-status'),
+    note: $('lb-note'),
+    player: $('lb-player'),
+    playerName: $('lb-player-name'),
+    rename: $('lb-rename'),
     submit: $('lb-submit'),
+    scoreLine: $('lb-score-line'),
     score: $('lb-score'),
+    hint: $('lb-hint'),
     name: $('lb-name'),
     submitBtn: $('lb-submit-btn'),
     list: $('lb-list'),
@@ -40,13 +49,6 @@
   const baseURL = CONFIG.databaseURL.trim().replace(/\/+$/, '');
   const isOnline = baseURL.length > 0;
 
-  let visible = false;
-  let busy = false;
-  let pendingScore = null;
-  let submitted = false;
-  let myId = null;
-  let localId = null;
-
   // ---------- storage helpers ----------
   function safeGet(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -56,9 +58,33 @@
   }
 
   function cleanName(raw) {
-    const cleaned = String(raw || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, MAX_NAME);
-    return cleaned || 'ANON';
+    return String(raw || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, MAX_NAME);
   }
+
+  function makeId() {
+    try {
+      const bytes = new Uint8Array(12);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      let s = '';
+      while (s.length < 24) s += Math.random().toString(16).slice(2);
+      return s.slice(0, 24);
+    }
+  }
+
+  // Identity of this player on this browser (random id + chosen name)
+  let playerId = safeGet(ID_KEY);
+  if (!/^[a-z0-9]{16,40}$/.test(playerId || '')) {
+    playerId = makeId();
+    safeSet(ID_KEY, playerId);
+  }
+  let playerName = cleanName(safeGet(NAME_KEY));
+
+  let visible = false;
+  let lastScore = null;   // score of the run that just ended (display only)
+  let unsynced = 0;       // best score not yet saved (waiting for a name, or a failed save)
+  let formMode = null;    // 'first' | 'rename' | null
 
   function sortScores(rows) {
     return rows.sort((a, b) => b.score - a.score || (a.ts || 0) - (b.ts || 0));
@@ -73,8 +99,9 @@
     }
   }
 
+  // One row per player: replace this player's row instead of adding another
   function saveLocal(entry) {
-    const rows = sortScores(readLocal().concat(entry)).slice(0, 20);
+    const rows = sortScores(readLocal().filter(r => r.id !== entry.id).concat(entry)).slice(0, 20);
     safeSet(LOCAL_KEY, JSON.stringify(rows));
   }
 
@@ -91,6 +118,8 @@
     }
   }
 
+  const ownURL = () => `${baseURL}/${CONFIG.collection}/${playerId}.json`;
+
   async function fetchOnline() {
     const url = `${baseURL}/${CONFIG.collection}.json?orderBy=%22score%22&limitToLast=${CONFIG.topN}`;
     const data = await request(url);
@@ -105,18 +134,57 @@
     return sortScores(rows);
   }
 
-  function postOnline(name, score) {
-    return request(`${baseURL}/${CONFIG.collection}.json`, {
-      method: 'POST',
+  // Saves this player's best score + name into their single entry.
+  // Only writes when something actually changed.
+  async function pushScore(rawScore) {
+    const score = Math.min(MAX_SCORE, Math.max(0, Math.floor(rawScore || 0)));
+    const name = playerName;
+
+    const mine = readLocal().find(r => r.id === playerId);
+    const prevLocal = mine ? mine.score : 0;
+    const localBest = Math.max(prevLocal, score);
+    if (localBest > 0) saveLocal({ id: playerId, name, score: localBest, ts: Date.now() });
+    if (!isOnline) return { best: localBest, improved: score > prevLocal };
+
+    const existing = await request(ownURL()); // null when this player has no entry yet
+    const prev = existing ? Number(existing.score) || 0 : 0;
+    const best = Math.max(prev, score);
+    if (!existing && best <= 0) return { best: 0, improved: false };
+    if (existing && best === prev && existing.name === name) return { best, improved: false };
+
+    await request(ownURL(), {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, score, ts: { '.sv': 'timestamp' } })
+      body: JSON.stringify({ name, score: best, ts: { '.sv': 'timestamp' } })
     });
+    return { best, improved: score > prev };
+  }
+
+  // Saves are queued so two quick runs can never race each other
+  let queue = Promise.resolve();
+  function syncScore(score) {
+    const run = async () => {
+      const attempt = Math.max(score || 0, unsynced);
+      setNote('Saving…');
+      try {
+        const r = await pushScore(attempt);
+        unsynced = 0;
+        if (r.improved) setNote(`New best saved: ${r.best}!`);
+        else if (r.best > 0) setNote(`Your best is still ${r.best}.`);
+        else setNote('');
+        if (visible) refresh(true);
+      } catch (e) {
+        unsynced = Math.max(unsynced, attempt);
+        setNote("Couldn't save your score. It will retry next time.");
+      }
+    };
+    queue = queue.then(run);
+    return queue;
   }
 
   // ---------- rendering ----------
-  function setStatus(text) {
-    ui.status.textContent = text;
-  }
+  function setStatus(text) { ui.status.textContent = text; }
+  function setNote(text) { ui.note.textContent = text; }
 
   function render(rows) {
     ui.list.textContent = '';
@@ -129,7 +197,7 @@
     }
     rows.slice(0, CONFIG.topN).forEach((row, i) => {
       const li = document.createElement('li');
-      if (myId && row.id === myId) li.classList.add('me');
+      if (row.id === playerId) li.classList.add('me');
 
       const rank = document.createElement('span');
       rank.className = 'lb-rank';
@@ -153,7 +221,7 @@
 
   function startPolling() {
     stopPolling();
-    if (isOnline) pollTimer = setInterval(() => { if (!busy) refresh(true); }, CONFIG.pollMs);
+    if (isOnline) pollTimer = setInterval(() => refresh(true), CONFIG.pollMs);
   }
 
   function stopPolling() {
@@ -187,74 +255,72 @@
     }
   }
 
-  // ---------- actions ----------
-  async function submit() {
-    if (busy || submitted || pendingScore == null) return;
-
-    const score = Math.min(MAX_SCORE, Math.max(0, Math.floor(pendingScore)));
-    const name = cleanName(ui.name.value);
-    ui.name.value = name === 'ANON' ? '' : name;
-    safeSet(NAME_KEY, ui.name.value);
-
-    busy = true;
-    ui.submitBtn.disabled = true;
-    setStatus('Submitting…');
-
-    if (!localId) {
-      localId = 'local-' + Date.now();
-      saveLocal({ id: localId, name, score, ts: Date.now() });
-    }
-
-    if (isOnline) {
-      try {
-        const res = await postOnline(name, score);
-        myId = res && res.name;
-      } catch (e) {
-        busy = false;
-        ui.submitBtn.disabled = false;
-        setStatus("Couldn't submit. Check your connection and try again.");
-        return;
-      }
-    } else {
-      myId = localId;
-    }
-
-    submitted = true;
-    busy = false;
-    ui.submit.classList.add('hidden');
-    await refresh();
-    setStatus('Score submitted!');
+  // ---------- name form (first run, or "Change name") ----------
+  function updatePlayerStrip() {
+    ui.player.classList.toggle('hidden', !playerName);
+    ui.playerName.textContent = playerName;
   }
 
+  function showForm(mode) {
+    formMode = mode;
+    ui.submit.classList.remove('hidden');
+    ui.scoreLine.classList.toggle('hidden', mode === 'rename');
+    ui.score.textContent = unsynced || lastScore || 0;
+    ui.hint.textContent = mode === 'first'
+      ? "Pick a name for the leaderboard. You'll only be asked once."
+      : 'Your best score moves to the new name. No duplicate entry is created.';
+    ui.submitBtn.textContent = mode === 'first' ? 'Save' : 'Save name';
+    ui.name.value = playerName;
+    setTimeout(() => ui.name.focus({ preventScroll: true }), 60);
+  }
+
+  function hideForm() {
+    formMode = null;
+    ui.submit.classList.add('hidden');
+  }
+
+  function submitName() {
+    const name = cleanName(ui.name.value);
+    if (!name) {
+      setNote('Type a name to continue.');
+      return;
+    }
+    const changed = name !== playerName;
+    playerName = name;
+    safeSet(NAME_KEY, name);
+    hideForm();
+    updatePlayerStrip();
+    if (changed || unsynced > 0) syncScore(0); // pushes any waiting score and/or renames the entry
+  }
+
+  // ---------- open / close ----------
   function open() {
     if (!api.canOpen()) return;
     visible = true;
     overlay.classList.remove('hidden');
+    updatePlayerStrip();
 
-    const canSubmit = pendingScore != null && !submitted;
-    ui.submit.classList.toggle('hidden', !canSubmit);
-    if (canSubmit) {
-      ui.score.textContent = pendingScore;
-      ui.name.value = safeGet(NAME_KEY) || ui.name.value || '';
-      ui.submitBtn.disabled = false;
-      setTimeout(() => ui.name.focus({ preventScroll: true }), 60);
-    }
+    if (!playerName && unsynced > 0) showForm('first');
+    else if (formMode !== 'rename') hideForm();
+    if (playerName && unsynced > 0) syncScore(0); // retry a save that failed earlier
+
     refresh();
     startPolling();
   }
 
   function close() {
     visible = false;
-    stopPolling();
     overlay.classList.add('hidden');
+    stopPolling();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
 
   // ---------- events ----------
-  ui.submitBtn.addEventListener('click', submit);
+  ui.submitBtn.addEventListener('click', submitName);
+  ui.rename.addEventListener('click', () => showForm('rename'));
   ui.closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  ui.name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+  ui.name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitName(); } });
   document.addEventListener('keydown', (e) => { if (visible && e.key === 'Escape') close(); });
   if (ui.openBtn) {
     ui.openBtn.addEventListener('click', (e) => {
@@ -271,17 +337,17 @@
     canOpen: () => true,
     open,
     close,
+    // Called when a run ends with a score above zero
     setPending(score) {
-      pendingScore = score;
-      submitted = false;
-      myId = null;
-      localId = null;
+      lastScore = score;
+      if (playerName) {
+        syncScore(score);            // known player: save silently, no form
+      } else {
+        unsynced = Math.max(unsynced, score); // keep it until they pick a name
+      }
     },
     clearPending() {
-      pendingScore = null;
-      submitted = false;
-      myId = null;
-      localId = null;
+      lastScore = null;
     }
   };
   window.FlappyLeaderboard = api;

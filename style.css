@@ -468,3 +468,40 @@ button.header-pill:focus-visible {
   filter: grayscale(0.7);
   opacity: 0.8;
 }
+
+/* Leaderboard: player identity + notes */
+.lb-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lb-link {
+  padding: 4px 2px;
+  font: 700 13px var(--font-ui);
+  color: #2f6fb5;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.lb-note {
+  min-height: 18px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  color: #2f7a12;
+}
+
+.lb-hint {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  color: #6b4c20;
+}
