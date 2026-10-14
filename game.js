@@ -257,6 +257,25 @@
   function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
   function lsSet(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* ignore */ } }
 
+  const DAILY_CHALLENGE_KEY = `flappy_daily_${new Date().toISOString().slice(0, 10)}`;
+  const dailySeed = Number(new Date().toISOString().slice(8, 10));
+  const dailyTarget = [5, 8, 10, 12, 15, 7, 9][dailySeed % 7];
+  const DAILY_BONUS = 10;
+  const BADGES = [
+    { score: 5, name: 'Rookie Flapper' },
+    { score: 10, name: 'Sky Hopper' },
+    { score: 20, name: 'Pipe Pro' },
+    { score: 35, name: 'Cloud Champion' }
+  ];
+  let completedDaily = lsGet(DAILY_CHALLENGE_KEY) === 'true';
+  let dailyBonusEarned = false;
+  let unlockedBadges = [];
+  try {
+    const saved = JSON.parse(lsGet('flappy_badges') || '[]');
+    if (Array.isArray(saved)) unlockedBadges = BADGES.filter(b => saved.includes(b.score)).map(b => b.score);
+  } catch (e) { /* keep defaults */ }
+  let newlyUnlockedBadges = [];
+
   const PIPE_SKINS = [
     { id: 'classic', name: 'Classic Green', price: 0,
       shaft: ['#428a21', '#5cb52f', '#9ced4a', '#58af2d', '#39751c', '#275213'],
@@ -1542,11 +1561,12 @@
   }
 
   // --- Coins: paid out when a run ends, based on the final score ---
-  // C(P) = floor(P * (1 + alpha * P)): each pipe is worth a little more the further you get.
-  // alpha 0.02 -> score 10 = 12 coins, 20 = 28, 30 = 48, 50 = 100.
-  const COIN_ALPHA = 0.02;
+  // C(P) = floor(P * (rate + alpha * P)): payouts stay modest as runs get longer.
+  // rate 0.6, alpha 0.002 -> score 10 = 6, 20 = 12, 30 = 19, 50 = 35.
+  const COIN_RATE = 0.6;
+  const COIN_ALPHA = 0.002;
   function coinsForScore(P) {
-    return Math.floor(P * (1 + COIN_ALPHA * P) + 1e-9);
+    return Math.floor(P * (COIN_RATE + COIN_ALPHA * P) + 1e-9);
   }
 
   function drawCoinCounter() {
@@ -1675,7 +1695,7 @@
     // Retro Tap Instruction Card
     const promptY = 375;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
-    roundRect(ctx, 36, promptY - 26, V_WIDTH - 72, 115, 20);
+    roundRect(ctx, 36, promptY - 26, V_WIDTH - 72, 128, 20);
     ctx.fill();
 
     ctx.strokeStyle = '#553b1b';
@@ -1687,11 +1707,17 @@
 
     ctx.font = '700 17px "Fredoka", sans-serif';
     ctx.fillStyle = '#332010';
-    ctx.fillText('TAP OR PRESS SPACE', V_WIDTH / 2, promptY + 52);
+    ctx.fillText('TAP / CLICK / SPACE TO FLAP', V_WIDTH / 2, promptY + 52);
 
     ctx.font = '600 12.5px "Fredoka", sans-serif';
     ctx.fillStyle = '#6b4c20';
     ctx.fillText('Press T: Day/Night • Press S: Seasons', V_WIDTH / 2, promptY + 74);
+
+    ctx.font = '700 12px "Fredoka", sans-serif';
+    ctx.fillStyle = completedDaily ? '#39751c' : '#b85800';
+    ctx.fillText(completedDaily
+      ? `DAILY COMPLETE  ·  BADGES ${unlockedBadges.length}/${BADGES.length}`
+      : `DAILY: SCORE ${dailyTarget} FOR +${DAILY_BONUS} COINS`, V_WIDTH / 2, promptY + 96);
 
     ctx.restore();
     drawMenuButtons();
@@ -1760,7 +1786,8 @@
     ctx.restore();
   }
 
-  const restartButtonRect = { x: 75, y: 436, w: 210, h: 54 };
+  const restartButtonRect = { x: 20, y: 436, w: 150, h: 54 };
+  const gameOverLbButtonRect = { x: 190, y: 436, w: 150, h: 54 };
 
   function drawGameOverScreen() {
     ctx.save();
@@ -1837,6 +1864,23 @@
 
     if (ease >= 0.75) {
       drawRestartButton(restartButtonRect);
+      drawMenuButton(gameOverLbButtonRect, 'LEADERBOARD', '#ffbf47', '#ee8a00', '#8a4b00');
+
+      ctx.font = '700 13px "Fredoka", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = completedDaily ? '#39751c' : '#fff0bd';
+      const challengeLine = newlyUnlockedBadges.length
+        ? `BADGE: ${BADGES.find(b => b.score === newlyUnlockedBadges[newlyUnlockedBadges.length - 1]).name}`
+        : dailyBonusEarned
+          ? `DAILY COMPLETE  +${DAILY_BONUS} COINS`
+          : completedDaily
+            ? `DAILY COMPLETE  ·  BADGES ${unlockedBadges.length}/${BADGES.length}`
+            : `DAILY ${Math.min(score, dailyTarget)}/${dailyTarget}  ·  BADGES ${unlockedBadges.length}/${BADGES.length}`;
+      ctx.strokeStyle = '#3a2400';
+      ctx.lineWidth = 3;
+      ctx.strokeText(challengeLine, V_WIDTH / 2, 405);
+      ctx.fillText(challengeLine, V_WIDTH / 2, 405);
 
       ctx.font = '700 16px "Fredoka", sans-serif';
       ctx.textAlign = 'center';
@@ -2023,11 +2067,21 @@
     }
   }
 
-  // The leaderboard opens after every run, whatever the score.
-  // (A score is only submittable when it is above zero.)
   function onRunEnded() {
-    // Pay out coins from the final score
     runCoins = coinsForScore(score);
+    dailyBonusEarned = false;
+    newlyUnlockedBadges = BADGES
+      .filter(b => score >= b.score && !unlockedBadges.includes(b.score));
+    if (newlyUnlockedBadges.length) {
+      unlockedBadges = [...unlockedBadges, ...newlyUnlockedBadges.map(b => b.score)];
+      lsSet('flappy_badges', JSON.stringify(unlockedBadges));
+    }
+    if (!completedDaily && score >= dailyTarget) {
+      completedDaily = true;
+      dailyBonusEarned = true;
+      lsSet(DAILY_CHALLENGE_KEY, 'true');
+      runCoins += DAILY_BONUS;
+    }
     if (runCoins > 0) {
       wallet.coins += runCoins;
       saveWallet();
@@ -2038,9 +2092,6 @@
     if (!lb) return;
     if (score > 0) lb.setPending(score);
     else lb.clearPending();
-    setTimeout(() => {
-      if (currentState === STATE.GAMEOVER) lb.open();
-    }, 1500); // leave time to read the coin payout first
   }
 
   if (window.FlappyLeaderboard) {
@@ -2222,6 +2273,8 @@
     if (window.FlappyLeaderboard) window.FlappyLeaderboard.clearPending();
     gameSpeed = BASE_SPEED;
     runCoins = 0;
+    dailyBonusEarned = false;
+    newlyUnlockedBadges = [];
     pipes.length = 0;
     particles.length = 0;
     scorePopups.length = 0;
@@ -2261,6 +2314,19 @@
         e.preventDefault();
         sound.init();
         openStore();
+        return;
+      }
+    }
+    if (currentState === STATE.GAMEOVER && gameOverTimer > 18) {
+      const p = pointerToVirtual(e);
+      if (inRect(gameOverLbButtonRect, p)) {
+        e.preventDefault();
+        if (window.FlappyLeaderboard) window.FlappyLeaderboard.open();
+        return;
+      }
+      if (inRect(restartButtonRect, p)) {
+        e.preventDefault();
+        restartGame();
         return;
       }
     }

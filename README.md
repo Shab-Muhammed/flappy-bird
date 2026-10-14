@@ -34,27 +34,31 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
 - Pipes are spaced by distance, so gaps stay evenly spaced at every speed.
 
 ### 🏆 Online Leaderboard
-- Top 10 board. You pick a name once, then every run updates your single entry (best score), and **Change name** renames it without creating a duplicate. It opens after every run, from the start menu, and from the 🏆 BEST pill.
-- Works in **local mode** (this device only) until you connect a database. See setup below.
+- Top 10 board. You pick a name once, then every run updates your single entry (best score), and **Change name** renames it without creating a duplicate. Open it from the start menu, game-over screen, or 🏆 BEST pill.
+- The game is currently configured to submit scores to the Firebase database URL in `leaderboard.js`. If that endpoint is unavailable, the board falls back to scores saved on this device.
 
 ### 🪙 Coins & Store
-- Coins are paid out when a run ends, from your final score `P`: `C(P) = floor(P × (1 + α × P))` with `α = 0.02` (`COIN_ALPHA` in `game.js`). Score 10 pays 12 coins, 20 pays 28, 30 pays 48, 50 pays 100.
+- Coins are paid out when a run ends, from your final score `P`: `C(P) = floor(P × (r + α × P))` with `r = 0.6` and `α = 0.002` (`COIN_RATE` and `COIN_ALPHA` in `game.js`). Score 10 pays 6 coins, 20 pays 12, 30 pays 19, 50 pays 35.
 - Open the **🐤 STORE** from the start menu (or press `B`). The **Birds** tab sells Blue Jay, Ruby, Parrot, Shadow and Bubblegum; the **Pipes** tab sells Frost, Sunset, Candy, Obsidian and Royal Gold. Edit `SKINS` / `PIPE_SKINS` in `game.js` to change prices or add more.
 - Coins and unlocks are saved on your device.
-- The leaderboard opens after every run, and the **🏆 LEADERBOARD** button is on the start menu (or press `L`).
+- A daily score challenge awards a one-time 10-coin bonus. Its target rotates by UTC date. Four score badges (5, 10, 20 and 35) are saved on this device.
+- The leaderboard is available from the start menu, the **🏆 BEST** pill, or the game-over screen (or press `L`); it no longer interrupts every run.
 
 ### 🎮 Controls
 - **Fly / Jump:** Tap anywhere on mobile, click canvas on desktop, or press `Space` / `ArrowUp` / `W`.
 - **Change Time of Day:** Tap the `[☀️ DAY]` pill in the header or press `T` (cycles `AUTO 🔄`, `DAY ☀️`, `SUNSET 🌅`, `NIGHT 🌙`, `DAWN 🌄`).
 - **Leaderboard:** Tap the `🏆 BEST` pill. `Esc` closes it.
+- **Replay:** Tap **PLAY AGAIN** on the game-over screen or press `Space`.
+- **Daily challenge:** Reach the score shown on the start screen to earn 10 bonus coins once per UTC day.
+- **Badges:** Reach scores of 5, 10, 20 and 35 to unlock persistent badges.
 - **Mute Audio:** Tap the sound button or press `M`.
 
 ---
 
 ## 🌐 Leaderboard Setup (Firebase Realtime Database, free tier)
 
-1. Create a project at <https://console.firebase.google.com> and add a **Realtime Database** (start in locked mode).
-2. In **Rules**, paste this and publish (it was updated: entries are now keyed by a player id so each player has one row):
+The game currently points to the database URL in `leaderboard.js`. To use your own database, create a project at <https://console.firebase.google.com> and add a **Realtime Database** (start in locked mode).
+1. In **Rules**, paste this and publish (entries are keyed by a player id so each player has one row). The `.write` condition allows an existing entry to be updated when its score is unchanged or higher; `!data.exists()` by itself only permits the first save:
    ```json
    {
      "rules": {
@@ -69,7 +73,7 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
      }
    }
    ```
-3. Copy the database URL (looks like `https://your-project-default-rtdb.firebaseio.com`) into `CONFIG.databaseURL` at the top of `leaderboard.js`.
+2. Replace `CONFIG.databaseURL` at the top of `leaderboard.js` with your database URL. To keep scores on this device only, set it to an empty string.
 
 Each player gets one entry. It can be created and then only raised (or renamed at the same score), never lowered or deleted. If you used an older version, delete the old `scores` node in the console once so the board starts clean. This is a casual board: because the game runs in the browser, a determined player could still post a fake score. The rules above cap names and scores, and `MAX_SCORE` in `leaderboard.js` must match the cap.
 
