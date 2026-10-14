@@ -14,7 +14,7 @@
  * - Smooth physics and synthesized retro audio
  * - Gradually increasing speed, fully blended day/night transitions
  * - Online Top 10 leaderboard (see leaderboard.js), shown after every run and from the menu
- * - Collectable coins and a bird store with unlockable skins
+ * - Coins paid out from your final score, and a store for bird and pipe skins
  */
 
 (() => {
@@ -257,19 +257,49 @@
   function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
   function lsSet(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* ignore */ } }
 
-  const wallet = (() => {
+  const PIPE_SKINS = [
+    { id: 'classic', name: 'Classic Green', price: 0,
+      shaft: ['#428a21', '#5cb52f', '#9ced4a', '#58af2d', '#39751c', '#275213'],
+      lip: ['#428a21', '#5cb52f', '#b2f458', '#55ab2b', '#224810'], outline: '#1e3f0e' },
+    { id: 'frost', name: 'Frost', price: 30,
+      shaft: ['#3a7fa8', '#5ab4dc', '#b8f0ff', '#55a9d4', '#34739a', '#215273'],
+      lip: ['#3a7fa8', '#5ab4dc', '#d2f7ff', '#4fa2cc', '#1f4c6a'], outline: '#10334a' },
+    { id: 'sunset', name: 'Sunset', price: 50,
+      shaft: ['#b8501c', '#e87a2e', '#ffc56b', '#e47328', '#a8461a', '#6e2a0d'],
+      lip: ['#b8501c', '#e87a2e', '#ffd58a', '#dd6d24', '#5f230a'], outline: '#4a1a06' },
+    { id: 'candy', name: 'Candy', price: 70,
+      shaft: ['#c23d86', '#ec6db0', '#ffc2e4', '#e960a8', '#a52d70', '#701b4b'],
+      lip: ['#c23d86', '#ec6db0', '#ffd3ec', '#e257a2', '#5e1540'], outline: '#4a0f33' },
+    { id: 'obsidian', name: 'Obsidian', price: 90,
+      shaft: ['#262033', '#413658', '#8a78b8', '#3d3252', '#231d31', '#150f20'],
+      lip: ['#262033', '#413658', '#9a88c8', '#3a2f4f', '#120d1c'], outline: '#0a0710' },
+    { id: 'gold', name: 'Royal Gold', price: 140,
+      shaft: ['#a8760d', '#d9a521', '#fff0a0', '#d2a01d', '#9a6a0a', '#6b4506'],
+      lip: ['#a8760d', '#d9a521', '#fff5b8', '#cf9c1a', '#5e3d05'], outline: '#4a2f03' }
+  ];
+
+  function loadOwned(key, list) {
     let owned = ['classic'];
     try {
-      const saved = JSON.parse(lsGet('flappy_owned_birds') || '[]');
+      const saved = JSON.parse(lsGet(key) || '[]');
       if (Array.isArray(saved)) {
-        owned = Array.from(new Set(['classic', ...saved.filter(id => SKINS.some(s => s.id === id))]));
+        owned = Array.from(new Set(['classic', ...saved.filter(id => list.some(s => s.id === id))]));
       }
     } catch (e) { /* keep default */ }
+    return owned;
+  }
+
+  const wallet = (() => {
+    const owned = loadOwned('flappy_owned_birds', SKINS);
+    const pipeOwned = loadOwned('flappy_owned_pipes', PIPE_SKINS);
     const eq = lsGet('flappy_equipped_bird');
+    const peq = lsGet('flappy_equipped_pipe');
     return {
       coins: Math.max(0, parseInt(lsGet('flappy_coins') || '0', 10) || 0),
       owned,
-      equipped: owned.includes(eq) ? eq : 'classic'
+      equipped: owned.includes(eq) ? eq : 'classic',
+      pipeOwned,
+      pipeEquipped: pipeOwned.includes(peq) ? peq : 'classic'
     };
   })();
 
@@ -277,9 +307,13 @@
     lsSet('flappy_coins', String(wallet.coins));
     lsSet('flappy_owned_birds', JSON.stringify(wallet.owned));
     lsSet('flappy_equipped_bird', wallet.equipped);
+    lsSet('flappy_owned_pipes', JSON.stringify(wallet.pipeOwned));
+    lsSet('flappy_equipped_pipe', wallet.pipeEquipped);
   }
 
   function skinById(id) { return SKINS.find(s => s.id === id) || SKINS[0]; }
+  function pipeSkinById(id) { return PIPE_SKINS.find(s => s.id === id) || PIPE_SKINS[0]; }
+  function activePipeSkin() { return pipeSkinById(wallet.pipeEquipped); }
   function activeSkin() { return skinById(wallet.equipped); }
   let runCoins = 0;
 
@@ -1046,7 +1080,6 @@
       this.bottomY = this.gapCenter + PIPE_GAP / 2;
       this.bottomHeight = GROUND_Y - this.bottomY;
       this.passed = false;
-      this.coin = { y: this.gapCenter + (Math.random() - 0.5) * 56, taken: false, phase: Math.random() * 6.28 };
     }
 
     update() {
@@ -1068,6 +1101,7 @@
     }
 
     drawPipeSection(x, y, w, h, isTop, cycle) {
+      const ps = activePipeSkin();
       const lipHeight = 28;
       const lipOverlap = 5;
       const lipWidth = w + lipOverlap * 2;
@@ -1078,18 +1112,18 @@
 
       // --- 1. Pipe Shaft Cylindrical 3D Texture ---
       const shaftGrad = ctx.createLinearGradient(x, 0, x + w, 0);
-      shaftGrad.addColorStop(0, '#428a21');
-      shaftGrad.addColorStop(0.18, '#5cb52f');
-      shaftGrad.addColorStop(0.38, '#9ced4a');
-      shaftGrad.addColorStop(0.68, '#58af2d');
-      shaftGrad.addColorStop(0.9, '#39751c');
-      shaftGrad.addColorStop(1, '#275213');
+      shaftGrad.addColorStop(0, ps.shaft[0]);
+      shaftGrad.addColorStop(0.18, ps.shaft[1]);
+      shaftGrad.addColorStop(0.38, ps.shaft[2]);
+      shaftGrad.addColorStop(0.68, ps.shaft[3]);
+      shaftGrad.addColorStop(0.9, ps.shaft[4]);
+      shaftGrad.addColorStop(1, ps.shaft[5]);
 
       ctx.fillStyle = shaftGrad;
       ctx.fillRect(x, shaftY, w, shaftHeight);
 
       // Shaft Outline
-      ctx.strokeStyle = '#1e3f0e';
+      ctx.strokeStyle = ps.outline;
       ctx.lineWidth = 2.5;
       ctx.strokeRect(x, shaftY, w, shaftHeight);
 
@@ -1099,11 +1133,11 @@
 
       // --- 2. Pipe Lip Collar with 3D Overhang ---
       const lipGrad = ctx.createLinearGradient(lipX, 0, lipX + lipWidth, 0);
-      lipGrad.addColorStop(0, '#428a21');
-      lipGrad.addColorStop(0.2, '#5cb52f');
-      lipGrad.addColorStop(0.42, '#b2f458');
-      lipGrad.addColorStop(0.72, '#55ab2b');
-      lipGrad.addColorStop(1, '#224810');
+      lipGrad.addColorStop(0, ps.lip[0]);
+      lipGrad.addColorStop(0.2, ps.lip[1]);
+      lipGrad.addColorStop(0.42, ps.lip[2]);
+      lipGrad.addColorStop(0.72, ps.lip[3]);
+      lipGrad.addColorStop(1, ps.lip[4]);
 
       ctx.fillStyle = lipGrad;
       ctx.beginPath();
@@ -1111,7 +1145,7 @@
       ctx.fill();
 
       // Lip Outline
-      ctx.strokeStyle = '#1e3f0e';
+      ctx.strokeStyle = ps.outline;
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
@@ -1507,79 +1541,12 @@
     });
   }
 
-  // --- Coins: collectable pickups floating in each pipe gap ---
-  function collectCoins() {
-    for (const p of pipes) {
-      const c = p.coin;
-      if (!c || c.taken) continue;
-      const cx = p.x + p.w / 2;
-      const dx = bird.x - cx;
-      const dy = bird.y - c.y;
-      if (dx * dx + dy * dy < 26 * 26) {
-        c.taken = true;
-        wallet.coins++;
-        runCoins++;
-        saveWallet();
-        sound.playCoin();
-        createCoinBurst(cx, c.y);
-      }
-    }
-  }
-
-  function createCoinBurst(x, y) {
-    for (let i = 0; i < 7; i++) {
-      const angle = (Math.PI * 2 * i) / 7;
-      particles.push({
-        type: 'sparkle', x, y,
-        vx: Math.cos(angle) * 2, vy: Math.sin(angle) * 2,
-        rot: 0, rotSpd: 0.2, size: 3.5,
-        color: Math.random() > 0.5 ? '#ffe66b' : '#ffffff',
-        alpha: 1, life: 0.05
-      });
-    }
-    scorePopups.push({ text: '+1', x, y: y - 14, vy: -1.4, alpha: 1, scale: 1.1, color: '#ffd23a' });
-  }
-
-  function drawCoins() {
-    const TAU = Math.PI * 2;
-    pipes.forEach(p => {
-      const c = p.coin;
-      if (!c || c.taken) return;
-      const squeeze = Math.abs(Math.cos(globalFrame * 0.08 + c.phase));
-      const rx = 2.5 + 8.5 * squeeze;
-
-      ctx.save();
-      ctx.translate(p.x + p.w / 2, c.y + Math.sin(globalFrame * 0.06 + c.phase) * 2);
-
-      const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 20);
-      glow.addColorStop(0, 'rgba(255, 230, 100, 0.45)');
-      glow.addColorStop(1, 'rgba(255, 230, 100, 0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(0, 0, 20, 0, TAU);
-      ctx.fill();
-
-      const cg = ctx.createLinearGradient(-rx, 0, rx, 0);
-      cg.addColorStop(0, '#c98a00');
-      cg.addColorStop(0.45, '#ffe66b');
-      cg.addColorStop(1, '#e0a100');
-      ctx.fillStyle = cg;
-      ctx.strokeStyle = '#7a4a00';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, rx, 10, 0, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-
-      if (rx > 6) {
-        ctx.strokeStyle = 'rgba(122, 74, 0, 0.55)';
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, rx * 0.6, 6.4, 0, 0, TAU);
-        ctx.stroke();
-      }
-      ctx.restore();
-    });
+  // --- Coins: paid out when a run ends, based on the final score ---
+  // C(P) = floor(P * (1 + alpha * P)): each pipe is worth a little more the further you get.
+  // alpha 0.02 -> score 10 = 12 coins, 20 = 28, 30 = 48, 50 = 100.
+  const COIN_ALPHA = 0.02;
+  function coinsForScore(P) {
+    return Math.floor(P * (1 + COIN_ALPHA * P) + 1e-9);
   }
 
   function drawCoinCounter() {
@@ -1763,7 +1730,7 @@
 
   function drawMenuButtons() {
     drawMenuButton(lbButtonRect, '🏆 LEADERBOARD', '#ffbf47', '#ee8a00', '#8a4b00');
-    drawMenuButton(storeButtonRect, '🐤 BIRD STORE', '#6cc3ff', '#2f86e0', '#14407a');
+    drawMenuButton(storeButtonRect, '🐤 STORE', '#6cc3ff', '#2f86e0', '#14407a');
   }
 
   function drawTapIcon(cx, cy) {
@@ -2059,13 +2026,21 @@
   // The leaderboard opens after every run, whatever the score.
   // (A score is only submittable when it is above zero.)
   function onRunEnded() {
+    // Pay out coins from the final score
+    runCoins = coinsForScore(score);
+    if (runCoins > 0) {
+      wallet.coins += runCoins;
+      saveWallet();
+      sound.playCoin();
+    }
+
     const lb = window.FlappyLeaderboard;
     if (!lb) return;
     if (score > 0) lb.setPending(score);
     else lb.clearPending();
     setTimeout(() => {
       if (currentState === STATE.GAMEOVER) lb.open();
-    }, 900);
+    }, 1500); // leave time to read the coin payout first
   }
 
   if (window.FlappyLeaderboard) {
@@ -2073,52 +2048,76 @@
     window.FlappyLeaderboard.canOpen = () => currentState !== STATE.PLAYING;
   }
 
-  // --- Bird Store ---
+  // --- Store (birds + pipes) ---
   const storeOverlay = document.getElementById('store-overlay');
   const storeGrid = document.getElementById('store-grid');
   const storeCoinCount = document.getElementById('store-coin-count');
   const storeMsg = document.getElementById('store-msg');
   const storeClose = document.getElementById('store-close');
+  const storeTabs = {
+    bird: document.getElementById('store-tab-bird'),
+    pipe: document.getElementById('store-tab-pipe')
+  };
+  const STORE_HINT = 'Earn coins at the end of every run. The higher your score, the more each pipe pays.';
   let storeVisible = false;
+  let storeTab = 'bird';
   let storeRaf = 0;
 
   function overlayOpen() {
     return storeVisible || !!(window.FlappyLeaderboard && window.FlappyLeaderboard.isOpen());
   }
 
+  function storeData() {
+    return storeTab === 'bird'
+      ? { list: SKINS, owned: wallet.owned, equipped: wallet.equipped }
+      : { list: PIPE_SKINS, owned: wallet.pipeOwned, equipped: wallet.pipeEquipped };
+  }
+
+  function setStoreTab(tab) {
+    storeTab = tab;
+    Object.keys(storeTabs).forEach(k => {
+      storeTabs[k].classList.toggle('active', k === tab);
+      storeTabs[k].setAttribute('aria-selected', String(k === tab));
+    });
+    storeMsg.textContent = STORE_HINT;
+    renderStore();
+  }
+
   function renderStore() {
+    const { list, owned, equipped } = storeData();
     storeCoinCount.textContent = wallet.coins;
     storeGrid.textContent = '';
-    SKINS.forEach(skin => {
-      const owned = wallet.owned.includes(skin.id);
-      const equipped = wallet.equipped === skin.id;
+    list.forEach(item => {
+      const isOwned = owned.includes(item.id);
+      const isEquipped = equipped === item.id;
 
       const card = document.createElement('div');
-      card.className = 'store-card' + (equipped ? ' equipped' : '');
+      card.className = 'store-card' + (isEquipped ? ' equipped' : '');
 
       const cv = document.createElement('canvas');
       cv.width = 160;
       cv.height = 128;
       cv.className = 'store-preview';
-      cv.dataset.skin = skin.id;
+      cv.dataset.kind = storeTab;
+      cv.dataset.skin = item.id;
 
       const name = document.createElement('div');
       name.className = 'store-name';
-      name.textContent = skin.name;
+      name.textContent = item.name;
 
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'lb-btn store-btn';
-      if (equipped) {
+      if (isEquipped) {
         btn.textContent = 'Equipped';
         btn.disabled = true;
-      } else if (owned) {
+      } else if (isOwned) {
         btn.textContent = 'Equip';
-        btn.addEventListener('click', () => equipSkin(skin));
+        btn.addEventListener('click', () => equipItem(item));
       } else {
-        btn.textContent = `🪙 ${skin.price}`;
-        if (wallet.coins < skin.price) btn.classList.add('store-locked');
-        btn.addEventListener('click', () => buySkin(skin));
+        btn.textContent = `🪙 ${item.price}`;
+        if (wallet.coins < item.price) btn.classList.add('store-locked');
+        btn.addEventListener('click', () => buyItem(item));
       }
 
       card.append(cv, name, btn);
@@ -2126,27 +2125,55 @@
     });
   }
 
-  function equipSkin(skin) {
-    wallet.equipped = skin.id;
+  function equipItem(item) {
+    if (storeTab === 'bird') wallet.equipped = item.id;
+    else wallet.pipeEquipped = item.id;
     saveWallet();
-    storeMsg.textContent = `${skin.name} equipped.`;
+    storeMsg.textContent = `${item.name} equipped.`;
     sound.playTone(620, 0.08, 'sine');
     renderStore();
   }
 
-  function buySkin(skin) {
-    if (wallet.coins < skin.price) {
-      storeMsg.textContent = `Collect ${skin.price - wallet.coins} more coins to unlock ${skin.name}.`;
+  function buyItem(item) {
+    if (wallet.coins < item.price) {
+      storeMsg.textContent = `Earn ${item.price - wallet.coins} more coins to unlock ${item.name}.`;
       sound.playTone(180, 0.12, 'square');
       return;
     }
-    wallet.coins -= skin.price;
-    wallet.owned.push(skin.id);
-    wallet.equipped = skin.id;
+    wallet.coins -= item.price;
+    if (storeTab === 'bird') {
+      wallet.owned.push(item.id);
+      wallet.equipped = item.id;
+    } else {
+      wallet.pipeOwned.push(item.id);
+      wallet.pipeEquipped = item.id;
+    }
     saveWallet();
-    storeMsg.textContent = `${skin.name} unlocked and equipped!`;
+    storeMsg.textContent = `${item.name} unlocked and equipped!`;
     sound.playCoin();
     renderStore();
+  }
+
+  // Small static pipe for the Pipes tab (80x64 preview space)
+  function drawPipePreview(g, skin) {
+    g.lineWidth = 2.5;
+    g.strokeStyle = skin.outline;
+
+    const shaft = g.createLinearGradient(19, 0, 61, 0);
+    [0, 0.18, 0.38, 0.68, 0.9, 1].forEach((o, i) => shaft.addColorStop(o, skin.shaft[i]));
+    g.fillStyle = shaft;
+    g.fillRect(19, 24, 42, 40);
+    g.strokeRect(19, 24, 42, 40);
+    g.fillStyle = 'rgba(255, 255, 255, 0.38)';
+    g.fillRect(19 + 42 * 0.32, 24, 3, 40);
+
+    const lip = g.createLinearGradient(14, 0, 66, 0);
+    [0, 0.2, 0.42, 0.72, 1].forEach((o, i) => lip.addColorStop(o, skin.lip[i]));
+    g.fillStyle = lip;
+    g.fillRect(14, 8, 52, 18);
+    g.strokeRect(14, 8, 52, 18);
+    g.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    g.fillRect(14 + 52 * 0.32, 10, 3.5, 14);
   }
 
   function animateStorePreviews() {
@@ -2157,9 +2184,13 @@
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.clearRect(0, 0, cv.width, cv.height);
       g.setTransform(2, 0, 0, 2, 0, 0);
-      g.translate(42, 34 + Math.sin(t * 3 + i) * 2);
-      g.scale(1.3, 1.3);
-      drawBirdSprite(g, skinById(cv.dataset.skin), t * 12 + i, t * 9);
+      if (cv.dataset.kind === 'pipe') {
+        drawPipePreview(g, pipeSkinById(cv.dataset.skin));
+      } else {
+        g.translate(42, 34 + Math.sin(t * 3 + i) * 2);
+        g.scale(1.3, 1.3);
+        drawBirdSprite(g, skinById(cv.dataset.skin), t * 12 + i, t * 9);
+      }
     });
     storeRaf = requestAnimationFrame(animateStorePreviews);
   }
@@ -2168,8 +2199,7 @@
     if (storeVisible || currentState === STATE.PLAYING) return;
     if (window.FlappyLeaderboard && window.FlappyLeaderboard.isOpen()) return;
     storeVisible = true;
-    storeMsg.textContent = 'Collect coins in the pipe gaps to unlock new birds.';
-    renderStore();
+    setStoreTab('bird');
     storeOverlay.classList.remove('hidden');
     cancelAnimationFrame(storeRaf);
     animateStorePreviews();
@@ -2182,6 +2212,8 @@
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
 
+  storeTabs.bird.addEventListener('click', () => setStoreTab('bird'));
+  storeTabs.pipe.addEventListener('click', () => setStoreTab('pipe'));
   storeClose.addEventListener('click', closeStore);
   storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
   document.addEventListener('keydown', (e) => { if (storeVisible && e.key === 'Escape') closeStore(); });
@@ -2331,10 +2363,8 @@
 
         if (p.x + p.w < -30) pipes.splice(i, 1);
       }
-      collectCoins();
     }
     pipes.forEach(p => p.draw(cycle));
-    drawCoins();
 
     // 7. Textured Earth & Grass Turf Ground Moving Backward
     drawGround(season);

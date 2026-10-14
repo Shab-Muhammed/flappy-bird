@@ -37,9 +37,10 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
 - Top 10 board. You pick a name once, then every run updates your single entry (best score), and **Change name** renames it without creating a duplicate. It opens after every run, from the start menu, and from the 🏆 BEST pill.
 - Works in **local mode** (this device only) until you connect a database. See setup below.
 
-### 🪙 Coins & Bird Store
-- Collect the spinning coin floating in each pipe gap. Coins are saved on your device.
-- Open the **🐤 BIRD STORE** from the start menu (or press `B`) to buy and equip birds: Blue Jay, Ruby, Parrot, Shadow and Bubblegum. Edit the `SKINS` list in `game.js` to change prices or add more.
+### 🪙 Coins & Store
+- Coins are paid out when a run ends, from your final score `P`: `C(P) = floor(P × (1 + α × P))` with `α = 0.02` (`COIN_ALPHA` in `game.js`). Score 10 pays 12 coins, 20 pays 28, 30 pays 48, 50 pays 100.
+- Open the **🐤 STORE** from the start menu (or press `B`). The **Birds** tab sells Blue Jay, Ruby, Parrot, Shadow and Bubblegum; the **Pipes** tab sells Frost, Sunset, Candy, Obsidian and Royal Gold. Edit `SKINS` / `PIPE_SKINS` in `game.js` to change prices or add more.
+- Coins and unlocks are saved on your device.
 - The leaderboard opens after every run, and the **🏆 LEADERBOARD** button is on the start menu (or press `L`).
 
 ### 🎮 Controls

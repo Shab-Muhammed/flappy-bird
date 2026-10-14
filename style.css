@@ -505,3 +505,33 @@ button.header-pill:focus-visible {
   text-align: center;
   color: #6b4c20;
 }
+
+/* Store tabs */
+.store-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.store-tab {
+  flex: 1;
+  padding: 7px 8px;
+  font: 700 14px var(--font-ui);
+  color: #543615;
+  background: rgba(255, 255, 255, 0.6);
+  border: 2.5px solid #b89860;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.store-tab.active {
+  color: #ffffff;
+  text-shadow: 0 1px 0 #1e3f0e;
+  background: linear-gradient(#75cc2b, #428512);
+  border-color: #275213;
+}
+
+.store-tab:focus-visible {
+  outline: 3px solid #2f7bd6;
+  outline-offset: 2px;
+}

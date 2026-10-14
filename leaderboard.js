@@ -125,11 +125,11 @@
     const data = await request(url);
     const rows = data
       ? Object.entries(data).map(([id, v]) => ({
-          id,
-          name: String((v && v.name) || 'ANON'),
-          score: Number(v && v.score) || 0,
-          ts: Number(v && v.ts) || 0
-        }))
+        id,
+        name: String((v && v.name) || 'ANON'),
+        score: Number(v && v.score) || 0,
+        ts: Number(v && v.ts) || 0
+      }))
       : [];
     return sortScores(rows);
   }
