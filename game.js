@@ -13,7 +13,8 @@
  *    • Stratified textured dirt with diagonal soil stripes
  * - Smooth physics and synthesized retro audio
  * - Gradually increasing speed, fully blended day/night transitions
- * - Online Top 10 leaderboard (see leaderboard.js)
+ * - Online Top 10 leaderboard (see leaderboard.js), shown after every run and from the menu
+ * - Collectable coins and a bird store with unlockable skins
  */
 
 (() => {
@@ -180,6 +181,12 @@
       osc.stop(t + 0.36);
     }
 
+    playCoin() {
+      if (this.muted) return;
+      this.playTone(1175, 0.07, 'triangle');
+      setTimeout(() => this.playTone(1568, 0.14, 'triangle'), 60);
+    }
+
     playTone(freq, duration, type = 'sine') {
       if (this.muted) return;
       this.init();
@@ -218,6 +225,63 @@
     }
     return false;
   }
+
+  // --- Coins & Bird Skins (saved on this device) ---
+  const SKINS = [
+    { id: 'classic', name: 'Classic', price: 0,
+      body: ['#fff466', '#fdbf18', '#ea8e05', '#c96f00'], belly: ['#ffffff', '#fff0bd', '#ffd894'],
+      wing: ['#ffffff', '#fee150', '#f59a0b', '#cf7302'], tail: '#e5970c', crest: '#ffb300',
+      outline: '#633703', outlineSoft: '#754003', quill: '#995906', beak: ['#ff832b', '#ff5a17', '#db3804'] },
+    { id: 'bluejay', name: 'Blue Jay', price: 25,
+      body: ['#e4f6ff', '#5bbcff', '#2f86e0', '#1d56a8'], belly: ['#ffffff', '#eaf6ff', '#c5e4fa'],
+      wing: ['#ffffff', '#8fd3ff', '#3a8fe6', '#1f5bb0'], tail: '#2f86e0', crest: '#5bbcff',
+      outline: '#10305e', outlineSoft: '#143a70', quill: '#1d56a8', beak: ['#ffb03b', '#ff8a1c', '#d96400'] },
+    { id: 'ruby', name: 'Ruby', price: 40,
+      body: ['#ffc0c0', '#ff5d5d', '#dc2f2f', '#9f1717'], belly: ['#ffffff', '#ffe3da', '#ffc6b3'],
+      wing: ['#ffffff', '#ff8f8f', '#e23c3c', '#a61a1a'], tail: '#d92a2a', crest: '#ff5d5d',
+      outline: '#4d0d0d', outlineSoft: '#5e1212', quill: '#a61a1a', beak: ['#ffe066', '#ffc21f', '#e09200'] },
+    { id: 'parrot', name: 'Parrot', price: 60,
+      body: ['#e7ff9a', '#8ee03c', '#4fb21f', '#2e7a10'], belly: ['#fffbe0', '#fff3a8', '#ffe070'],
+      wing: ['#ffffff', '#7fe8ff', '#2cb7e6', '#1479b0'], tail: '#2cb7e6', crest: '#ff5252',
+      outline: '#1d4a0a', outlineSoft: '#265c0e', quill: '#1479b0', beak: ['#ff6a5a', '#e0302a', '#a81410'] },
+    { id: 'shadow', name: 'Shadow', price: 80,
+      body: ['#9aa3b2', '#556070', '#323a47', '#1b2029'], belly: ['#e5e9f0', '#c3cad6', '#9aa3b2'],
+      wing: ['#c9d0dc', '#6b7686', '#3a4350', '#1f252e'], tail: '#2b323d', crest: '#556070',
+      outline: '#0b0e13', outlineSoft: '#10141b', quill: '#0f1319', beak: ['#ffd34d', '#ffb21a', '#d98a00'] },
+    { id: 'bubblegum', name: 'Bubblegum', price: 100,
+      body: ['#ffe3f4', '#ff92d2', '#e0489e', '#a21f6f'], belly: ['#ffffff', '#fff0f8', '#ffd0ec'],
+      wing: ['#ffffff', '#ffb0e0', '#e957b0', '#a91f78'], tail: '#e0489e', crest: '#ff92d2',
+      outline: '#4f0b36', outlineSoft: '#62113f', quill: '#a21f6f', beak: ['#ffd34d', '#ffb21a', '#d98a00'] }
+  ];
+
+  function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function lsSet(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* ignore */ } }
+
+  const wallet = (() => {
+    let owned = ['classic'];
+    try {
+      const saved = JSON.parse(lsGet('flappy_owned_birds') || '[]');
+      if (Array.isArray(saved)) {
+        owned = Array.from(new Set(['classic', ...saved.filter(id => SKINS.some(s => s.id === id))]));
+      }
+    } catch (e) { /* keep default */ }
+    const eq = lsGet('flappy_equipped_bird');
+    return {
+      coins: Math.max(0, parseInt(lsGet('flappy_coins') || '0', 10) || 0),
+      owned,
+      equipped: owned.includes(eq) ? eq : 'classic'
+    };
+  })();
+
+  function saveWallet() {
+    lsSet('flappy_coins', String(wallet.coins));
+    lsSet('flappy_owned_birds', JSON.stringify(wallet.owned));
+    lsSet('flappy_equipped_bird', wallet.equipped);
+  }
+
+  function skinById(id) { return SKINS.find(s => s.id === id) || SKINS[0]; }
+  function activeSkin() { return skinById(wallet.equipped); }
+  let runCoins = 0;
 
   // --- Game Engine Variables ---
   const STATE = { READY: 0, PLAYING: 1, DYING: 2, GAMEOVER: 3 };
@@ -982,6 +1046,7 @@
       this.bottomY = this.gapCenter + PIPE_GAP / 2;
       this.bottomHeight = GROUND_Y - this.bottomY;
       this.passed = false;
+      this.coin = { y: this.gapCenter + (Math.random() - 0.5) * 56, taken: false, phase: Math.random() * 6.28 };
     }
 
     update() {
@@ -1085,6 +1150,168 @@
     }
   }
 
+  // Draws the bird around the origin (caller positions/rotates). Used by the game and the store.
+  function drawBirdSprite(g, skin, wingAngle, tailWag) {
+
+    // --- 1. Tail Feathers (3 Layered Classic Feathers) ---
+    const wag = Math.sin(tailWag) * 3;
+    g.save();
+    g.translate(-15, 2);
+    g.rotate(wag * 0.05);
+    g.fillStyle = skin.tail;
+    g.strokeStyle = skin.outlineSoft;
+    g.lineWidth = 1.8;
+
+    g.beginPath();
+    g.ellipse(-4, -4, 6, 3, -0.4, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+
+    g.beginPath();
+    g.ellipse(-6, 0, 7, 3.5, 0, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+
+    g.beginPath();
+    g.ellipse(-4, 4, 6, 3, 0.4, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.restore();
+
+    // --- 2. Head Crest Feather Tuft ---
+    g.fillStyle = skin.crest;
+    g.strokeStyle = skin.outlineSoft;
+    g.lineWidth = 1.8;
+    g.beginPath();
+    g.ellipse(-2, -15, 3.5, 6, -0.35, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+
+    // --- 3. Chubby Yellow Bird Body (Multi-Stop Textured Gradient) ---
+    g.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    g.beginPath();
+    g.ellipse(-2, 4, 18, 14, 0, 0, Math.PI * 2);
+    g.fill();
+
+    const bodyGrad = g.createRadialGradient(-3, -4, 3, 1, 2, 18);
+    bodyGrad.addColorStop(0, skin.body[0]);
+    bodyGrad.addColorStop(0.5, skin.body[1]);
+    bodyGrad.addColorStop(0.88, skin.body[2]);
+    bodyGrad.addColorStop(1, skin.body[3]);
+
+    g.fillStyle = bodyGrad;
+    g.strokeStyle = skin.outline;
+    g.lineWidth = 2.4;
+    g.beginPath();
+    g.ellipse(0, 0, 17, 13.5, 0, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+
+    // Peach Cream Underbelly Patch
+    const bellyGrad = g.createLinearGradient(-10, 0, 8, 12);
+    bellyGrad.addColorStop(0, skin.belly[0]);
+    bellyGrad.addColorStop(0.6, skin.belly[1]);
+    bellyGrad.addColorStop(1, skin.belly[2]);
+    g.fillStyle = bellyGrad;
+    g.beginPath();
+    g.ellipse(-2, 4.5, 11, 7.5, -0.15, 0, Math.PI * 2);
+    g.fill();
+
+    // --- 4. Layered Animated Wing ---
+    const wingFlap = Math.sin(wingAngle) * 7;
+    g.save();
+    g.translate(-5, 0);
+    g.rotate(wingFlap * 0.08);
+
+    const wingGrad = g.createLinearGradient(-10, -6, 6, 8);
+    wingGrad.addColorStop(0, skin.wing[0]);
+    wingGrad.addColorStop(0.35, skin.wing[1]);
+    wingGrad.addColorStop(0.85, skin.wing[2]);
+    wingGrad.addColorStop(1, skin.wing[3]);
+
+    g.fillStyle = wingGrad;
+    g.strokeStyle = skin.outline;
+    g.lineWidth = 2;
+
+    g.beginPath();
+    g.ellipse(-4, -1 + wingFlap * 0.35, 10, 7.2, -0.22, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+
+    // Wing Feather Quill Line
+    g.strokeStyle = skin.quill;
+    g.lineWidth = 1.3;
+    g.beginPath();
+    g.arc(-4, -1 + wingFlap * 0.35, 5, 0.4, 2.2);
+    g.stroke();
+    g.restore();
+
+    // --- 5. Expressive Big Cartoon Eye ---
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = '#4a2902';
+    g.lineWidth = 2.2;
+    g.beginPath();
+    g.ellipse(7.5, -5, 7, 8, 0, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+
+    // Pupil
+    g.fillStyle = '#1e2430';
+    g.beginPath();
+    g.arc(9.5, -5, 3.6, 0, Math.PI * 2);
+    g.fill();
+
+    // Eye Shines (Double Specular Glint Reflection)
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(10.8, -6.6, 1.6, 0, Math.PI * 2);
+    g.arc(8.5, -3.8, 0.9, 0, Math.PI * 2);
+    g.fill();
+
+    // Cute Rosy Peach Cheek Blush
+    g.fillStyle = 'rgba(255, 95, 95, 0.48)';
+    g.beginPath();
+    g.arc(4, 3.5, 3.8, 0, Math.PI * 2);
+    g.fill();
+
+    // --- 6. Bright Orange Duck Lips / Beak ---
+    const beakGrad = g.createLinearGradient(11, 0, 22, 3);
+    beakGrad.addColorStop(0, skin.beak[0]);
+    beakGrad.addColorStop(0.7, skin.beak[1]);
+    beakGrad.addColorStop(1, skin.beak[2]);
+
+    g.fillStyle = beakGrad;
+    g.strokeStyle = '#5a1f01';
+    g.lineWidth = 2;
+
+    // Top Lip
+    g.beginPath();
+    g.moveTo(11, -1.5);
+    g.quadraticCurveTo(18, -4, 22, 0);
+    g.lineTo(13, 2.5);
+    g.closePath();
+    g.fill();
+    g.stroke();
+
+    // Bottom Lip
+    g.beginPath();
+    g.moveTo(11, 2);
+    g.quadraticCurveTo(18, 1.5, 20.5, 3);
+    g.quadraticCurveTo(16, 7, 11, 5.5);
+    g.closePath();
+    g.fill();
+    g.stroke();
+
+    // Smile mouth crease
+    g.strokeStyle = '#421601';
+    g.lineWidth = 1.4;
+    g.beginPath();
+    g.moveTo(12, 1.5);
+    g.lineTo(19, 1.5);
+    g.stroke();
+
+  }
+
   // --- Authentic Original Flappy Bird (Hand-Crafted Textures) ---
   class Bird {
     constructor() {
@@ -1144,164 +1371,7 @@
       ctx.save();
       ctx.translate(this.x, drawY);
       ctx.rotate(this.rotation);
-
-      // --- 1. Tail Feathers (3 Layered Classic Feathers) ---
-      const wag = Math.sin(this.tailWag) * 3;
-      ctx.save();
-      ctx.translate(-15, 2);
-      ctx.rotate(wag * 0.05);
-      ctx.fillStyle = '#e5970c';
-      ctx.strokeStyle = '#754003';
-      ctx.lineWidth = 1.8;
-
-      ctx.beginPath();
-      ctx.ellipse(-4, -4, 6, 3, -0.4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.ellipse(-6, 0, 7, 3.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.ellipse(-4, 4, 6, 3, 0.4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-
-      // --- 2. Head Crest Feather Tuft ---
-      ctx.fillStyle = '#ffb300';
-      ctx.strokeStyle = '#754003';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.ellipse(-2, -15, 3.5, 6, -0.35, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // --- 3. Chubby Yellow Bird Body (Multi-Stop Textured Gradient) ---
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
-      ctx.beginPath();
-      ctx.ellipse(-2, 4, 18, 14, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      const bodyGrad = ctx.createRadialGradient(-3, -4, 3, 1, 2, 18);
-      bodyGrad.addColorStop(0, '#fff466');
-      bodyGrad.addColorStop(0.5, '#fdbf18');
-      bodyGrad.addColorStop(0.88, '#ea8e05');
-      bodyGrad.addColorStop(1, '#c96f00');
-
-      ctx.fillStyle = bodyGrad;
-      ctx.strokeStyle = '#633703';
-      ctx.lineWidth = 2.4;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 17, 13.5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Peach Cream Underbelly Patch
-      const bellyGrad = ctx.createLinearGradient(-10, 0, 8, 12);
-      bellyGrad.addColorStop(0, '#ffffff');
-      bellyGrad.addColorStop(0.6, '#fff0bd');
-      bellyGrad.addColorStop(1, '#ffd894');
-      ctx.fillStyle = bellyGrad;
-      ctx.beginPath();
-      ctx.ellipse(-2, 4.5, 11, 7.5, -0.15, 0, Math.PI * 2);
-      ctx.fill();
-
-      // --- 4. Layered Animated Wing ---
-      const wingFlap = Math.sin(this.wingAngle) * 7;
-      ctx.save();
-      ctx.translate(-5, 0);
-      ctx.rotate(wingFlap * 0.08);
-
-      const wingGrad = ctx.createLinearGradient(-10, -6, 6, 8);
-      wingGrad.addColorStop(0, '#ffffff');
-      wingGrad.addColorStop(0.35, '#fee150');
-      wingGrad.addColorStop(0.85, '#f59a0b');
-      wingGrad.addColorStop(1, '#cf7302');
-
-      ctx.fillStyle = wingGrad;
-      ctx.strokeStyle = '#633703';
-      ctx.lineWidth = 2;
-
-      ctx.beginPath();
-      ctx.ellipse(-4, -1 + wingFlap * 0.35, 10, 7.2, -0.22, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Wing Feather Quill Line
-      ctx.strokeStyle = '#995906';
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.arc(-4, -1 + wingFlap * 0.35, 5, 0.4, 2.2);
-      ctx.stroke();
-      ctx.restore();
-
-      // --- 5. Expressive Big Cartoon Eye ---
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#4a2902';
-      ctx.lineWidth = 2.2;
-      ctx.beginPath();
-      ctx.ellipse(7.5, -5, 7, 8, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Pupil
-      ctx.fillStyle = '#1e2430';
-      ctx.beginPath();
-      ctx.arc(9.5, -5, 3.6, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Eye Shines (Double Specular Glint Reflection)
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(10.8, -6.6, 1.6, 0, Math.PI * 2);
-      ctx.arc(8.5, -3.8, 0.9, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Cute Rosy Peach Cheek Blush
-      ctx.fillStyle = 'rgba(255, 95, 95, 0.48)';
-      ctx.beginPath();
-      ctx.arc(4, 3.5, 3.8, 0, Math.PI * 2);
-      ctx.fill();
-
-      // --- 6. Bright Orange Duck Lips / Beak ---
-      const beakGrad = ctx.createLinearGradient(11, 0, 22, 3);
-      beakGrad.addColorStop(0, '#ff832b');
-      beakGrad.addColorStop(0.7, '#ff5a17');
-      beakGrad.addColorStop(1, '#db3804');
-
-      ctx.fillStyle = beakGrad;
-      ctx.strokeStyle = '#5a1f01';
-      ctx.lineWidth = 2;
-
-      // Top Lip
-      ctx.beginPath();
-      ctx.moveTo(11, -1.5);
-      ctx.quadraticCurveTo(18, -4, 22, 0);
-      ctx.lineTo(13, 2.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Bottom Lip
-      ctx.beginPath();
-      ctx.moveTo(11, 2);
-      ctx.quadraticCurveTo(18, 1.5, 20.5, 3);
-      ctx.quadraticCurveTo(16, 7, 11, 5.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Smile mouth crease
-      ctx.strokeStyle = '#421601';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(12, 1.5);
-      ctx.lineTo(19, 1.5);
-      ctx.stroke();
-
+      drawBirdSprite(ctx, activeSkin(), this.wingAngle, this.tailWag);
       ctx.restore();
     }
 
@@ -1334,7 +1404,7 @@
         rot: Math.random() * Math.PI * 2,
         rotSpd: (Math.random() - 0.5) * 0.25,
         size: Math.random() * 4 + 3,
-        color: Math.random() > 0.4 ? '#ffcf33' : '#ffffff',
+        color: Math.random() > 0.4 ? activeSkin().body[1] : '#ffffff',
         alpha: 1,
         life: 0.024
       });
@@ -1431,10 +1501,113 @@
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 4;
       ctx.strokeText(sp.text, 0, 0);
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = sp.color || '#ffffff';
       ctx.fillText(sp.text, 0, 0);
       ctx.restore();
     });
+  }
+
+  // --- Coins: collectable pickups floating in each pipe gap ---
+  function collectCoins() {
+    for (const p of pipes) {
+      const c = p.coin;
+      if (!c || c.taken) continue;
+      const cx = p.x + p.w / 2;
+      const dx = bird.x - cx;
+      const dy = bird.y - c.y;
+      if (dx * dx + dy * dy < 26 * 26) {
+        c.taken = true;
+        wallet.coins++;
+        runCoins++;
+        saveWallet();
+        sound.playCoin();
+        createCoinBurst(cx, c.y);
+      }
+    }
+  }
+
+  function createCoinBurst(x, y) {
+    for (let i = 0; i < 7; i++) {
+      const angle = (Math.PI * 2 * i) / 7;
+      particles.push({
+        type: 'sparkle', x, y,
+        vx: Math.cos(angle) * 2, vy: Math.sin(angle) * 2,
+        rot: 0, rotSpd: 0.2, size: 3.5,
+        color: Math.random() > 0.5 ? '#ffe66b' : '#ffffff',
+        alpha: 1, life: 0.05
+      });
+    }
+    scorePopups.push({ text: '+1', x, y: y - 14, vy: -1.4, alpha: 1, scale: 1.1, color: '#ffd23a' });
+  }
+
+  function drawCoins() {
+    const TAU = Math.PI * 2;
+    pipes.forEach(p => {
+      const c = p.coin;
+      if (!c || c.taken) return;
+      const squeeze = Math.abs(Math.cos(globalFrame * 0.08 + c.phase));
+      const rx = 2.5 + 8.5 * squeeze;
+
+      ctx.save();
+      ctx.translate(p.x + p.w / 2, c.y + Math.sin(globalFrame * 0.06 + c.phase) * 2);
+
+      const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 20);
+      glow.addColorStop(0, 'rgba(255, 230, 100, 0.45)');
+      glow.addColorStop(1, 'rgba(255, 230, 100, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, 0, TAU);
+      ctx.fill();
+
+      const cg = ctx.createLinearGradient(-rx, 0, rx, 0);
+      cg.addColorStop(0, '#c98a00');
+      cg.addColorStop(0.45, '#ffe66b');
+      cg.addColorStop(1, '#e0a100');
+      ctx.fillStyle = cg;
+      ctx.strokeStyle = '#7a4a00';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, 10, 0, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+
+      if (rx > 6) {
+        ctx.strokeStyle = 'rgba(122, 74, 0, 0.55)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx * 0.6, 6.4, 0, 0, TAU);
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+  }
+
+  function drawCoinCounter() {
+    ctx.save();
+    ctx.font = '700 15px "Fredoka", sans-serif';
+    const text = String(wallet.coins);
+    const w = 38 + ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+    roundRect(ctx, 12, 62, w, 26, 13);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffd23a';
+    ctx.strokeStyle = '#7a4a00';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(26, 75, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fff2a0';
+    ctx.beginPath();
+    ctx.arc(24.5, 73, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, 40, 76);
+    ctx.restore();
   }
 
   // --- Collision Engine ---
@@ -1483,6 +1656,7 @@
   function drawScoreHUD() {
     if (currentState !== STATE.PLAYING && currentState !== STATE.DYING) return;
 
+    drawCoinCounter();
     ctx.save();
     ctx.font = '900 48px "Fredoka", sans-serif';
     ctx.textAlign = 'center';
@@ -1506,6 +1680,7 @@
   }
 
   function drawStartScreen() {
+    drawCoinCounter();
     ctx.save();
     ctx.textAlign = 'center';
 
@@ -1552,6 +1727,43 @@
     ctx.fillText('Press T: Day/Night • Press S: Seasons', V_WIDTH / 2, promptY + 74);
 
     ctx.restore();
+    drawMenuButtons();
+  }
+
+  // Menu buttons (drawn on the canvas, hit-tested in the pointerdown handler)
+  const lbButtonRect = { x: 36, y: 478, w: 138, h: 42 };
+  const storeButtonRect = { x: 186, y: 478, w: 138, h: 42 };
+
+  function drawMenuButton(r, label, c0, c1, border) {
+    ctx.save();
+    const grad = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    grad.addColorStop(0, c0);
+    grad.addColorStop(1, c1);
+    ctx.fillStyle = grad;
+    roundRect(ctx, r.x, r.y, r.w, r.h, 21);
+    ctx.fill();
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillRect(r.x + 16, r.y + 4, r.w - 32, 3);
+
+    ctx.font = '700 13.5px "Fredoka", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 3;
+    ctx.strokeText(label, r.x + r.w / 2, r.y + r.h / 2 + 1);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + 1);
+    ctx.restore();
+  }
+
+  function drawMenuButtons() {
+    drawMenuButton(lbButtonRect, '🏆 LEADERBOARD', '#ffbf47', '#ee8a00', '#8a4b00');
+    drawMenuButton(storeButtonRect, '🐤 BIRD STORE', '#6cc3ff', '#2f86e0', '#14407a');
   }
 
   function drawTapIcon(cx, cy) {
@@ -1658,6 +1870,17 @@
 
     if (ease >= 0.75) {
       drawRestartButton(restartButtonRect);
+
+      ctx.font = '700 16px "Fredoka", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+      const coinLine = `+${runCoins} coins  •  total ${wallet.coins}`;
+      ctx.strokeStyle = '#3a2400';
+      ctx.lineWidth = 4;
+      ctx.strokeText(coinLine, V_WIDTH / 2, 516);
+      ctx.fillStyle = '#ffe27a';
+      ctx.fillText(coinLine, V_WIDTH / 2, 516);
     }
 
     ctx.restore();
@@ -1833,18 +2056,16 @@
     }
   }
 
-  // Offer the leaderboard automatically after a personal best or a decent run
-  const AUTO_PROMPT_MIN_SCORE = 5;
-
+  // The leaderboard opens after every run, whatever the score.
+  // (A score is only submittable when it is above zero.)
   function onRunEnded() {
     const lb = window.FlappyLeaderboard;
-    if (!lb || score <= 0) return;
-    lb.setPending(score);
-    if (isNewHighScore || score >= AUTO_PROMPT_MIN_SCORE) {
-      setTimeout(() => {
-        if (currentState === STATE.GAMEOVER) lb.open();
-      }, 900);
-    }
+    if (!lb) return;
+    if (score > 0) lb.setPending(score);
+    else lb.clearPending();
+    setTimeout(() => {
+      if (currentState === STATE.GAMEOVER) lb.open();
+    }, 900);
   }
 
   if (window.FlappyLeaderboard) {
@@ -1852,9 +2073,123 @@
     window.FlappyLeaderboard.canOpen = () => currentState !== STATE.PLAYING;
   }
 
+  // --- Bird Store ---
+  const storeOverlay = document.getElementById('store-overlay');
+  const storeGrid = document.getElementById('store-grid');
+  const storeCoinCount = document.getElementById('store-coin-count');
+  const storeMsg = document.getElementById('store-msg');
+  const storeClose = document.getElementById('store-close');
+  let storeVisible = false;
+  let storeRaf = 0;
+
+  function overlayOpen() {
+    return storeVisible || !!(window.FlappyLeaderboard && window.FlappyLeaderboard.isOpen());
+  }
+
+  function renderStore() {
+    storeCoinCount.textContent = wallet.coins;
+    storeGrid.textContent = '';
+    SKINS.forEach(skin => {
+      const owned = wallet.owned.includes(skin.id);
+      const equipped = wallet.equipped === skin.id;
+
+      const card = document.createElement('div');
+      card.className = 'store-card' + (equipped ? ' equipped' : '');
+
+      const cv = document.createElement('canvas');
+      cv.width = 160;
+      cv.height = 128;
+      cv.className = 'store-preview';
+      cv.dataset.skin = skin.id;
+
+      const name = document.createElement('div');
+      name.className = 'store-name';
+      name.textContent = skin.name;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lb-btn store-btn';
+      if (equipped) {
+        btn.textContent = 'Equipped';
+        btn.disabled = true;
+      } else if (owned) {
+        btn.textContent = 'Equip';
+        btn.addEventListener('click', () => equipSkin(skin));
+      } else {
+        btn.textContent = `🪙 ${skin.price}`;
+        if (wallet.coins < skin.price) btn.classList.add('store-locked');
+        btn.addEventListener('click', () => buySkin(skin));
+      }
+
+      card.append(cv, name, btn);
+      storeGrid.appendChild(card);
+    });
+  }
+
+  function equipSkin(skin) {
+    wallet.equipped = skin.id;
+    saveWallet();
+    storeMsg.textContent = `${skin.name} equipped.`;
+    sound.playTone(620, 0.08, 'sine');
+    renderStore();
+  }
+
+  function buySkin(skin) {
+    if (wallet.coins < skin.price) {
+      storeMsg.textContent = `Collect ${skin.price - wallet.coins} more coins to unlock ${skin.name}.`;
+      sound.playTone(180, 0.12, 'square');
+      return;
+    }
+    wallet.coins -= skin.price;
+    wallet.owned.push(skin.id);
+    wallet.equipped = skin.id;
+    saveWallet();
+    storeMsg.textContent = `${skin.name} unlocked and equipped!`;
+    sound.playCoin();
+    renderStore();
+  }
+
+  function animateStorePreviews() {
+    if (!storeVisible) return;
+    const t = performance.now() / 1000;
+    storeGrid.querySelectorAll('canvas').forEach((cv, i) => {
+      const g = cv.getContext('2d');
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, cv.width, cv.height);
+      g.setTransform(2, 0, 0, 2, 0, 0);
+      g.translate(42, 34 + Math.sin(t * 3 + i) * 2);
+      g.scale(1.3, 1.3);
+      drawBirdSprite(g, skinById(cv.dataset.skin), t * 12 + i, t * 9);
+    });
+    storeRaf = requestAnimationFrame(animateStorePreviews);
+  }
+
+  function openStore() {
+    if (storeVisible || currentState === STATE.PLAYING) return;
+    if (window.FlappyLeaderboard && window.FlappyLeaderboard.isOpen()) return;
+    storeVisible = true;
+    storeMsg.textContent = 'Collect coins in the pipe gaps to unlock new birds.';
+    renderStore();
+    storeOverlay.classList.remove('hidden');
+    cancelAnimationFrame(storeRaf);
+    animateStorePreviews();
+  }
+
+  function closeStore() {
+    storeVisible = false;
+    storeOverlay.classList.add('hidden');
+    cancelAnimationFrame(storeRaf);
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+
+  storeClose.addEventListener('click', closeStore);
+  storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
+  document.addEventListener('keydown', (e) => { if (storeVisible && e.key === 'Escape') closeStore(); });
+
   function restartGame() {
     if (window.FlappyLeaderboard) window.FlappyLeaderboard.clearPending();
     gameSpeed = BASE_SPEED;
+    runCoins = 0;
     pipes.length = 0;
     particles.length = 0;
     scorePopups.length = 0;
@@ -1866,15 +2201,43 @@
     sound.playTone(480, 0.08, 'sine');
   }
 
+  // Convert a pointer event to the canvas' 360x640 coordinate space (accounts for letterboxing)
+  function pointerToVirtual(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sc = Math.min(rect.width / V_WIDTH, rect.height / V_HEIGHT);
+    const ox = (rect.width - V_WIDTH * sc) / 2;
+    const oy = (rect.height - V_HEIGHT * sc) / 2;
+    return { x: (e.clientX - rect.left - ox) / sc, y: (e.clientY - rect.top - oy) / sc };
+  }
+
+  function inRect(r, p, pad = 4) {
+    return p.x >= r.x - pad && p.x <= r.x + r.w + pad && p.y >= r.y - pad && p.y <= r.y + r.h + pad;
+  }
+
   window.addEventListener('pointerdown', (e) => {
-    if (e.target === canvas || e.target.id === 'game-container') {
-      handleAction(e);
+    if (e.target !== canvas && e.target.id !== 'game-container') return;
+
+    if (currentState === STATE.READY) {
+      const p = pointerToVirtual(e);
+      if (inRect(lbButtonRect, p)) {
+        e.preventDefault();
+        sound.init();
+        if (window.FlappyLeaderboard) window.FlappyLeaderboard.open();
+        return;
+      }
+      if (inRect(storeButtonRect, p)) {
+        e.preventDefault();
+        sound.init();
+        openStore();
+        return;
+      }
     }
+    handleAction(e);
   }, { passive: false });
 
   window.addEventListener('keydown', (e) => {
     // Leave the keyboard alone while the leaderboard (and its name box) is open
-    if (window.FlappyLeaderboard && window.FlappyLeaderboard.isOpen()) return;
+    if (overlayOpen()) return;
 
     if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
       e.preventDefault();
@@ -1885,6 +2248,12 @@
     } else if (e.key === 's' || e.key === 'S') {
       e.preventDefault();
       toggleSeason();
+    } else if (e.key === 'l' || e.key === 'L') {
+      e.preventDefault();
+      if (window.FlappyLeaderboard) window.FlappyLeaderboard.open();
+    } else if (e.key === 'b' || e.key === 'B') {
+      e.preventDefault();
+      openStore();
     } else if (e.key === 'm' || e.key === 'M') {
       e.preventDefault();
       sound.toggleMute();
@@ -1962,8 +2331,10 @@
 
         if (p.x + p.w < -30) pipes.splice(i, 1);
       }
+      collectCoins();
     }
     pipes.forEach(p => p.draw(cycle));
+    drawCoins();
 
     // 7. Textured Earth & Grass Turf Ground Moving Backward
     drawGround(season);

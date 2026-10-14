@@ -52,6 +52,17 @@
     <!-- Main Responsive High-DPI HTML5 Canvas -->
     <canvas id="game-canvas" width="360" height="640"></canvas>
 
+    <!-- Bird Store Overlay -->
+    <div id="store-overlay" class="lb-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="store-title">
+      <div class="lb-panel">
+        <h2 id="store-title">BIRD STORE</h2>
+        <div class="store-coins" aria-live="polite">🪙 <b id="store-coin-count">0</b></div>
+        <p id="store-msg" class="lb-status" aria-live="polite"></p>
+        <div id="store-grid" class="store-grid"></div>
+        <button id="store-close" class="lb-btn lb-btn-secondary" type="button">Close</button>
+      </div>
+    </div>
+
     <!-- Leaderboard Overlay -->
     <div id="lb-overlay" class="lb-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="lb-title">
       <div class="lb-panel">

@@ -37,6 +37,11 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
 - Top 10 board with name entry, opened from the 🏆 BEST pill or automatically after a personal best (or a score of 5+).
 - Works in **local mode** (this device only) until you connect a database. See setup below.
 
+### 🪙 Coins & Bird Store
+- Collect the spinning coin floating in each pipe gap. Coins are saved on your device.
+- Open the **🐤 BIRD STORE** from the start menu (or press `B`) to buy and equip birds: Blue Jay, Ruby, Parrot, Shadow and Bubblegum. Edit the `SKINS` list in `game.js` to change prices or add more.
+- The leaderboard opens after every run, and the **🏆 LEADERBOARD** button is on the start menu (or press `L`).
+
 ### 🎮 Controls
 - **Fly / Jump:** Tap anywhere on mobile, click canvas on desktop, or press `Space` / `ArrowUp` / `W`.
 - **Change Time of Day:** Tap the `[☀️ DAY]` pill in the header or press `T` (cycles `AUTO 🔄`, `DAY ☀️`, `SUNSET 🌅`, `NIGHT 🌙`, `DAWN 🌄`).
