@@ -12,7 +12,7 @@
 
   const CONFIG = {
     // e.g. 'https://your-project-default-rtdb.firebaseio.com'
-    databaseURL: '',
+    databaseURL: 'https://flappy-bird-ae650-default-rtdb.asia-southeast1.firebasedatabase.app/',
     collection: 'scores',
     topN: 10,
     timeoutMs: 6000,
