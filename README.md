@@ -29,10 +29,43 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
   4. **Layer 4:** Classic green pipes moving backward.
   5. **Layer 5:** Stratified earth and grass turf ground moving backward in sync with flight speed.
 
+### 📈 Gradual Difficulty
+- Scroll speed eases up smoothly as your score climbs (`BASE_SPEED`, `MAX_SPEED`, `SPEED_PER_POINT` at the top of `game.js`).
+- Pipes are spaced by distance, so gaps stay evenly spaced at every speed.
+
+### 🏆 Online Leaderboard
+- Top 10 board with name entry, opened from the 🏆 BEST pill or automatically after a personal best (or a score of 5+).
+- Works in **local mode** (this device only) until you connect a database. See setup below.
+
 ### 🎮 Controls
 - **Fly / Jump:** Tap anywhere on mobile, click canvas on desktop, or press `Space` / `ArrowUp` / `W`.
 - **Change Time of Day:** Tap the `[☀️ DAY]` pill in the header or press `T` (cycles `AUTO 🔄`, `DAY ☀️`, `SUNSET 🌅`, `NIGHT 🌙`, `DAWN 🌄`).
+- **Leaderboard:** Tap the `🏆 BEST` pill. `Esc` closes it.
 - **Mute Audio:** Tap the sound button or press `M`.
+
+---
+
+## 🌐 Leaderboard Setup (Firebase Realtime Database, free tier)
+
+1. Create a project at <https://console.firebase.google.com> and add a **Realtime Database** (start in locked mode).
+2. In **Rules**, paste this and publish:
+   ```json
+   {
+     "rules": {
+       "scores": {
+         ".read": true,
+         ".indexOn": ["score"],
+         "$id": {
+           ".write": "!data.exists()",
+           ".validate": "newData.hasChildren(['name','score','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 500"
+         }
+       }
+     }
+   }
+   ```
+3. Copy the database URL (looks like `https://your-project-default-rtdb.firebaseio.com`) into `CONFIG.databaseURL` at the top of `leaderboard.js`.
+
+Entries can be created but never edited or deleted by players. This is a casual board: because the game runs in the browser, a determined player could still post a fake score. The rules above cap names and scores, and `MAX_SCORE` in `leaderboard.js` must match the cap.
 
 ---
 
@@ -52,6 +85,7 @@ Then open `http://localhost:8000/`.
 ├── index.html        # Main HTML layout, viewport & header HUD
 ├── style.css         # Retro cabinet frame, classic typography, responsive styling
 ├── game.js           # Authentic bird, pipe shading, parallax scenery & sound engine
+├── leaderboard.js    # Online Top 10 leaderboard (Firebase REST, local fallback)
 ├── .gitignore        # Standard ignore rules
 └── README.md         # Documentation
 ```

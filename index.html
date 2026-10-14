@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#4ec0ca">
-  <meta name="description" content="Classic Flappy Bird arcade game featuring hand-crafted retro textures, parallax moving scenery, and dynamic day/night cycles.">
+  <meta name="description" content="Classic Flappy Bird arcade game featuring hand-crafted retro textures, parallax moving scenery, and dynamic day/night cycles and an online leaderboard.">
   <title>Flappy Bird - Classic Arcade</title>
 
   <!-- Google Fonts: Fredoka & Press Start 2P for Arcade Polish -->
@@ -41,19 +41,41 @@
         <span id="season-text" class="pill-season">SPRING</span>
       </button>
 
-      <div class="header-pill best-pill">
+      <!-- Best score (tap to open the leaderboard) -->
+      <button id="best-btn" class="header-pill best-pill" aria-label="Open leaderboard" title="Leaderboard">
+        <span id="best-icon" aria-hidden="true">🏆</span>
         <span class="pill-label">BEST</span>
         <span id="best-score-badge" class="pill-value">0</span>
-      </div>
+      </button>
     </header>
 
     <!-- Main Responsive High-DPI HTML5 Canvas -->
     <canvas id="game-canvas" width="360" height="640"></canvas>
 
+    <!-- Leaderboard Overlay -->
+    <div id="lb-overlay" class="lb-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="lb-title">
+      <div class="lb-panel">
+        <h2 id="lb-title">LEADERBOARD</h2>
+        <p id="lb-status" class="lb-status" aria-live="polite"></p>
+
+        <div id="lb-submit" class="lb-submit hidden">
+          <div class="lb-your-score">Your score: <b id="lb-score">0</b></div>
+          <div class="lb-row">
+            <input id="lb-name" type="text" maxlength="12" placeholder="Your name" autocomplete="off" autocapitalize="words" spellcheck="false" aria-label="Your name">
+            <button id="lb-submit-btn" class="lb-btn" type="button">Submit</button>
+          </div>
+        </div>
+
+        <ol id="lb-list" class="lb-list"></ol>
+        <button id="lb-close" class="lb-btn lb-btn-secondary" type="button">Close</button>
+      </div>
+    </div>
+
     <!-- Fallback Screen Reader Announcements -->
     <div id="sr-announcements" class="sr-only" aria-live="polite"></div>
   </div>
 
+  <script src="leaderboard.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

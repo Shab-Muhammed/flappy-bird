@@ -12,6 +12,8 @@
  *    • Seasonal weather particles drifting backward (Sakura petals, golden motes, autumn leaves, snowflakes)
  *    • Stratified textured dirt with diagonal soil stripes
  * - Smooth physics and synthesized retro audio
+ * - Gradually increasing speed, fully blended day/night transitions
+ * - Online Top 10 leaderboard (see leaderboard.js)
  */
 
 (() => {
@@ -227,8 +229,15 @@
   let flashWhiteAlpha = 0;
   let globalFrame = 0;
 
-  // Calibrated smooth classic speed
-  const GAME_SPEED = 1.62;
+  // Gradual difficulty: scroll speed eases up as the score climbs.
+  // Tune these three numbers to make the ramp gentler or harsher.
+  const BASE_SPEED = 1.62;
+  const MAX_SPEED = 2.7;
+  const SPEED_PER_POINT = 0.03;   // reaches MAX_SPEED around score 36
+  let gameSpeed = BASE_SPEED;
+  function targetSpeed() {
+    return Math.min(MAX_SPEED, BASE_SPEED + score * SPEED_PER_POINT);
+  }
   const GROUND_HEIGHT = 108;
   const GROUND_Y = V_HEIGHT - GROUND_HEIGHT;
 
@@ -307,6 +316,7 @@
   const CYCLE_MODES = ['AUTO', 'DAY', 'SUNSET', 'NIGHT', 'DAWN'];
   let currentCycleModeIndex = 0; // 0 = AUTO
   let cycleProgress = 0.08; // Starts in bright, beautiful day
+  let cycleBoost = 0;       // pending score-based time advance, fed in gradually
 
   // --- 2. Dynamic Organic Season Cycles Engine ---
   const SEASONS = [
@@ -355,6 +365,7 @@
   const SEASON_MODES = ['AUTO', 'SPRING', 'SUMMER', 'AUTUMN', 'WINTER'];
   let currentSeasonModeIndex = 0; // 0 = AUTO
   let seasonProgress = 0.05; // Starts in Spring
+  let seasonBoost = 0;       // pending score-based season advance, fed in gradually
 
   // Night Stars
   const stars = [];
@@ -396,7 +407,7 @@
     if (currentState === STATE.PLAYING || currentState === STATE.READY) {
       clouds.forEach(cl => {
         // Drifting backward across the sky
-        cl.x -= cl.speed * GAME_SPEED;
+        cl.x -= cl.speed * gameSpeed;
         if (cl.x + 140 * cl.scale < -40) {
           cl.x = V_WIDTH + 40 + Math.random() * 60;
           cl.y = 28 + Math.random() * 75;
@@ -525,14 +536,51 @@
     });
   }
 
-  // --- Dynamic Gradual Day & Night Interpolation ---
+  // --- Smooth Day & Night Interpolation ---
+  // Every colour is parsed once into [r,g,b,a] so sky, clouds, mountains and shadows
+  // all blend continuously instead of snapping when a stage changes.
+  const CYCLE_AUTO_SPEED = 0.00018; // ~90s for a full day at 60fps
+  const CYCLE_COLOR_KEYS = ['skyTop', 'skyMid', 'skyBot', 'mountainColor', 'mountainOutline', 'cloudTop', 'cloudBot', 'cloudShadow'];
+
+  function parseColor(c) {
+    if (Array.isArray(c)) return [c[0], c[1], c[2], 1];
+    if (c[0] === '#') {
+      const h = c.length === 4 ? c.slice(1).split('').map(x => x + x).join('') : c.slice(1);
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 1];
+    }
+    const m = c.match(/[\d.]+/g).map(Number);
+    return [m[0], m[1], m[2], m.length > 3 ? m[3] : 1];
+  }
+
+  CYCLES.forEach(cy => {
+    cy.parsed = {};
+    CYCLE_COLOR_KEYS.forEach(k => { cy.parsed[k] = parseColor(cy[k]); });
+  });
+
+  function mixColor(a, b, t) {
+    return a.map((v, i) => v + (b[i] - v) * t);
+  }
+
+  function toCss(c) {
+    return `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${+c[3].toFixed(3)})`;
+  }
+
+  // Half linear, half smoothstep: no hard stop-and-go at each keyframe
+  function easeBlend(t) {
+    const s = t * t * (3 - 2 * t);
+    return t + (s - t) * 0.5;
+  }
+
   function getCycleState() {
     const mode = CYCLE_MODES[currentCycleModeIndex];
 
     if (mode === 'AUTO') {
-      // Smooth continuous advance (~50s full cycle)
-      cycleProgress = (cycleProgress + 0.00032) % 1.0;
+      // Score bonus is fed in a little each frame so the sky never jumps
+      const bonusStep = cycleBoost * 0.02;
+      cycleBoost -= bonusStep;
+      cycleProgress = (cycleProgress + CYCLE_AUTO_SPEED + bonusStep) % 1.0;
     } else {
+      cycleBoost = 0;
       let targetP = 0.0;
       if (mode === 'DAY') targetP = 0.0;
       else if (mode === 'SUNSET') targetP = 0.25;
@@ -542,50 +590,41 @@
       let diff = targetP - cycleProgress;
       if (diff > 0.5) diff -= 1.0;
       if (diff < -0.5) diff += 1.0;
-      cycleProgress = (cycleProgress + diff * 0.06 + 1.0) % 1.0;
+      cycleProgress = (cycleProgress + diff * 0.03 + 1.0) % 1.0;
     }
 
     const stageFloat = cycleProgress * 4;
-    const stageIndex = Math.floor(stageFloat);
-    const stageLerp = stageFloat - stageIndex;
-    const smoothT = (1 - Math.cos(stageLerp * Math.PI)) / 2;
+    const stageBase = Math.floor(stageFloat);
+    const stageLerp = stageFloat - stageBase;
+    const t = easeBlend(stageLerp);
 
-    const fromCycle = CYCLES[stageIndex % 4];
-    const toCycle = CYCLES[(stageIndex + 1) % 4];
+    const fromCycle = CYCLES[stageBase % 4];
+    const toCycle = CYCLES[(stageBase + 1) % 4];
+    const mix = (key) => toCss(mixColor(fromCycle.parsed[key], toCycle.parsed[key], t));
 
-    function lerpColor(c1, c2, t) {
-      return [
-        Math.round(c1[0] + (c2[0] - c1[0]) * t),
-        Math.round(c1[1] + (c2[1] - c1[1]) * t),
-        Math.round(c1[2] + (c2[2] - c1[2]) * t)
-      ];
-    }
-
-    const skyTop = lerpColor(fromCycle.skyTop, toCycle.skyTop, smoothT);
-    const skyMid = lerpColor(fromCycle.skyMid, toCycle.skyMid, smoothT);
-    const skyBot = lerpColor(fromCycle.skyBot, toCycle.skyBot, smoothT);
-    const mountainCol = lerpColor(fromCycle.mountainColor, toCycle.mountainColor, smoothT);
-
-    const nightRatio = fromCycle.nightRatio + (toCycle.nightRatio - fromCycle.nightRatio) * smoothT;
-    const pipeBrightness = fromCycle.pipeBrightness + (toCycle.pipeBrightness - fromCycle.pipeBrightness) * smoothT;
-
-    const activeName = stageLerp < 0.5 ? fromCycle.name : toCycle.name;
-    const activeIcon = stageLerp < 0.5 ? fromCycle.icon : toCycle.icon;
+    const nightRatio = fromCycle.nightRatio + (toCycle.nightRatio - fromCycle.nightRatio) * t;
+    const pipeBrightness = fromCycle.pipeBrightness + (toCycle.pipeBrightness - fromCycle.pipeBrightness) * t;
 
     if (cycleText && cycleIcon) {
-      cycleText.textContent = mode === 'AUTO' ? activeName : mode;
-      cycleIcon.textContent = mode === 'AUTO' ? activeIcon : fromCycle.icon;
+      if (mode === 'AUTO') {
+        const active = stageLerp < 0.5 ? fromCycle : toCycle;
+        cycleText.textContent = active.name;
+        cycleIcon.textContent = active.icon;
+      } else {
+        cycleText.textContent = mode;
+        cycleIcon.textContent = CYCLES.find(c => c.name === mode).icon;
+      }
     }
 
     return {
-      skyTop: `rgb(${skyTop[0]},${skyTop[1]},${skyTop[2]})`,
-      skyMid: `rgb(${skyMid[0]},${skyMid[1]},${skyMid[2]})`,
-      skyBot: `rgb(${skyBot[0]},${skyBot[1]},${skyBot[2]})`,
-      mountainColor: `rgb(${mountainCol[0]},${mountainCol[1]},${mountainCol[2]})`,
-      mountainOutline: toCycle.mountainOutline,
-      cloudTop: toCycle.cloudTop,
-      cloudBot: toCycle.cloudBot,
-      cloudShadow: toCycle.cloudShadow,
+      skyTop: mix('skyTop'),
+      skyMid: mix('skyMid'),
+      skyBot: mix('skyBot'),
+      mountainColor: mix('mountainColor'),
+      mountainOutline: mix('mountainOutline'),
+      cloudTop: mix('cloudTop'),
+      cloudBot: mix('cloudBot'),
+      cloudShadow: mix('cloudShadow'),
       nightRatio,
       pipeBrightness,
       cycleProgress
@@ -598,7 +637,9 @@
 
     if (sMode === 'AUTO') {
       // Smooth continuous advance (~140s full cycle across all 4 seasons)
-      seasonProgress = (seasonProgress + 0.00012) % 1.0;
+      const seasonBonusStep = seasonBoost * 0.02;
+      seasonBoost -= seasonBonusStep;
+      seasonProgress = (seasonProgress + 0.00012 + seasonBonusStep) % 1.0;
     } else {
       let targetP = 0.0;
       if (sMode === 'SPRING') targetP = 0.0;
@@ -663,11 +704,12 @@
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
     // Stars at Night
-    if (cycle.nightRatio > 0.08) {
+    const starVis = Math.pow(cycle.nightRatio, 1.5);
+    if (starVis > 0.01) {
       stars.forEach(st => {
         const twinkle = Math.sin(globalFrame * 0.08 + st.twinkleOffset) * 0.35 + 0.65;
         ctx.save();
-        ctx.globalAlpha = cycle.nightRatio * twinkle;
+        ctx.globalAlpha = starVis * twinkle;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(st.x, st.y, st.size, 0, Math.PI * 2);
@@ -678,7 +720,7 @@
       updateShootingStar();
       if (shootingStar.life > 0) {
         ctx.save();
-        ctx.globalAlpha = cycle.nightRatio * (shootingStar.life / 24);
+        ctx.globalAlpha = starVis * (shootingStar.life / 24);
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.8;
         ctx.beginPath();
@@ -689,84 +731,85 @@
       }
     }
 
-    // Celestial Sun: Travels in a parabolic arc
-    const isSunTime = cycle.cycleProgress < 0.46 || cycle.cycleProgress > 0.82;
-    if (isSunTime) {
-      let sunNorm = cycle.cycleProgress < 0.5 ? (cycle.cycleProgress + 0.18) / 0.64 : (cycle.cycleProgress - 0.82) / 0.64;
-      sunNorm = Math.max(0, Math.min(1, sunNorm));
+    const smooth = (t) => t * t * (3 - 2 * t);
+    const edgeFade = (t, w) => Math.max(0, Math.min(1, t / w, (1 - t) / w));
 
-      const sunX = V_WIDTH * 0.15 + sunNorm * (V_WIDTH * 0.70);
-      const sunY = 70 + Math.pow(sunNorm - 0.5, 2) * 440;
+    // Celestial Sun: rises around progress 0.78, sets around 0.46, fading near the horizon
+    const sunT = ((cycle.cycleProgress + 0.22) % 1.0) / 0.68;
+    if (sunT <= 1) {
+      const sunAlpha = smooth(edgeFade(sunT, 0.14)) * Math.max(0, 1 - cycle.nightRatio * 1.5);
+      if (sunAlpha > 0.01) {
+        const sunX = V_WIDTH * 0.12 + sunT * (V_WIDTH * 0.76);
+        const sunY = 80 + Math.pow(sunT - 0.5, 2) * 4 * 250;
 
-      ctx.save();
-      const sunAlpha = Math.max(0, 1 - cycle.nightRatio * 1.5);
-      ctx.globalAlpha = sunAlpha;
+        ctx.save();
+        ctx.globalAlpha = sunAlpha;
 
-      // Soft Warm Halo
-      const haloGrad = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 56);
-      haloGrad.addColorStop(0, 'rgba(255, 245, 180, 0.6)');
-      haloGrad.addColorStop(0.5, 'rgba(255, 220, 120, 0.25)');
-      haloGrad.addColorStop(1, 'rgba(255, 200, 100, 0)');
-      ctx.fillStyle = haloGrad;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, 56, 0, Math.PI * 2);
-      ctx.fill();
+        // Soft Warm Halo
+        const haloGrad = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 56);
+        haloGrad.addColorStop(0, 'rgba(255, 245, 180, 0.6)');
+        haloGrad.addColorStop(0.5, 'rgba(255, 220, 120, 0.25)');
+        haloGrad.addColorStop(1, 'rgba(255, 200, 100, 0)');
+        ctx.fillStyle = haloGrad;
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, 56, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Radiant Sun Disk
-      const sunGrad = ctx.createRadialGradient(sunX - 6, sunY - 6, 2, sunX, sunY, 26);
-      sunGrad.addColorStop(0, '#ffffff');
-      sunGrad.addColorStop(0.4, '#fff688');
-      sunGrad.addColorStop(1, '#ffc838');
-      ctx.fillStyle = sunGrad;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, 26, 0, Math.PI * 2);
-      ctx.fill();
+        // Radiant Sun Disk
+        const sunGrad = ctx.createRadialGradient(sunX - 6, sunY - 6, 2, sunX, sunY, 26);
+        sunGrad.addColorStop(0, '#ffffff');
+        sunGrad.addColorStop(0.4, '#fff688');
+        sunGrad.addColorStop(1, '#ffc838');
+        ctx.fillStyle = sunGrad;
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, 26, 0, Math.PI * 2);
+        ctx.fill();
 
-      ctx.restore();
+        ctx.restore();
+      }
     }
 
-    // Celestial Moon: Travels in an arc at Night
-    const isMoonTime = cycle.cycleProgress > 0.38 && cycle.cycleProgress < 0.90;
-    if (isMoonTime && cycle.nightRatio > 0.15) {
-      let moonNorm = (cycle.cycleProgress - 0.38) / 0.52;
-      moonNorm = Math.max(0, Math.min(1, moonNorm));
+    // Celestial Moon: crosses the sky from progress 0.34 to 0.92, fading at both ends
+    const moonT = ((cycle.cycleProgress - 0.34 + 1.0) % 1.0) / 0.58;
+    if (moonT <= 1) {
+      const moonAlpha = smooth(edgeFade(moonT, 0.18)) * Math.min(1, cycle.nightRatio * 1.6);
+      if (moonAlpha > 0.01) {
+        const moonX = V_WIDTH * 0.14 + moonT * (V_WIDTH * 0.72);
+        const moonY = 70 + Math.pow(moonT - 0.5, 2) * 4 * 220;
 
-      const moonX = V_WIDTH * 0.18 + moonNorm * (V_WIDTH * 0.64);
-      const moonY = 66 + Math.pow(moonNorm - 0.5, 2) * 360;
+        ctx.save();
+        ctx.globalAlpha = moonAlpha;
 
-      ctx.save();
-      ctx.globalAlpha = cycle.nightRatio;
+        // Soft Lunar Halo
+        const moonHalo = ctx.createRadialGradient(moonX, moonY, 12, moonX, moonY, 48);
+        moonHalo.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
+        moonHalo.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = moonHalo;
+        ctx.beginPath();
+        ctx.arc(moonX, moonY, 48, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Soft Lunar Halo
-      const moonHalo = ctx.createRadialGradient(moonX, moonY, 12, moonX, moonY, 48);
-      moonHalo.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
-      moonHalo.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = moonHalo;
-      ctx.beginPath();
-      ctx.arc(moonX, moonY, 48, 0, Math.PI * 2);
-      ctx.fill();
+        // Crescent: outer disc minus an offset disc (true cut-out, so it stays clean while fading)
+        ctx.beginPath();
+        ctx.arc(moonX, moonY, 20, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.beginPath();
+        ctx.rect(moonX - 30, moonY - 30, 60, 60);
+        ctx.moveTo(moonX + 8 + 17.5, moonY - 4);
+        ctx.arc(moonX + 8, moonY - 4, 17.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fill('evenodd');
 
-      // Crescent Moon
-      ctx.fillStyle = '#f8f9fa';
-      ctx.beginPath();
-      ctx.arc(moonX, moonY, 20, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Mask for realistic crescent
-      ctx.fillStyle = cycle.skyTop;
-      ctx.beginPath();
-      ctx.arc(moonX + 8, moonY - 4, 17.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.restore();
+        ctx.restore();
+      }
     }
   }
 
   // --- Parallax Scenery: Mountains & Rolling Hills with Seasonal Trees Moving Backward ---
   function drawMovingScenery(cycle, season) {
     if (currentState === STATE.PLAYING || currentState === STATE.READY) {
-      mountainScrollOffset += GAME_SPEED * 0.16;
-      hillsScrollOffset += GAME_SPEED * 0.38;
+      mountainScrollOffset += gameSpeed * 0.16;
+      hillsScrollOffset += gameSpeed * 0.38;
     }
 
     // LAYER 1: Distant Mountain Ridge (Moving Backward)
@@ -780,6 +823,7 @@
     ctx.lineWidth = 1.8;
 
     for (let x = mStart; x < V_WIDTH + M_TILE_W; x += M_TILE_W) {
+      ctx.fillStyle = cycle.mountainColor;
       ctx.beginPath();
       ctx.moveTo(x, mBaseY);
       ctx.lineTo(x + 70, mBaseY - 82);
@@ -864,7 +908,7 @@
   // --- Hand-Crafted Ground: Grass Turf & Stratified Soil ---
   function drawGround(season) {
     if (currentState === STATE.PLAYING || currentState === STATE.READY) {
-      groundScrollOffset = (groundScrollOffset + GAME_SPEED) % 24;
+      groundScrollOffset = (groundScrollOffset + gameSpeed) % 24;
     }
 
     // 1. Seasonal Grass Turf Strip (Morphs with active season)
@@ -924,7 +968,7 @@
   const pipes = [];
   const PIPE_WIDTH = 62;
   const PIPE_GAP = 152;
-  const PIPE_SPAWN_INTERVAL = 145;
+  const PIPE_SPACING = 235;   // horizontal distance between pipe pairs (px)
   let pipeTimer = 0;
 
   class PipePair {
@@ -941,7 +985,7 @@
     }
 
     update() {
-      this.x -= GAME_SPEED;
+      this.x -= gameSpeed;
     }
 
     draw(cycle) {
@@ -1789,7 +1833,28 @@
     }
   }
 
+  // Offer the leaderboard automatically after a personal best or a decent run
+  const AUTO_PROMPT_MIN_SCORE = 5;
+
+  function onRunEnded() {
+    const lb = window.FlappyLeaderboard;
+    if (!lb || score <= 0) return;
+    lb.setPending(score);
+    if (isNewHighScore || score >= AUTO_PROMPT_MIN_SCORE) {
+      setTimeout(() => {
+        if (currentState === STATE.GAMEOVER) lb.open();
+      }, 900);
+    }
+  }
+
+  if (window.FlappyLeaderboard) {
+    // Never pop the leaderboard open in the middle of a run
+    window.FlappyLeaderboard.canOpen = () => currentState !== STATE.PLAYING;
+  }
+
   function restartGame() {
+    if (window.FlappyLeaderboard) window.FlappyLeaderboard.clearPending();
+    gameSpeed = BASE_SPEED;
     pipes.length = 0;
     particles.length = 0;
     scorePopups.length = 0;
@@ -1808,6 +1873,9 @@
   }, { passive: false });
 
   window.addEventListener('keydown', (e) => {
+    // Leave the keyboard alone while the leaderboard (and its name box) is open
+    if (window.FlappyLeaderboard && window.FlappyLeaderboard.isOpen()) return;
+
     if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
       e.preventDefault();
       handleAction(e);
@@ -1869,9 +1937,12 @@
 
     // 6. Hand-Crafted Green Pipes
     if (currentState === STATE.PLAYING) {
-      pipeTimer++;
-      if (pipeTimer >= PIPE_SPAWN_INTERVAL) {
-        pipeTimer = 0;
+      // Ease toward the speed for the current score (no sudden jumps)
+      gameSpeed += (targetSpeed() - gameSpeed) * 0.02;
+
+      pipeTimer += gameSpeed;
+      if (pipeTimer >= PIPE_SPACING) {
+        pipeTimer -= PIPE_SPACING;
         pipes.push(new PipePair(V_WIDTH + 10));
       }
 
@@ -1882,12 +1953,8 @@
         if (!p.passed && p.x + p.w < bird.x) {
           p.passed = true;
           score++;
-          if (CYCLE_MODES[currentCycleModeIndex] === 'AUTO') {
-            cycleProgress = (cycleProgress + 0.014) % 1.0;
-          }
-          if (SEASON_MODES[currentSeasonModeIndex] === 'AUTO') {
-            seasonProgress = (seasonProgress + 0.008) % 1.0;
-          }
+          if (CYCLE_MODES[currentCycleModeIndex] === 'AUTO') cycleBoost += 0.014;
+          if (SEASON_MODES[currentSeasonModeIndex] === 'AUTO') seasonBoost += 0.008;
           createScoreSparkles(bird.x + 10, bird.y);
           sound.playScore();
           srAnnouncements.textContent = `Score: ${score}`;
@@ -1913,6 +1980,7 @@
         bird.y = GROUND_Y - 12;
         bird.vy = 0;
         currentState = STATE.GAMEOVER;
+        onRunEnded();
       }
     } else if (currentState === STATE.GAMEOVER) {
       gameOverTimer++;
