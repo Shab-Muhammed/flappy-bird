@@ -297,12 +297,43 @@
       lip: ['#a8760d', '#d9a521', '#fff5b8', '#cf9c1a', '#5e3d05'], outline: '#4a2f03' }
   ];
 
+  const isHexColor = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+  function validPalette(value, length) {
+    return Array.isArray(value) && value.length === length && value.every(isHexColor);
+  }
+  function normalizeCustomSkin(item, kind) {
+    if (!item || typeof item !== 'object' || !/^custom-[a-z0-9-]{1,40}$/.test(item.id || '') ||
+        typeof item.name !== 'string' || !item.name.trim() || item.name.length > 24) return null;
+    if (typeof item.image !== 'string' || !/^data:image\/(?:webp|png|jpeg);base64,/.test(item.image) || item.image.length > 1000000) return null;
+    if (kind === 'bird') {
+      const colors = [item.tail, item.crest, item.outline, item.outlineSoft, item.quill];
+      if (!validPalette(item.body, 4) || !validPalette(item.belly, 3) || !validPalette(item.wing, 4) ||
+          !validPalette(item.beak, 3) || !colors.every(isHexColor)) return null;
+    } else if (!validPalette(item.shaft, 6) || !validPalette(item.lip, 5) || !isHexColor(item.outline)) {
+      return null;
+    }
+    return { ...item, name: item.name.trim(), price: 0, custom: true };
+  }
+  const skinPack = window.FLAPPY_CUSTOM_SKINS || {};
+  const customSkins = {
+    birds: Array.isArray(skinPack.birds) ? skinPack.birds.map(s => normalizeCustomSkin(s, 'bird')).filter(Boolean).slice(0, 24) : [],
+    pipes: Array.isArray(skinPack.pipes) ? skinPack.pipes.map(s => normalizeCustomSkin(s, 'pipe')).filter(Boolean).slice(0, 24) : []
+  };
+  SKINS.push(...customSkins.birds);
+  PIPE_SKINS.push(...customSkins.pipes);
+  const customSkinImages = new Map();
+  [...customSkins.birds, ...customSkins.pipes].forEach(skin => {
+    const image = new Image();
+    image.onload = () => customSkinImages.set(skin.id, image);
+    image.src = skin.image;
+  });
+
   function loadOwned(key, list) {
     let owned = ['classic'];
     try {
       const saved = JSON.parse(lsGet(key) || '[]');
       if (Array.isArray(saved)) {
-        owned = Array.from(new Set(['classic', ...saved.filter(id => list.some(s => s.id === id))]));
+        owned = Array.from(new Set(['classic', ...list.filter(s => s.custom).map(s => s.id), ...saved.filter(id => list.some(s => s.id === id))]));
       }
     } catch (e) { /* keep default */ }
     return owned;
@@ -1121,6 +1152,7 @@
 
     drawPipeSection(x, y, w, h, isTop, cycle) {
       const ps = activePipeSkin();
+      const skinImage = ps.custom ? customSkinImages.get(ps.id) : null;
       const lipHeight = 28;
       const lipOverlap = 5;
       const lipWidth = w + lipOverlap * 2;
@@ -1140,6 +1172,14 @@
 
       ctx.fillStyle = shaftGrad;
       ctx.fillRect(x, shaftY, w, shaftHeight);
+      if (skinImage && shaftHeight > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, shaftY, w, shaftHeight);
+        ctx.clip();
+        drawSkinImage(ctx, skinImage, x, shaftY, w, shaftHeight, ps.fit);
+        ctx.restore();
+      }
 
       // Shaft Outline
       ctx.strokeStyle = ps.outline;
@@ -1161,7 +1201,15 @@
       ctx.fillStyle = lipGrad;
       ctx.beginPath();
       this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
-      ctx.fill();
+      if (skinImage) {
+        ctx.save();
+        this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
+        ctx.clip();
+        drawSkinImage(ctx, skinImage, lipX, lipY, lipWidth, lipHeight, ps.fit);
+        ctx.restore();
+      } else {
+        ctx.fill();
+      }
 
       // Lip Outline
       ctx.strokeStyle = ps.outline;
@@ -1204,7 +1252,23 @@
   }
 
   // Draws the bird around the origin (caller positions/rotates). Used by the game and the store.
+  function drawSkinImage(context, image, x, y, width, height, fit = 'cover') {
+    if (!image || !image.complete || !image.naturalWidth || !image.naturalHeight) return false;
+    const scale = fit === 'contain'
+      ? Math.min(width / image.naturalWidth, height / image.naturalHeight)
+      : Math.max(width / image.naturalWidth, height / image.naturalHeight);
+    const drawWidth = image.naturalWidth * scale;
+    const drawHeight = image.naturalHeight * scale;
+    context.drawImage(image, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+    return true;
+  }
+
   function drawBirdSprite(g, skin, wingAngle, tailWag) {
+    const skinImage = skin.custom ? customSkinImages.get(skin.id) : null;
+    if (skinImage) {
+      drawSkinImage(g, skinImage, -22, -18, 46, 36, skin.fit);
+      return;
+    }
 
     // --- 1. Tail Feathers (3 Layered Classic Feathers) ---
     const wag = Math.sin(tailWag) * 3;
@@ -1281,14 +1345,14 @@
     wingGrad.addColorStop(0.35, skin.wing[1]);
     wingGrad.addColorStop(0.85, skin.wing[2]);
     wingGrad.addColorStop(1, skin.wing[3]);
-
     g.fillStyle = wingGrad;
     g.strokeStyle = skin.outline;
     g.lineWidth = 2;
-
     g.beginPath();
     g.ellipse(-4, -1 + wingFlap * 0.35, 10, 7.2, -0.22, 0, Math.PI * 2);
     g.fill();
+    g.strokeStyle = skin.outline;
+    g.lineWidth = 2;
     g.stroke();
 
     // Wing Feather Quill Line
@@ -2207,6 +2271,7 @@
 
   // Small static pipe for the Pipes tab (80x64 preview space)
   function drawPipePreview(g, skin) {
+    const skinImage = skin.custom ? customSkinImages.get(skin.id) : null;
     g.lineWidth = 2.5;
     g.strokeStyle = skin.outline;
 
@@ -2214,6 +2279,12 @@
     [0, 0.18, 0.38, 0.68, 0.9, 1].forEach((o, i) => shaft.addColorStop(o, skin.shaft[i]));
     g.fillStyle = shaft;
     g.fillRect(19, 24, 42, 40);
+    if (skinImage) {
+      g.save();
+      g.beginPath(); g.rect(19, 24, 42, 40); g.clip();
+      drawSkinImage(g, skinImage, 19, 24, 42, 40, skin.fit);
+      g.restore();
+    }
     g.strokeRect(19, 24, 42, 40);
     g.fillStyle = 'rgba(255, 255, 255, 0.38)';
     g.fillRect(19 + 42 * 0.32, 24, 3, 40);
@@ -2222,6 +2293,12 @@
     [0, 0.2, 0.42, 0.72, 1].forEach((o, i) => lip.addColorStop(o, skin.lip[i]));
     g.fillStyle = lip;
     g.fillRect(14, 8, 52, 18);
+    if (skinImage) {
+      g.save();
+      g.beginPath(); g.rect(14, 8, 52, 18); g.clip();
+      drawSkinImage(g, skinImage, 14, 8, 52, 18, skin.fit);
+      g.restore();
+    }
     g.strokeRect(14, 8, 52, 18);
     g.fillStyle = 'rgba(255, 255, 255, 0.45)';
     g.fillRect(14 + 52 * 0.32, 10, 3.5, 14);
