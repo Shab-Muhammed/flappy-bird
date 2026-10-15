@@ -458,6 +458,14 @@ button.header-pill:focus-visible {
   font-weight: 700;
 }
 
+.store-sound-note {
+  min-height: 28px;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  color: #6b4c20;
+}
+
 .store-btn {
   width: 100%;
   padding: 6px 8px;

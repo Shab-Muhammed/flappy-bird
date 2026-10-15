@@ -161,6 +161,12 @@
 
     playDie() {
       if (this.muted) return;
+      if (activeDeathSound) {
+        const audio = new Audio(activeDeathSound);
+        audio.volume = 0.8;
+        audio.play().catch(() => {});
+        return;
+      }
       this.init();
       if (!this.ctx) return;
 
@@ -204,6 +210,8 @@
       osc.stop(t + duration);
     }
   }
+
+  let activeDeathSound = null;
 
   const sound = new SoundManager();
   soundBtn.addEventListener('click', (e) => {
@@ -297,6 +305,34 @@
       lip: ['#a8760d', '#d9a521', '#fff5b8', '#cf9c1a', '#5e3d05'], outline: '#4a2f03' }
   ];
 
+  // Death sounds are priced by recognizability and impact. The original sound remains free.
+  const DEATH_SOUNDS = [
+    { id: 'original', name: 'Classic Death', src: '', price: 0 },
+    { id: 'sanctuary-guardian', name: 'Sanctuary Guardian', src: 'sounds/death/sanctuary-guardian.mp3', price: 100 },
+    { id: 'kids-yay', name: 'Kids Yay', src: 'sounds/death/kids-yay.mp3', price: 60 },
+    { id: 'du-bist-gut-genug', name: 'You’re Good Enough', src: 'sounds/death/du-bist-gut-genug.mp3', price: 40 },
+    { id: 'wilhelm-scream', name: 'Wilhelm Scream', src: 'sounds/death/wilhelm-scream.mp3', price: 125 },
+    { id: 'tf-nemesis', name: 'Nemesis', src: 'sounds/death/tf-nemesis.mp3', price: 90 },
+    { id: 'spongebob-fail', name: 'SpongeBob Fail', src: 'sounds/death/spongebob-fail.mp3', price: 80 },
+    { id: 'audiomass-mystery', name: 'Mystery Clip', src: 'sounds/death/audiomass-mystery.mp3', price: 25 },
+    { id: 'yooo', name: 'Yooo!', src: 'sounds/death/yooo.mp3', price: 70 },
+    { id: 'fahhh', name: 'Fahhh!', src: 'sounds/death/fahhh.mp3', price: 50 },
+    { id: 'punch', name: 'Punch', src: 'sounds/death/punch.mp3', price: 65 },
+    { id: 'pop-shot', name: 'Pop Shot', src: 'sounds/death/pop-shot.mp3', price: 70 },
+    { id: 'vine-boom', name: 'Vine Boom', src: 'sounds/death/vine-boom.mp3', price: 110 },
+    { id: 'mystery-beep', name: 'Mystery Beep', src: 'sounds/death/mystery-beep.mp3', price: 20 },
+    { id: 'error', name: 'Error', src: 'sounds/death/error.mp3', price: 30 }
+  ];
+  const deathSoundOwned = loadOwned('flappy_owned_death_sounds', DEATH_SOUNDS).filter(id => id !== 'classic');
+  if (!deathSoundOwned.includes('original')) deathSoundOwned.unshift('original');
+  const savedDeathSound = lsGet('flappy_equipped_death_sound');
+  let equippedDeathSound = deathSoundOwned.includes(savedDeathSound) ? savedDeathSound : 'original';
+  function setActiveDeathSound() {
+    const selected = DEATH_SOUNDS.find(item => item.id === equippedDeathSound) || DEATH_SOUNDS[0];
+    activeDeathSound = selected.src || null;
+  }
+  setActiveDeathSound();
+
   const isHexColor = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
   function validPalette(value, length) {
     return Array.isArray(value) && value.length === length && value.every(isHexColor);
@@ -312,7 +348,19 @@
     } else if (!validPalette(item.shaft, 6) || !validPalette(item.lip, 5) || !isHexColor(item.outline)) {
       return null;
     }
-    return { ...item, name: item.name.trim(), price: 0, custom: true };
+    const crop = item.crop && typeof item.crop === 'object' ? item.crop : {};
+    const clamp = (value, min, max, fallback) => Number.isFinite(Number(value))
+      ? Math.max(min, Math.min(max, Number(value))) : fallback;
+    return {
+      ...item,
+      name: item.name.trim(), price: 0, custom: true,
+      fit: item.fit === 'contain' ? 'contain' : 'cover',
+      crop: {
+        zoom: clamp(crop.zoom, 1, 3, 1),
+        x: clamp(crop.x, -1, 1, 0),
+        y: clamp(crop.y, -1, 1, 0)
+      }
+    };
   }
   const skinPack = window.FLAPPY_CUSTOM_SKINS || {};
   const customSkins = {
@@ -359,6 +407,8 @@
     lsSet('flappy_equipped_bird', wallet.equipped);
     lsSet('flappy_owned_pipes', JSON.stringify(wallet.pipeOwned));
     lsSet('flappy_equipped_pipe', wallet.pipeEquipped);
+    lsSet('flappy_owned_death_sounds', JSON.stringify(deathSoundOwned));
+    lsSet('flappy_equipped_death_sound', equippedDeathSound);
   }
 
   function skinById(id) { return SKINS.find(s => s.id === id) || SKINS[0]; }
@@ -1177,7 +1227,7 @@
         ctx.beginPath();
         ctx.rect(x, shaftY, w, shaftHeight);
         ctx.clip();
-        drawSkinImage(ctx, skinImage, x, shaftY, w, shaftHeight, ps.fit);
+        drawSkinImage(ctx, skinImage, x, shaftY, w, shaftHeight, ps.fit, ps.crop);
         ctx.restore();
       }
 
@@ -1205,7 +1255,7 @@
         ctx.save();
         this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
         ctx.clip();
-        drawSkinImage(ctx, skinImage, lipX, lipY, lipWidth, lipHeight, ps.fit);
+        drawSkinImage(ctx, skinImage, lipX, lipY, lipWidth, lipHeight, ps.fit, ps.crop);
         ctx.restore();
       } else {
         ctx.fill();
@@ -1252,21 +1302,73 @@
   }
 
   // Draws the bird around the origin (caller positions/rotates). Used by the game and the store.
-  function drawSkinImage(context, image, x, y, width, height, fit = 'cover') {
+  function drawSkinImage(context, image, x, y, width, height, fit = 'cover', crop = {}) {
     if (!image || !image.complete || !image.naturalWidth || !image.naturalHeight) return false;
     const scale = fit === 'contain'
       ? Math.min(width / image.naturalWidth, height / image.naturalHeight)
       : Math.max(width / image.naturalWidth, height / image.naturalHeight);
-    const drawWidth = image.naturalWidth * scale;
-    const drawHeight = image.naturalHeight * scale;
-    context.drawImage(image, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight);
+    const zoom = Number.isFinite(crop.zoom) ? Math.max(1, Math.min(3, crop.zoom)) : 1;
+    const drawWidth = image.naturalWidth * scale * zoom;
+    const drawHeight = image.naturalHeight * scale * zoom;
+    const offsetX = Number.isFinite(crop.x) ? Math.max(-1, Math.min(1, crop.x)) : 0;
+    const offsetY = Number.isFinite(crop.y) ? Math.max(-1, Math.min(1, crop.y)) : 0;
+    context.drawImage(image,
+      x + (width - drawWidth) / 2 + offsetX * Math.max(0, drawWidth - width) / 2,
+      y + (height - drawHeight) / 2 + offsetY * Math.max(0, drawHeight - height) / 2,
+      drawWidth, drawHeight);
     return true;
+  }
+
+  function traceCustomBirdShape(context) {
+    context.beginPath();
+    context.moveTo(-23, -5);
+    context.quadraticCurveTo(-22, -11, -16, -8);
+    context.quadraticCurveTo(-12, -16, -5, -14);
+    context.lineTo(-2, -23);
+    context.quadraticCurveTo(3, -20, 4, -14);
+    context.quadraticCurveTo(13, -15, 17, -7);
+    context.lineTo(26, -3);
+    context.quadraticCurveTo(28, 0, 25, 3);
+    context.lineTo(17, 6);
+    context.quadraticCurveTo(12, 15, 2, 14);
+    context.quadraticCurveTo(-8, 14, -15, 8);
+    context.quadraticCurveTo(-22, 4, -23, -5);
+    context.closePath();
   }
 
   function drawBirdSprite(g, skin, wingAngle, tailWag) {
     const skinImage = skin.custom ? customSkinImages.get(skin.id) : null;
     if (skinImage) {
-      drawSkinImage(g, skinImage, -22, -18, 46, 36, skin.fit);
+      g.save();
+      traceCustomBirdShape(g);
+      g.clip();
+      drawSkinImage(g, skinImage, -27, -23, 54, 46, skin.fit, skin.crop);
+      g.restore();
+
+      traceCustomBirdShape(g);
+      g.strokeStyle = '#26302b';
+      g.lineWidth = 1.8;
+      g.stroke();
+
+      g.beginPath();
+      g.moveTo(-12, 1);
+      g.quadraticCurveTo(-7, 7, 1, 7);
+      g.quadraticCurveTo(6, 6, 9, 2);
+      g.strokeStyle = 'rgba(25, 35, 30, 0.58)';
+      g.lineWidth = 1.2;
+      g.stroke();
+
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = '#26302b';
+      g.lineWidth = 1.3;
+      g.beginPath();
+      g.ellipse(8, -6, 5, 6, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#20242a';
+      g.beginPath();
+      g.arc(9.5, -6, 2.3, 0, Math.PI * 2);
+      g.fill();
       return;
     }
 
@@ -2171,9 +2273,14 @@
   const storeClose = document.getElementById('store-close');
   const storeTabs = {
     bird: document.getElementById('store-tab-bird'),
-    pipe: document.getElementById('store-tab-pipe')
+    pipe: document.getElementById('store-tab-pipe'),
+    sound: document.getElementById('store-tab-sound')
   };
-  const STORE_HINT = 'Earn coins at the end of every run. The higher your score, the more each pipe pays.';
+  const STORE_HINTS = {
+    bird: 'Earn coins at the end of every run. The higher your score, the more each pipe pays.',
+    pipe: 'Earn coins at the end of every run. The higher your score, the more each pipe pays.',
+    sound: 'Choose a death sound. Prices reflect how iconic or dramatic each clip is.'
+  };
   let storeVisible = false;
   let storeTab = 'bird';
   let storeRaf = 0;
@@ -2183,9 +2290,9 @@
   }
 
   function storeData() {
-    return storeTab === 'bird'
-      ? { list: SKINS, owned: wallet.owned, equipped: wallet.equipped }
-      : { list: PIPE_SKINS, owned: wallet.pipeOwned, equipped: wallet.pipeEquipped };
+    if (storeTab === 'bird') return { list: SKINS, owned: wallet.owned, equipped: wallet.equipped };
+    if (storeTab === 'pipe') return { list: PIPE_SKINS, owned: wallet.pipeOwned, equipped: wallet.pipeEquipped };
+    return { list: DEATH_SOUNDS, owned: deathSoundOwned, equipped: equippedDeathSound };
   }
 
   function setStoreTab(tab) {
@@ -2194,7 +2301,7 @@
       storeTabs[k].classList.toggle('active', k === tab);
       storeTabs[k].setAttribute('aria-selected', String(k === tab));
     });
-    storeMsg.textContent = STORE_HINT;
+    storeMsg.textContent = STORE_HINTS[tab];
     renderStore();
   }
 
@@ -2235,14 +2342,25 @@
         btn.addEventListener('click', () => buyItem(item));
       }
 
-      card.append(cv, name, btn);
+      if (storeTab === 'sound') {
+        const description = document.createElement('div');
+        description.className = 'store-sound-note';
+        description.textContent = item.id === 'original' ? 'Built-in game sound' : 'Plays when your bird crashes';
+        card.append(cv, name, description, btn);
+      } else {
+        card.append(cv, name, btn);
+      }
       storeGrid.appendChild(card);
     });
   }
 
   function equipItem(item) {
     if (storeTab === 'bird') wallet.equipped = item.id;
-    else wallet.pipeEquipped = item.id;
+    else if (storeTab === 'pipe') wallet.pipeEquipped = item.id;
+    else {
+      equippedDeathSound = item.id;
+      setActiveDeathSound();
+    }
     saveWallet();
     storeMsg.textContent = `${item.name} equipped.`;
     sound.playTone(620, 0.08, 'sine');
@@ -2259,9 +2377,13 @@
     if (storeTab === 'bird') {
       wallet.owned.push(item.id);
       wallet.equipped = item.id;
-    } else {
+    } else if (storeTab === 'pipe') {
       wallet.pipeOwned.push(item.id);
       wallet.pipeEquipped = item.id;
+    } else {
+      deathSoundOwned.push(item.id);
+      equippedDeathSound = item.id;
+      setActiveDeathSound();
     }
     saveWallet();
     storeMsg.textContent = `${item.name} unlocked and equipped!`;
@@ -2282,7 +2404,7 @@
     if (skinImage) {
       g.save();
       g.beginPath(); g.rect(19, 24, 42, 40); g.clip();
-      drawSkinImage(g, skinImage, 19, 24, 42, 40, skin.fit);
+      drawSkinImage(g, skinImage, 19, 24, 42, 40, skin.fit, skin.crop);
       g.restore();
     }
     g.strokeRect(19, 24, 42, 40);
@@ -2296,7 +2418,7 @@
     if (skinImage) {
       g.save();
       g.beginPath(); g.rect(14, 8, 52, 18); g.clip();
-      drawSkinImage(g, skinImage, 14, 8, 52, 18, skin.fit);
+      drawSkinImage(g, skinImage, 14, 8, 52, 18, skin.fit, skin.crop);
       g.restore();
     }
     g.strokeRect(14, 8, 52, 18);
@@ -2314,6 +2436,16 @@
       g.setTransform(2, 0, 0, 2, 0, 0);
       if (cv.dataset.kind === 'pipe') {
         drawPipePreview(g, pipeSkinById(cv.dataset.skin));
+      } else if (cv.dataset.kind === 'sound') {
+        g.fillStyle = '#fff4d6';
+        g.beginPath();
+        g.arc(40, 32, 26, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#5b3a13';
+        g.font = 'bold 30px sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(cv.dataset.skin === 'original' ? '♪' : '♫', 40, 32);
       } else {
         g.translate(42, 34 + Math.sin(t * 3 + i) * 2);
         g.scale(1.3, 1.3);
@@ -2342,6 +2474,7 @@
 
   storeTabs.bird.addEventListener('click', () => setStoreTab('bird'));
   storeTabs.pipe.addEventListener('click', () => setStoreTab('pipe'));
+  storeTabs.sound.addEventListener('click', () => setStoreTab('sound'));
   storeClose.addEventListener('click', closeStore);
   storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
   document.addEventListener('keydown', (e) => { if (storeVisible && e.key === 'Escape') closeStore(); });

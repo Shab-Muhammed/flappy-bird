@@ -39,7 +39,7 @@ A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring th
 
 ### 🪙 Coins & Store
 - Coins are paid out when a run ends, from your final score `P`: `C(P) = floor(P × (r + α × P))` with `r = 0.6` and `α = 0.002` (`COIN_RATE` and `COIN_ALPHA` in `game.js`). Score 10 pays 6 coins, 20 pays 12, 30 pays 19, 50 pays 35.
-- Open the **🐤 STORE** from the start menu (or press `B`). The **Birds** tab sells Blue Jay, Ruby, Parrot, Shadow and Bubblegum; the **Pipes** tab sells Frost, Sunset, Candy, Obsidian and Royal Gold. Edit `SKINS` / `PIPE_SKINS` in `game.js` to change prices or add more.
+- Open the **🐤 STORE** from the start menu (or press `B`). The **Birds** tab sells Blue Jay, Ruby, Parrot, Shadow and Bubblegum; **Pipes** sells Frost, Sunset, Candy, Obsidian and Royal Gold; **Death Sounds** sells unlockable crash sounds at tiered prices. Bought sounds equip automatically and can be changed at any time. Edit `SKINS`, `PIPE_SKINS` or `DEATH_SOUNDS` in `game.js` to change prices or add more.
 - Coins and unlocks are saved on your device.
 - Use `flappy bird skin creator/index.html` to make image-based bird or pipe skins. Download its `custom-skins.js` and deploy it with the game to publish owner-selected skins in the store; players cannot upload skins from inside the game.
 - A daily score challenge awards a one-time 10-coin bonus. Its target rotates by UTC date. Four score badges (5, 10, 20 and 35) are saved on this device.
@@ -96,6 +96,7 @@ Then open `http://localhost:8000/`.
 ├── index.html        # Main HTML layout, viewport & header HUD
 ├── style.css         # Retro cabinet frame, classic typography, responsive styling
 ├── game.js           # Authentic bird, pipe shading, parallax scenery & sound engine
+├── sounds/death/     # Death sounds used by the sound shop
 ├── leaderboard.js    # Online Top 10 leaderboard (Firebase REST, local fallback)
 ├── custom-skins.js   # Owner-published custom bird and pipe skins
 ├── flappy bird skin creator/ # Owner-side direct-image skin creator
