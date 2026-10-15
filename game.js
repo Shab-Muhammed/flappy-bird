@@ -2533,14 +2533,20 @@
     event.preventDefault();
     const value = requestName.value.trim();
     if (!value) return;
-    const request = `${requestCategory.value} request: ${value}`;
+    const submitButton = requestForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    requestStatus.textContent = 'Sending your request…';
     try {
-      await navigator.clipboard.writeText(request);
-      requestStatus.textContent = 'Request copied! Send it wherever you share game suggestions.';
+      if (!window.FlappyLeaderboard || !window.FlappyLeaderboard.isOnline) {
+        throw new Error('Suggestions are not configured right now.');
+      }
+      await window.FlappyLeaderboard.submitSuggestion(requestCategory.value, value);
+      requestStatus.textContent = 'Thanks! Your request was sent.';
+      requestName.value = '';
     } catch {
-      requestName.value = request;
-      requestName.select();
-      requestStatus.textContent = 'Copy this request and send it wherever you share game suggestions.';
+      requestStatus.textContent = 'Could not send your request. Please try again later.';
+    } finally {
+      submitButton.disabled = false;
     }
   });
   storeClose.addEventListener('click', closeStore);

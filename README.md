@@ -1,65 +1,53 @@
-# 🐤 Flappy Bird - Classic Arcade Edition
+# Flappy Bird: Classic Arcade Edition
 
-A mobile-optimized, high-DPI HTML5 canvas remake of **Flappy Bird** featuring the **authentic original bird**, **rich hand-crafted textures**, **backward-moving multi-layer parallax scenery**, and **dynamic Day & Night cycles**.
+A browser-based Flappy Bird recreation built with HTML, CSS, and the Canvas 2D API. It features responsive controls, a changing environment, unlockable cosmetics and sounds, and an optional online leaderboard.
 
----
+## Features
 
-## ✨ Features & Visual Highlights
+- Canvas-based gameplay with keyboard, mouse, and touch controls.
+- Animated bird, pipes, ground, and layered scenery.
+- Automatic and manual time-of-day and seasonal changes.
+- Difficulty that increases as the player's score rises.
+- Coins, persistent unlocks, bird and pipe cosmetics, and selectable death sounds.
+- Daily score challenge and persistent score badges.
+- Optional top-ten leaderboard with local storage fallback.
+- A separate creator tool for preparing owner-published bird and pipe skins.
 
-### 🐤 Authentic Original Flappy Bird
-- **True Classic Design:** Chubby golden-yellow bird with an animated flapping wing, white/cream underbelly, cute tail feathers, and head crest.
-- **Hand-Crafted Textures:** Rich radial plumage shading, expressive large cartoon eye with double specular reflections, rosy cheek blush, and puffy orange duck beak.
-- **Fluid Animation:** Realistic aerodynamic pitch tilting, animated wing states, and gentle idle floating.
+## Run locally
 
-### 🧱 Hand-Crafted Textures & Depth
-- **Classic Green Pipes:** True 3D cylindrical lighting with high-contrast specular gloss stripes, 3D collar lip overhangs, drop shadows, and dark hollow cavern openings.
-- **Stratified Earth & Turf Ground:** Lush emerald green grass strip with serrated blade teeth, warm sandy loam soil with diagonal textured strata, and scattered earth pebbles moving backward.
+The game uses browser APIs and static files. You can open `index.html` directly, or serve the project over HTTP:
 
-### 🌅 Dynamic Day & Night Cycles & Backward Parallax Scenery
-- **4 Time Periods:**
-  - **DAY (☀️):** Classic retro bright sky-blue with soft warm sun and radiant corona.
-  - **SUNSET (🌅):** Rich apricot, golden amber, and rose horizon with setting golden sun.
-  - **NIGHT (🌙):** Deep starry navy sky with twinkling stars, shooting stars, and a glowing crescent moon with crater details.
-  - **DAWN (🌄):** Soft pastel lavender and peach sunrise.
-- **Moving Celestial Bodies:** Sun and Moon smoothly traverse the sky along realistic parabolic arcs.
-- **Multi-Layer Parallax Moving Backward:**
-  1. **Layer 1:** Fluffy billowy clouds with soft underbelly shading drifting backward.
-  2. **Layer 2:** Distant mountain peaks with snowcaps moving backward with atmospheric haze.
-  3. **Layer 3:** Mid-ground rolling green hills with silhouetted tree clusters moving backward.
-  4. **Layer 4:** Classic green pipes moving backward.
-  5. **Layer 5:** Stratified earth and grass turf ground moving backward in sync with flight speed.
+```bash
+python -m http.server 8000
+```
 
-### 📈 Gradual Difficulty
-- Scroll speed eases up smoothly as your score climbs (`BASE_SPEED`, `MAX_SPEED`, `SPEED_PER_POINT` at the top of `game.js`).
-- Pipes are spaced by distance, so gaps stay evenly spaced at every speed.
+Then visit <http://localhost:8000>.
 
-### 🏆 Online Leaderboard
-- Top 10 board. You pick a name once, then every run updates your single entry (best score), and **Change name** renames it without creating a duplicate. Open it from the start menu, game-over screen, or 🏆 BEST pill.
-- The game is currently configured to submit scores to the Firebase database URL in `leaderboard.js`. If that endpoint is unavailable, the board falls back to scores saved on this device.
+## Controls
 
-### 🪙 Coins & Store
-- Coins are paid out when a run ends, from your final score `P`: `C(P) = floor(P × (r + α × P))` with `r = 0.6` and `α = 0.002` (`COIN_RATE` and `COIN_ALPHA` in `game.js`). Score 10 pays 6 coins, 20 pays 12, 30 pays 19, 50 pays 35.
-- Open the **🐤 STORE** from the start menu (or press `B`). The **Birds** tab sells Blue Jay, Ruby, Parrot, Shadow and Bubblegum; **Pipes** sells Frost, Sunset, Candy, Obsidian and Royal Gold; **Death Sounds** sells unlockable crash sounds at tiered prices. Bought sounds equip automatically and can be changed at any time. Edit `SKINS`, `PIPE_SKINS` or `DEATH_SOUNDS` in `game.js` to change prices or add more.
-- Coins and unlocks are saved on your device.
-- Use `flappy bird skin creator/index.html` to make image-based bird or pipe skins. Download its `custom-skins.js` and deploy it with the game to publish owner-selected skins in the store; players cannot upload skins from inside the game.
-- A daily score challenge awards a one-time 10-coin bonus. Its target rotates by UTC date. Four score badges (5, 10, 20 and 35) are saved on this device.
-- The leaderboard is available from the start menu, the **🏆 BEST** pill, or the game-over screen (or press `L`); it no longer interrupts every run.
+| Action | Control |
+| --- | --- |
+| Flap | Tap or click the game, or press `Space`, `ArrowUp`, or `W` |
+| Change time of day | Press `T` or use the header control |
+| Open the store | Press `B` from the menu |
+| Open the leaderboard | Press `L` or select the best-score control |
+| Close an overlay | Press `Escape` |
+| Mute or unmute audio | Press `M` or use the sound control |
+| Replay after a run | Press `Space` or select the replay button |
 
-### 🎮 Controls
-- **Fly / Jump:** Tap anywhere on mobile, click canvas on desktop, or press `Space` / `ArrowUp` / `W`.
-- **Change Time of Day:** Tap the `[☀️ DAY]` pill in the header or press `T` (cycles `AUTO 🔄`, `DAY ☀️`, `SUNSET 🌅`, `NIGHT 🌙`, `DAWN 🌄`).
-- **Leaderboard:** Tap the `🏆 BEST` pill. `Esc` closes it.
-- **Replay:** Tap **PLAY AGAIN** on the game-over screen or press `Space`.
-- **Daily challenge:** Reach the score shown on the start screen to earn 10 bonus coins once per UTC day.
-- **Badges:** Reach scores of 5, 10, 20 and 35 to unlock persistent badges.
-- **Mute Audio:** Tap the sound button or press `M`.
+## Store and customization
 
----
+Coins, purchases, and equipped items are saved in the browser's local storage. The store includes bird skins, pipe skins, and death sounds. Catalog entries and prices are defined in `game.js` in the `SKINS`, `PIPE_SKINS`, and `DEATH_SOUNDS` collections.
 
-## 🌐 Leaderboard Setup (Firebase Realtime Database, free tier)
+The `flappy bird skin creator` directory contains a separate tool for preparing custom bird and pipe images. Skins are published by the site owner through `custom-skins.js`; players cannot upload skins from within the game.
 
-The game currently points to the database URL in `leaderboard.js`. To use your own database, create a project at <https://console.firebase.google.com> and add a **Realtime Database** (start in locked mode).
-1. In **Rules**, paste this and publish (entries are keyed by a player id so each player has one row). The `.write` condition allows an existing entry to be updated when its score is unchanged or higher; `!data.exists()` by itself only permits the first save:
+## Leaderboard configuration
+
+The leaderboard uses the Firebase Realtime Database REST API. To configure your own database:
+
+1. Create a Firebase project and a Realtime Database.
+2. Set the database rules. The rules below permit public reads and allow each player record to be created or updated when its score does not decrease:
+
    ```json
    {
      "rules": {
@@ -70,42 +58,40 @@ The game currently points to the database URL in `leaderboard.js`. To use your o
            ".write": "!data.exists() || newData.child('score').val() >= data.child('score').val()",
            ".validate": "$id.matches(/^[a-z0-9]{16,40}$/) && newData.hasChildren(['name','score','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 500"
          }
+      },
+      "suggestions": {
+        ".read": false,
+        "$id": {
+          ".write": "!data.exists()",
+          ".validate": "newData.hasChildren(['category','suggestion','ts']) && newData.child('category').isString() && (newData.child('category').val() === 'Pipe' || newData.child('category').val() === 'Skin' || newData.child('category').val() === 'Audio') && newData.child('suggestion').isString() && newData.child('suggestion').val().length >= 1 && newData.child('suggestion').val().length <= 120 && newData.child('ts').isNumber()"
+        }
        }
      }
    }
    ```
-2. Replace `CONFIG.databaseURL` at the top of `leaderboard.js` with your database URL. To keep scores on this device only, set it to an empty string.
 
-Each player gets one entry. It can be created and then only raised (or renamed at the same score), never lowered or deleted. If you used an older version, delete the old `scores` node in the console once so the board starts clean. This is a casual board: because the game runs in the browser, a determined player could still post a fake score. The rules above cap names and scores, and `MAX_SCORE` in `leaderboard.js` must match the cap.
+3. Set `CONFIG.databaseURL` near the top of `leaderboard.js` to your database URL.
 
----
+Set the database URL to an empty string to use device-local scores without submitting to Firebase. The browser client cannot provide strong protection against fabricated scores; the rules provide basic validation and a score limit for a casual leaderboard.
 
-## 🚀 How to Run Locally
+The store's suggestion form submits category, suggestion text, and a server timestamp to the `suggestions` collection. The rules above allow new submissions while preventing edits and reads through the public client. Review requests in Firebase Console under Realtime Database data at `suggestions`. Since the form is public and unauthenticated, the validation limits the content but does not prevent spam; use an authenticated server endpoint if you need stronger abuse protection.
 
-Open `index.html` directly in any web browser, or launch a simple local HTTP server:
-```bash
-python -m http.server 8000
-```
-Then open `http://localhost:8000/`.
-
----
-
-## 📁 Project Structure
+## Project structure
 
 ```text
-├── index.html        # Main HTML layout, viewport & header HUD
-├── style.css         # Retro cabinet frame, classic typography, responsive styling
-├── game.js           # Authentic bird, pipe shading, parallax scenery & sound engine
-├── sounds/death/     # Death sounds used by the sound shop
-│   └── death-sounds.js # Bundled audio data for reliable local playback
-├── leaderboard.js    # Online Top 10 leaderboard (Firebase REST, local fallback)
-├── custom-skins.js   # Owner-published custom bird and pipe skins
-├── flappy bird skin creator/ # Owner-side direct-image skin creator
-├── .gitignore        # Standard ignore rules
-└── README.md         # Documentation
+.
+├── index.html                  Main game page and overlays
+├── style.css                   Layout and responsive styling
+├── game.js                     Game loop, rendering, store, and controls
+├── leaderboard.js              Firebase leaderboard and local fallback
+├── custom-skins.js             Owner-published custom skins
+├── sounds/
+│   └── death/                  Death sound files and bundled audio data
+├── flappy bird skin creator/   Custom skin preparation tool
+├── package.json                Project dependency metadata
+└── README.md                   Project documentation
 ```
 
----
+## License
 
-## 📜 License
-MIT License
+This project is provided under the MIT License.

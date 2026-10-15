@@ -337,6 +337,18 @@
     canOpen: () => true,
     open,
     close,
+    async submitSuggestion(category, suggestion) {
+      if (!isOnline) throw new Error('Suggestion submissions are not configured.');
+      const allowedCategories = ['Pipe', 'Skin', 'Audio'];
+      const text = String(suggestion || '').trim().slice(0, 120);
+      if (!allowedCategories.includes(category) || !text) throw new Error('Enter a suggestion and choose a category.');
+      const url = `${baseURL}/suggestions.json`;
+      return request(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, suggestion: text, ts: { '.sv': 'timestamp' } })
+      });
+    },
     // Called when a run ends with a score above zero
     setPending(score) {
       lastScore = score;
