@@ -454,8 +454,12 @@ button.header-pill:focus-visible {
 }
 
 .store-name {
+  max-width: 100%;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .store-sound-note {
@@ -569,14 +573,19 @@ button.header-pill:focus-visible {
 
 .store-tab {
   flex: 1;
+  min-width: 0;
   padding: 7px 8px;
   font: 700 14px var(--font-ui);
+  line-height: 1.15;
   color: #543615;
   background: rgba(255, 255, 255, 0.6);
   border: 2.5px solid #b89860;
   border-radius: 12px;
   cursor: pointer;
   touch-action: manipulation;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .store-tab.active {
