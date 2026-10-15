@@ -97,6 +97,7 @@ Then open `http://localhost:8000/`.
 ├── style.css         # Retro cabinet frame, classic typography, responsive styling
 ├── game.js           # Authentic bird, pipe shading, parallax scenery & sound engine
 ├── sounds/death/     # Death sounds used by the sound shop
+│   └── death-sounds.js # Bundled audio data for reliable local playback
 ├── leaderboard.js    # Online Top 10 leaderboard (Firebase REST, local fallback)
 ├── custom-skins.js   # Owner-published custom bird and pipe skins
 ├── flappy bird skin creator/ # Owner-side direct-image skin creator

@@ -162,34 +162,40 @@
     playDie() {
       if (this.muted) return;
       this.init();
-      if (activeDeathBuffer && this.ctx) {
-        const source = this.ctx.createBufferSource();
-        source.buffer = activeDeathBuffer;
-        const gain = this.ctx.createGain();
-        gain.gain.value = 0.8;
-        source.connect(gain);
-        gain.connect(this.ctx.destination);
-        source.start();
-        return;
-      }
-      if (activeDeathAudio) {
-        try { activeDeathAudio.currentTime = 0; } catch (e) { /* wait for metadata */ }
-        activeDeathAudio.play().catch(() => {
-          if (activeDeathBuffer && this.ctx) {
-            const source = this.ctx.createBufferSource();
-            source.buffer = activeDeathBuffer;
-            const gain = this.ctx.createGain();
-            gain.gain.value = 0.8;
-            source.connect(gain);
-            gain.connect(this.ctx.destination);
-            source.start();
-          } else {
-            this.playSynthDie();
-          }
-        });
+      if (activeDeathSound) {
+        if (activeDeathBuffer && this.ctx) {
+          this.playDeathBuffer(activeDeathBuffer);
+          return;
+        }
+        if (activeDeathBufferPromise) {
+          activeDeathBufferPromise.then(buffer => {
+            if (this.muted) return;
+            if (buffer && this.ctx) this.playDeathBuffer(buffer);
+            else if (activeDeathAudio) {
+              try { activeDeathAudio.currentTime = 0; } catch (e) { /* wait for metadata */ }
+              activeDeathAudio.play().catch(() => {});
+            }
+          });
+          return;
+        }
+        if (activeDeathAudio) {
+          try { activeDeathAudio.currentTime = 0; } catch (e) { /* wait for metadata */ }
+          activeDeathAudio.play().catch(() => {});
+        }
         return;
       }
       this.playSynthDie();
+    }
+
+    playDeathBuffer(buffer) {
+      if (this.muted || !this.ctx) return;
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0.8;
+      source.connect(gain);
+      gain.connect(this.ctx.destination);
+      source.start();
     }
 
     playSynthDie() {
@@ -240,6 +246,7 @@
   let activeDeathSound = null;
   let activeDeathAudio = null;
   let activeDeathBuffer = null;
+  let activeDeathBufferPromise = null;
 
   const sound = new SoundManager();
   soundBtn.addEventListener('click', (e) => {
@@ -359,25 +366,25 @@
     const selected = DEATH_SOUNDS.find(item => item.id === equippedDeathSound) || DEATH_SOUNDS[0];
     activeDeathSound = selected.src || null;
     activeDeathBuffer = null;
+    activeDeathBufferPromise = null;
     activeDeathAudio = activeDeathSound ? new Audio(new URL(activeDeathSound, document.baseURI).href) : null;
     if (activeDeathAudio) {
       activeDeathAudio.preload = 'auto';
       activeDeathAudio.volume = 0.8;
       activeDeathAudio.load();
-
-      const soundUrl = activeDeathAudio.src;
+      const dataUri = window.FLAPPY_DEATH_SOUND_DATA && window.FLAPPY_DEATH_SOUND_DATA[selected.id];
       sound.init();
-      if (sound.ctx) {
-        fetch(soundUrl)
-          .then(response => {
-            if (!response.ok) throw new Error(`Audio request failed: ${response.status}`);
-            return response.arrayBuffer();
-          })
-          .then(data => sound.ctx.decodeAudioData(data))
+      if (sound.ctx && dataUri) {
+        const encoded = dataUri.slice(dataUri.indexOf(',') + 1);
+        const binary = atob(encoded);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        activeDeathBufferPromise = sound.ctx.decodeAudioData(bytes.buffer)
           .then(buffer => {
-            if (activeDeathAudio && activeDeathAudio.src === soundUrl) activeDeathBuffer = buffer;
+            if (equippedDeathSound === selected.id) activeDeathBuffer = buffer;
+            return buffer;
           })
-          .catch(() => {});
+          .catch(() => null);
       }
     }
   }
