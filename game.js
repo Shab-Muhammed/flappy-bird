@@ -349,13 +349,13 @@
     { id: 'wilhelm-scream', name: 'Wilhelm Scream', src: 'sounds/death/wilhelm-scream.mp3', price: 125 },
     { id: 'tf-nemesis', name: 'Nemesis', src: 'sounds/death/tf-nemesis.mp3', price: 90 },
     { id: 'spongebob-fail', name: 'SpongeBob Fail', src: 'sounds/death/spongebob-fail.mp3', price: 80 },
-    { id: 'audiomass-mystery', name: 'Mystery Clip', src: 'sounds/death/audiomass-mystery.mp3', price: 25 },
+    { id: 'audiomass-mystery', name: 'Usheyy', src: 'sounds/death/audiomass-mystery.mp3', price: 25 },
     { id: 'yooo', name: 'Yooo!', src: 'sounds/death/yooo.mp3', price: 70 },
     { id: 'fahhh', name: 'Fahhh!', src: 'sounds/death/fahhh.mp3', price: 50 },
     { id: 'punch', name: 'Punch', src: 'sounds/death/punch.mp3', price: 65 },
     { id: 'pop-shot', name: 'Pop Shot', src: 'sounds/death/pop-shot.mp3', price: 70 },
     { id: 'vine-boom', name: 'Vine Boom', src: 'sounds/death/vine-boom.mp3', price: 110 },
-    { id: 'mystery-beep', name: 'Mystery Beep', src: 'sounds/death/mystery-beep.mp3', price: 20 },
+    { id: 'mystery-beep', name: 'Fortnite Death', src: 'sounds/death/mystery-beep.mp3', price: 20 },
     { id: 'error', name: 'Error', src: 'sounds/death/error.mp3', price: 30 }
   ];
   const deathSoundOwned = loadOwned('flappy_owned_death_sounds', DEATH_SOUNDS).filter(id => id !== 'classic');
@@ -2328,6 +2328,10 @@
   const storeCoinCount = document.getElementById('store-coin-count');
   const storeMsg = document.getElementById('store-msg');
   const storeClose = document.getElementById('store-close');
+  const requestForm = document.getElementById('request-form');
+  const requestCategory = document.getElementById('request-category');
+  const requestName = document.getElementById('request-name');
+  const requestStatus = document.getElementById('request-status');
   const storeTabs = {
     bird: document.getElementById('store-tab-bird'),
     pipe: document.getElementById('store-tab-pipe'),
@@ -2399,14 +2403,7 @@
         btn.addEventListener('click', () => buyItem(item));
       }
 
-      if (storeTab === 'sound') {
-        const description = document.createElement('div');
-        description.className = 'store-sound-note';
-        description.textContent = item.id === 'original' ? 'Built-in game sound' : 'Plays when your bird crashes';
-        card.append(cv, name, description, btn);
-      } else {
-        card.append(cv, name, btn);
-      }
+      card.append(cv, name, btn);
       storeGrid.appendChild(card);
     });
   }
@@ -2532,6 +2529,20 @@
   storeTabs.bird.addEventListener('click', () => setStoreTab('bird'));
   storeTabs.pipe.addEventListener('click', () => setStoreTab('pipe'));
   storeTabs.sound.addEventListener('click', () => setStoreTab('sound'));
+  requestForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const value = requestName.value.trim();
+    if (!value) return;
+    const request = `${requestCategory.value} request: ${value}`;
+    try {
+      await navigator.clipboard.writeText(request);
+      requestStatus.textContent = 'Request copied! Send it wherever you share game suggestions.';
+    } catch {
+      requestName.value = request;
+      requestName.select();
+      requestStatus.textContent = 'Copy this request and send it wherever you share game suggestions.';
+    }
+  });
   storeClose.addEventListener('click', closeStore);
   storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
   document.addEventListener('keydown', (e) => { if (storeVisible && e.key === 'Escape') closeStore(); });

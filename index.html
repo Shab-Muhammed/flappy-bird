@@ -74,6 +74,21 @@
           <button id="store-tab-sound" class="store-tab" role="tab" aria-selected="false" type="button">Death Sounds</button>
         </div>
         <div id="store-grid" class="store-grid"></div>
+        <form id="request-form" class="store-request">
+          <h3>Request something</h3>
+          <label for="request-category">Category</label>
+          <select id="request-category" aria-label="Request category">
+            <option value="Pipe">Pipe</option>
+            <option value="Skin">Skin</option>
+            <option value="Audio">Audio</option>
+          </select>
+          <label for="request-name">What would you like?</label>
+          <div class="store-request-row">
+            <input id="request-name" type="text" maxlength="80" placeholder="Describe your idea" required>
+            <button class="lb-btn" type="submit">Copy</button>
+          </div>
+          <p id="request-status" class="store-request-status" aria-live="polite"></p>
+        </form>
         <button id="store-close" class="lb-btn lb-btn-secondary" type="button">Close</button>
       </div>
     </div>
