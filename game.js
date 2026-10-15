@@ -162,9 +162,31 @@
     playDie() {
       if (this.muted) return;
       this.init();
+      if (activeDeathBuffer && this.ctx) {
+        const source = this.ctx.createBufferSource();
+        source.buffer = activeDeathBuffer;
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0.8;
+        source.connect(gain);
+        gain.connect(this.ctx.destination);
+        source.start();
+        return;
+      }
       if (activeDeathAudio) {
         try { activeDeathAudio.currentTime = 0; } catch (e) { /* wait for metadata */ }
-        activeDeathAudio.play().catch(() => this.playSynthDie());
+        activeDeathAudio.play().catch(() => {
+          if (activeDeathBuffer && this.ctx) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = activeDeathBuffer;
+            const gain = this.ctx.createGain();
+            gain.gain.value = 0.8;
+            source.connect(gain);
+            gain.connect(this.ctx.destination);
+            source.start();
+          } else {
+            this.playSynthDie();
+          }
+        });
         return;
       }
       this.playSynthDie();
@@ -217,6 +239,7 @@
 
   let activeDeathSound = null;
   let activeDeathAudio = null;
+  let activeDeathBuffer = null;
 
   const sound = new SoundManager();
   soundBtn.addEventListener('click', (e) => {
@@ -335,11 +358,27 @@
   function setActiveDeathSound() {
     const selected = DEATH_SOUNDS.find(item => item.id === equippedDeathSound) || DEATH_SOUNDS[0];
     activeDeathSound = selected.src || null;
+    activeDeathBuffer = null;
     activeDeathAudio = activeDeathSound ? new Audio(new URL(activeDeathSound, document.baseURI).href) : null;
     if (activeDeathAudio) {
       activeDeathAudio.preload = 'auto';
       activeDeathAudio.volume = 0.8;
       activeDeathAudio.load();
+
+      const soundUrl = activeDeathAudio.src;
+      sound.init();
+      if (sound.ctx) {
+        fetch(soundUrl)
+          .then(response => {
+            if (!response.ok) throw new Error(`Audio request failed: ${response.status}`);
+            return response.arrayBuffer();
+          })
+          .then(data => sound.ctx.decodeAudioData(data))
+          .then(buffer => {
+            if (activeDeathAudio && activeDeathAudio.src === soundUrl) activeDeathBuffer = buffer;
+          })
+          .catch(() => {});
+      }
     }
   }
   setActiveDeathSound();
