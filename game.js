@@ -161,12 +161,16 @@
 
     playDie() {
       if (this.muted) return;
-      if (activeDeathSound) {
-        const audio = new Audio(activeDeathSound);
-        audio.volume = 0.8;
-        audio.play().catch(() => {});
+      this.init();
+      if (activeDeathAudio) {
+        try { activeDeathAudio.currentTime = 0; } catch (e) { /* wait for metadata */ }
+        activeDeathAudio.play().catch(() => this.playSynthDie());
         return;
       }
+      this.playSynthDie();
+    }
+
+    playSynthDie() {
       this.init();
       if (!this.ctx) return;
 
@@ -212,6 +216,7 @@
   }
 
   let activeDeathSound = null;
+  let activeDeathAudio = null;
 
   const sound = new SoundManager();
   soundBtn.addEventListener('click', (e) => {
@@ -330,6 +335,12 @@
   function setActiveDeathSound() {
     const selected = DEATH_SOUNDS.find(item => item.id === equippedDeathSound) || DEATH_SOUNDS[0];
     activeDeathSound = selected.src || null;
+    activeDeathAudio = activeDeathSound ? new Audio(new URL(activeDeathSound, document.baseURI).href) : null;
+    if (activeDeathAudio) {
+      activeDeathAudio.preload = 'auto';
+      activeDeathAudio.volume = 0.8;
+      activeDeathAudio.load();
+    }
   }
   setActiveDeathSound();
 
