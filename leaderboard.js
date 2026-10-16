@@ -529,6 +529,11 @@
   function updatePlayerStrip() {
     ui.player.classList.toggle('hidden', !playerName);
     ui.playerName.textContent = playerName;
+    if (ui.accountOpenBtn) {
+      ui.accountOpenBtn.textContent = playerName ? `👤 ${playerName}` : '👤 Account';
+      ui.accountOpenBtn.setAttribute('aria-label', playerName ? `Open account for ${playerName}` : 'Open account');
+      ui.accountOpenBtn.title = playerName ? `Signed in as ${playerName}` : 'Open account';
+    }
   }
 
   // ---------- open / close ----------
