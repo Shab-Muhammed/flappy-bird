@@ -571,6 +571,11 @@ button.header-pill:focus-visible {
   font-size: 13px;
 }
 
+.death-sound-controls .lb-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
 .store-btn.store-locked {
   filter: grayscale(0.7);
   opacity: 0.8;

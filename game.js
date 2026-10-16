@@ -624,6 +624,159 @@
   let seasonProgress = 0.05; // Starts in Spring
   let seasonBoost = 0;       // pending score-based season advance, fed in gradually
 
+  const THEMES = [
+    { name: 'Kerala', icon: '🌴', skyTop: '#087e70', skyMid: '#35b58c', skyBot: '#b4e7a0', far: '#236e60', near: '#124f49', groundTop: '#4eaa52', groundBody: '#694b32', pipe: ['#275b38', '#398b50', '#68b75e', '#3c8246', '#205231', '#163c29'], lip: ['#1d4d31', '#347b43', '#62a94f', '#3f8145', '#1e4a30'], outline: '#123b2c', accent: '#b8df65', style: 'kerala' },
+    { name: 'UAE / Desert', icon: '🏜️', skyTop: '#f28a62', skyMid: '#f5bc72', skyBot: '#ffe5a4', far: '#b97958', near: '#d89a5d', groundTop: '#eab85d', groundBody: '#ad7044', pipe: ['#98602e', '#c28a3d', '#f0c45b', '#cf923e', '#93602e', '#603d29'], lip: ['#80502d', '#b47637', '#e8b654', '#c1873d', '#754a2c'], outline: '#603b25', accent: '#fff0ad', style: 'desert' },
+    { name: 'City / Cyberpunk', icon: '🌃', skyTop: '#100d31', skyMid: '#26164d', skyBot: '#47285f', far: '#17142e', near: '#211a3f', groundTop: '#211d3e', groundBody: '#141322', pipe: ['#342057', '#56358b', '#a13fca', '#7136a4', '#3c256e', '#251644'], lip: ['#322052', '#57317d', '#a945cc', '#8139aa', '#3c235d'], outline: '#f34dbb', accent: '#51f4ff', style: 'city' },
+    { name: 'Lush Forest', icon: '🍄', skyTop: '#173d3a', skyMid: '#285b4c', skyBot: '#9bbf83', far: '#244d3a', near: '#173d2e', groundTop: '#628b4b', groundBody: '#473f30', pipe: ['#46563d', '#62734b', '#89995d', '#63704a', '#414d37', '#303a2d'], lip: ['#3e4d36', '#596b44', '#839259', '#68774a', '#3c4932'], outline: '#283b2b', accent: '#b5d785', style: 'forest' },
+    { name: 'Road / Highway', icon: '🛣️', skyTop: '#5589a2', skyMid: '#91b7bd', skyBot: '#d9d2ad', far: '#536b70', near: '#3c5559', groundTop: '#7e8584', groundBody: '#303539', pipe: ['#50595c', '#758084', '#b8c0be', '#8d9999', '#596366', '#41494c'], lip: ['#485154', '#6d797c', '#aab4b5', '#859092', '#4c5557'], outline: '#343b3d', accent: '#ffd34f', style: 'road' }
+  ];
+  function shuffledThemeOrder() {
+    const order = THEMES.map((_, index) => index);
+    for (let index = order.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+    }
+    return order;
+  }
+  let themeOrder = shuffledThemeOrder();
+  let themeOrderPosition = 0;
+  let themeIndex = themeOrder[themeOrderPosition];
+  let previousThemeIndex = themeIndex;
+  let themeTransition = 1;
+  let themeTimer = 0;
+  let themeBannerTimer = 0;
+  const THEME_SWITCH_SECONDS = 45;
+
+  function themeColor(value) {
+    return parseColor(value);
+  }
+
+  function getThemeState() {
+    const from = THEMES[previousThemeIndex];
+    const to = THEMES[themeIndex];
+    if (currentState === STATE.PLAYING) {
+      themeTimer += 1 / 60;
+      if (themeTimer >= THEME_SWITCH_SECONDS) advanceTheme();
+    }
+    themeTransition = Math.min(1, themeTransition + 1 / 48);
+    if (themeBannerTimer > 0) themeBannerTimer--;
+    const t = easeBlend(themeTransition);
+    const blendHex = (a, b) => {
+      const ca = themeColor(a), cb = themeColor(b);
+      return `rgb(${Math.round(ca[0] + (cb[0] - ca[0]) * t)},${Math.round(ca[1] + (cb[1] - ca[1]) * t)},${Math.round(ca[2] + (cb[2] - ca[2]) * t)})`;
+    };
+    const blendList = (a, b) => a.map((color, index) => blendHex(color, b[index]));
+    return {
+      ...to,
+      skyTop: blendHex(from.skyTop, to.skyTop), skyMid: blendHex(from.skyMid, to.skyMid), skyBot: blendHex(from.skyBot, to.skyBot),
+      far: blendHex(from.far, to.far), near: blendHex(from.near, to.near), groundTop: blendHex(from.groundTop, to.groundTop), groundBody: blendHex(from.groundBody, to.groundBody),
+      pipe: blendList(from.pipe, to.pipe), lip: blendList(from.lip, to.lip), outline: blendHex(from.outline, to.outline), accent: blendHex(from.accent, to.accent),
+      style: t < 0.5 ? from.style : to.style, blend: t
+    };
+  }
+
+  function advanceTheme() {
+    previousThemeIndex = themeIndex;
+    themeOrderPosition++;
+    if (themeOrderPosition >= themeOrder.length) {
+      themeOrder = shuffledThemeOrder();
+      if (themeOrder[0] === previousThemeIndex) [themeOrder[0], themeOrder[1]] = [themeOrder[1], themeOrder[0]];
+      themeOrderPosition = 0;
+    }
+    themeIndex = themeOrder[themeOrderPosition];
+    themeTransition = 0;
+    themeTimer = 0;
+    themeBannerTimer = 150;
+  }
+
+  function drawThemeLandmarks(theme) {
+    const drift = (globalFrame * gameSpeed * 0.12) % 440;
+    ctx.save();
+    ctx.globalAlpha = 0.76;
+    ctx.fillStyle = theme.far;
+    if (theme.style === 'desert') {
+      for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+        ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 8); ctx.quadraticCurveTo(x + 115, GROUND_Y - 105, x + 240, GROUND_Y - 14); ctx.quadraticCurveTo(x + 340, GROUND_Y - 65, x + 440, GROUND_Y - 8); ctx.fill();
+        ctx.fillRect(x + 276, GROUND_Y - 205, 22, 195); ctx.fillRect(x + 270, GROUND_Y - 205, 34, 8);
+        ctx.beginPath(); ctx.moveTo(x + 328, GROUND_Y - 10); ctx.lineTo(x + 328, GROUND_Y - 112); ctx.lineTo(x + 339, GROUND_Y - 145); ctx.lineTo(x + 350, GROUND_Y - 112); ctx.lineTo(x + 350, GROUND_Y - 10); ctx.fill();
+      }
+    } else if (theme.style === 'city') {
+      for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+        for (let i = 0; i < 8; i++) { const bx = x + i * 58; const h = 55 + ((i * 37) % 90); ctx.fillRect(bx, GROUND_Y - h, 42, h); }
+        ctx.fillRect(x + 204, GROUND_Y - 172, 27, 162); ctx.fillRect(x + 210, GROUND_Y - 212, 15, 40);
+      }
+    } else if (theme.style === 'road') {
+      for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+        ctx.fillRect(x + 65, GROUND_Y - 100, 8, 92); ctx.fillRect(x + 34, GROUND_Y - 101, 40, 5);
+        ctx.fillRect(x + 190, GROUND_Y - 72, 8, 64); ctx.fillRect(x + 190, GROUND_Y - 74, 36, 5);
+        ctx.fillRect(x + 280, GROUND_Y - 132, 8, 124); ctx.fillRect(x + 250, GROUND_Y - 134, 40, 5);
+      }
+    } else {
+      for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+        ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 8); ctx.quadraticCurveTo(x + 110, GROUND_Y - 96, x + 220, GROUND_Y - 12); ctx.quadraticCurveTo(x + 340, GROUND_Y - 130, x + 440, GROUND_Y - 8); ctx.fill();
+        if (theme.style === 'kerala') {
+          for (let palmX = x + 95; palmX < x + 400; palmX += 145) { ctx.strokeStyle = theme.near; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(palmX, GROUND_Y - 12); ctx.quadraticCurveTo(palmX - 8, GROUND_Y - 70, palmX + 5, GROUND_Y - 126); ctx.stroke(); ctx.fillStyle = theme.near; for (let a = -2; a <= 2; a++) { ctx.beginPath(); ctx.ellipse(palmX + a * 15, GROUND_Y - 128 + Math.abs(a) * 8, 22, 5, a * 0.28, 0, Math.PI * 2); ctx.fill(); } }
+        } else {
+          ctx.fillStyle = theme.near; ctx.beginPath(); ctx.arc(x + 260, GROUND_Y - 62, 20, Math.PI, 0); ctx.fillRect(x + 240, GROUND_Y - 62, 40, 50); ctx.fill();
+        }
+      }
+    }
+    if (theme.style === 'city') {
+      ctx.strokeStyle = theme.accent; ctx.globalAlpha = 0.22; ctx.lineWidth = 1;
+      for (let x = -40; x < V_WIDTH + 40; x += 40) { ctx.beginPath(); ctx.moveTo(V_WIDTH / 2, GROUND_Y - 42); ctx.lineTo(x, GROUND_Y); ctx.stroke(); }
+      for (let y = GROUND_Y - 34; y < GROUND_Y; y += 12) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(V_WIDTH, y); ctx.stroke(); }
+    }
+    if (theme.style === 'kerala') {
+      ctx.globalAlpha = 0.38;
+      ctx.fillStyle = '#59c9c1';
+      ctx.fillRect(0, GROUND_Y - 11, V_WIDTH, 9);
+      ctx.fillStyle = '#d9fff0';
+      for (let x = -(globalFrame * 0.55 % 56); x < V_WIDTH; x += 56) ctx.fillRect(x, GROUND_Y - 8, 22, 1);
+    }
+    if (theme.style === 'road') {
+      ctx.globalAlpha = 0.76;
+      ctx.fillStyle = '#596366';
+      ctx.fillRect(0, GROUND_Y - 87, V_WIDTH, 10);
+      ctx.fillStyle = theme.accent;
+      ctx.fillRect(0, GROUND_Y - 77, V_WIDTH, 3);
+      ctx.fillStyle = '#788184';
+      for (let x = 14; x < V_WIDTH; x += 42) ctx.fillRect(x, GROUND_Y - 77, 3, 8);
+    }
+    ctx.restore();
+  }
+
+  function drawThemeGround(theme) {
+    const road = theme.style === 'road' || theme.style === 'city';
+    const gradient = ctx.createLinearGradient(0, GROUND_Y, 0, V_HEIGHT);
+    gradient.addColorStop(0, theme.groundTop);
+    gradient.addColorStop(0.18, theme.groundBody);
+    gradient.addColorStop(1, theme.groundBody);
+    ctx.save(); ctx.globalAlpha = theme.blend;
+    ctx.fillStyle = gradient; ctx.fillRect(0, GROUND_Y, V_WIDTH, GROUND_HEIGHT);
+    ctx.fillStyle = theme.accent; ctx.fillRect(0, GROUND_Y, V_WIDTH, 3);
+    if (road) {
+      ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      for (let x = -(groundScrollOffset * 2 % 78); x < V_WIDTH; x += 78) ctx.fillRect(x, GROUND_Y + 53, 38, 4);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(0, GROUND_Y + 8, V_WIDTH, 2);
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.14)';
+      for (let x = -groundScrollOffset - 20; x < V_WIDTH; x += 28) ctx.fillRect(x, GROUND_Y + 22, 13, 2);
+    }
+    ctx.restore();
+  }
+
+  function drawThemeBanner() {
+    if (!themeBannerTimer) return;
+    const fade = Math.min(1, themeBannerTimer / 24, (150 - themeBannerTimer) / 18);
+    const theme = THEMES[themeIndex];
+    ctx.save(); ctx.globalAlpha = Math.max(0, fade);
+    ctx.fillStyle = 'rgba(12, 18, 28, 0.64)'; roundRect(ctx, 73, 112, V_WIDTH - 146, 40, 20); ctx.fill();
+    ctx.font = '700 15px "Fredoka", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    ctx.fillText(`Entering ${theme.name} ${theme.icon}`, V_WIDTH / 2, 132);
+    ctx.restore();
+  }
+
   // Night Stars
   const stars = [];
   for (let i = 0; i < 48; i++) {
@@ -952,11 +1105,15 @@
     };
   }
 
-  function drawSky(cycle) {
+  function drawSky(cycle, theme) {
     const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-    skyGrad.addColorStop(0, cycle.skyTop);
-    skyGrad.addColorStop(0.55, cycle.skyMid);
-    skyGrad.addColorStop(1, cycle.skyBot);
+    const skyMix = (base, themed) => {
+      const color = themeColor(themed);
+      return toCss(mixColor(base, color, theme.blend));
+    };
+    skyGrad.addColorStop(0, skyMix(parseColor(cycle.skyTop), theme.skyTop));
+    skyGrad.addColorStop(0.55, skyMix(parseColor(cycle.skyMid), theme.skyMid));
+    skyGrad.addColorStop(1, skyMix(parseColor(cycle.skyBot), theme.skyBot));
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
@@ -1256,7 +1413,7 @@
       this.x -= gameSpeed;
     }
 
-    draw(cycle) {
+    draw(cycle, theme) {
       // Soft ambient drop shadow cast behind pipes
       ctx.save();
       ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
@@ -1265,13 +1422,15 @@
       ctx.restore();
 
       // Top Pipe (hanging down)
-      this.drawPipeSection(this.x, 0, this.w, this.topHeight, true, cycle);
+      this.drawPipeSection(this.x, 0, this.w, this.topHeight, true, cycle, theme);
       // Bottom Pipe (standing up)
-      this.drawPipeSection(this.x, this.bottomY, this.w, this.bottomHeight, false, cycle);
+      this.drawPipeSection(this.x, this.bottomY, this.w, this.bottomHeight, false, cycle, theme);
     }
 
-    drawPipeSection(x, y, w, h, isTop, cycle) {
+    drawPipeSection(x, y, w, h, isTop, cycle, theme) {
       const ps = activePipeSkin();
+      const shaftColors = theme.pipe;
+      const lipColors = theme.lip;
       const skinImage = ps.custom ? customSkinImages.get(ps.id) : null;
       const lipHeight = 28;
       const lipOverlap = 5;
@@ -1283,12 +1442,12 @@
 
       // --- 1. Pipe Shaft Cylindrical 3D Texture ---
       const shaftGrad = ctx.createLinearGradient(x, 0, x + w, 0);
-      shaftGrad.addColorStop(0, ps.shaft[0]);
-      shaftGrad.addColorStop(0.18, ps.shaft[1]);
-      shaftGrad.addColorStop(0.38, ps.shaft[2]);
-      shaftGrad.addColorStop(0.68, ps.shaft[3]);
-      shaftGrad.addColorStop(0.9, ps.shaft[4]);
-      shaftGrad.addColorStop(1, ps.shaft[5]);
+      shaftGrad.addColorStop(0, shaftColors[0]);
+      shaftGrad.addColorStop(0.18, shaftColors[1]);
+      shaftGrad.addColorStop(0.38, shaftColors[2]);
+      shaftGrad.addColorStop(0.68, shaftColors[3]);
+      shaftGrad.addColorStop(0.9, shaftColors[4]);
+      shaftGrad.addColorStop(1, shaftColors[5]);
 
       ctx.fillStyle = shaftGrad;
       ctx.fillRect(x, shaftY, w, shaftHeight);
@@ -1302,7 +1461,7 @@
       }
 
       // Shaft Outline
-      ctx.strokeStyle = ps.outline;
+      ctx.strokeStyle = theme.outline;
       ctx.lineWidth = 2.5;
       ctx.strokeRect(x, shaftY, w, shaftHeight);
 
@@ -1310,13 +1469,36 @@
       ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
       ctx.fillRect(x + w * 0.32, shaftY, 3, shaftHeight);
 
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x, shaftY, w, shaftHeight); ctx.clip();
+      if (theme.style === 'kerala' || theme.style === 'forest') {
+        ctx.strokeStyle = theme.accent; ctx.globalAlpha = 0.66; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x + 8, shaftY); ctx.bezierCurveTo(x + 52, shaftY + shaftHeight * 0.28, x + 8, shaftY + shaftHeight * 0.62, x + 48, shaftY + shaftHeight);
+        ctx.stroke();
+        for (let markY = shaftY + 28; markY < shaftY + shaftHeight; markY += 46) {
+          ctx.beginPath(); ctx.ellipse(x + (Math.sin(markY) > 0 ? 42 : 18), markY, 8, 3, -0.5, 0, Math.PI * 2); ctx.stroke();
+        }
+      } else if (theme.style === 'road' || theme.style === 'city') {
+        ctx.fillStyle = theme.accent; ctx.globalAlpha = theme.style === 'city' ? 0.8 : 0.72;
+        if (theme.style === 'road') {
+          for (let markY = shaftY + (isTop ? 0 : 14); markY < shaftY + shaftHeight; markY += 28) {
+            ctx.beginPath(); ctx.moveTo(x, markY); ctx.lineTo(x + w * 0.35, markY); ctx.lineTo(x + w * 0.55, markY + 12); ctx.lineTo(x + w * 0.2, markY + 12); ctx.closePath(); ctx.fill();
+          }
+        } else ctx.fillRect(x + w - 6, shaftY, 3, shaftHeight);
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.13)';
+        for (let markY = shaftY + 18; markY < shaftY + shaftHeight; markY += 42) ctx.fillRect(x + 10, markY, w - 20, 2);
+      }
+      ctx.restore();
+
       // --- 2. Pipe Lip Collar with 3D Overhang ---
       const lipGrad = ctx.createLinearGradient(lipX, 0, lipX + lipWidth, 0);
-      lipGrad.addColorStop(0, ps.lip[0]);
-      lipGrad.addColorStop(0.2, ps.lip[1]);
-      lipGrad.addColorStop(0.42, ps.lip[2]);
-      lipGrad.addColorStop(0.72, ps.lip[3]);
-      lipGrad.addColorStop(1, ps.lip[4]);
+      lipGrad.addColorStop(0, lipColors[0]);
+      lipGrad.addColorStop(0.2, lipColors[1]);
+      lipGrad.addColorStop(0.42, lipColors[2]);
+      lipGrad.addColorStop(0.72, lipColors[3]);
+      lipGrad.addColorStop(1, lipColors[4]);
 
       ctx.fillStyle = lipGrad;
       ctx.beginPath();
@@ -1332,7 +1514,7 @@
       }
 
       // Lip Outline
-      ctx.strokeStyle = ps.outline;
+      ctx.strokeStyle = theme.outline;
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
@@ -2346,6 +2528,8 @@
   const requestCategory = document.getElementById('request-category');
   const requestName = document.getElementById('request-name');
   const requestStatus = document.getElementById('request-status');
+  const deathSoundControls = document.getElementById('death-sound-controls');
+  const randomDeathSoundButton = document.getElementById('random-death-sound');
   const storeTabs = {
     bird: document.getElementById('store-tab-bird'),
     pipe: document.getElementById('store-tab-pipe'),
@@ -2359,6 +2543,7 @@
   let storeVisible = false;
   let storeTab = 'bird';
   let storeRaf = 0;
+  let storePreviewAudio = null;
 
   function overlayOpen() {
     return storeVisible || !!(window.FlappyLeaderboard && window.FlappyLeaderboard.isOpen());
@@ -2371,6 +2556,7 @@
   }
 
   function setStoreTab(tab) {
+    stopDeathSoundPreview();
     storeTab = tab;
     Object.keys(storeTabs).forEach(k => {
       storeTabs[k].classList.toggle('active', k === tab);
@@ -2417,9 +2603,52 @@
         btn.addEventListener('click', () => buyItem(item));
       }
 
-      card.append(cv, name, btn);
+      card.append(cv, name);
+      if (storeTab === 'sound') {
+        const previewBtn = document.createElement('button');
+        previewBtn.type = 'button';
+        previewBtn.className = 'lb-btn store-btn store-preview-btn';
+        previewBtn.textContent = '▶ Preview';
+        previewBtn.setAttribute('aria-label', `Preview ${item.name}`);
+        previewBtn.addEventListener('click', () => playDeathSoundPreview(item));
+        card.append(previewBtn);
+      }
+      card.append(btn);
       storeGrid.appendChild(card);
     });
+    deathSoundControls.classList.toggle('hidden', storeTab !== 'sound');
+  }
+
+  function playDeathSoundPreview(item) {
+    stopDeathSoundPreview();
+    sound.init();
+    storeMsg.textContent = `Previewing ${item.name}.`;
+    if (!item.src) {
+      sound.playSynthDie();
+      return;
+    }
+    const preview = new Audio(new URL(item.src, document.baseURI).href);
+    preview.volume = 0.8;
+    storePreviewAudio = preview;
+    preview.addEventListener('ended', () => {
+      if (storePreviewAudio === preview) storePreviewAudio = null;
+    }, { once: true });
+    preview.play().catch(() => {
+      if (storePreviewAudio === preview) storePreviewAudio = null;
+      storeMsg.textContent = `Could not preview ${item.name}.`;
+    });
+  }
+
+  function playRandomDeathSoundPreview() {
+    const item = DEATH_SOUNDS[Math.floor(Math.random() * DEATH_SOUNDS.length)];
+    playDeathSoundPreview(item);
+  }
+
+  function stopDeathSoundPreview() {
+    if (!storePreviewAudio) return;
+    storePreviewAudio.pause();
+    storePreviewAudio.currentTime = 0;
+    storePreviewAudio = null;
   }
 
   function equipItem(item) {
@@ -2535,6 +2764,7 @@
 
   function closeStore() {
     storeVisible = false;
+    stopDeathSoundPreview();
     storeOverlay.classList.add('hidden');
     cancelAnimationFrame(storeRaf);
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -2571,6 +2801,7 @@
     }
   });
   storeClose.addEventListener('click', closeStore);
+  randomDeathSoundButton.addEventListener('click', playRandomDeathSoundPreview);
   storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
   document.addEventListener('keydown', (e) => { if (storeVisible && e.key === 'Escape') closeStore(); });
 
@@ -2699,7 +2930,8 @@
 
     // 1. Dynamic Gradual Day & Night Sky (Sun & Moon Arc)
     const cycle = getCycleState();
-    drawSky(cycle);
+    const theme = getThemeState();
+    drawSky(cycle, theme);
 
     // 2. Dynamic Gradual Seasons (Color Blending)
     const season = getSeasonState();
@@ -2710,6 +2942,7 @@
 
     // 4. Parallax Mountains & Rolling Hills with Seasonal Trees Moving Backward
     drawMovingScenery(cycle, season);
+    drawThemeLandmarks(theme);
 
     // 5. Seasonal Weather Particles Moving Backward (Petals, motes, leaves, snow)
     updateSeasonalParticles(season.seasonIndex);
@@ -2743,10 +2976,11 @@
         if (p.x + p.w < -30) pipes.splice(i, 1);
       }
     }
-    pipes.forEach(p => p.draw(cycle));
+    pipes.forEach(p => p.draw(cycle, theme));
 
     // 7. Textured Earth & Grass Turf Ground Moving Backward
     drawGround(season);
+    drawThemeGround(theme);
 
     // 8. Authentic Hand-Crafted Original Flappy Bird
     bird.update();
@@ -2777,6 +3011,7 @@
     if (currentState === STATE.READY) drawStartScreen();
     else if (currentState === STATE.PLAYING || currentState === STATE.DYING) drawScoreHUD();
     else if (currentState === STATE.GAMEOVER) drawGameOverScreen();
+    drawThemeBanner();
 
     // 12. Hit Flash
     if (flashWhiteAlpha > 0) {

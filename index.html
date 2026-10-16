@@ -76,10 +76,14 @@
           <button id="store-tab-sound" class="store-tab" role="tab" aria-selected="false" type="button">Death Sounds</button>
         </div>
         <div id="store-grid" class="store-grid"></div>
+        <div id="death-sound-controls" class="death-sound-controls hidden">
+          <button id="random-death-sound" class="lb-btn" type="button">▶ Play random death sound</button>
+        </div>
         <form id="request-form" class="store-request">
           <h3>Request something</h3>
           <label for="request-category">Category</label>
           <select id="request-category" aria-label="Request category">
+            <option value="General">General</option>
             <option value="Pipe">Pipe</option>
             <option value="Skin">Skin</option>
             <option value="Audio">Audio</option>
