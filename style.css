@@ -548,6 +548,16 @@ button.header-pill:focus-visible {
   height: 64px;
 }
 
+.store-sound-card {
+  cursor: pointer;
+}
+
+.store-sound-card .store-preview:focus-visible {
+  outline: 3px solid #275213;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .store-name {
   max-width: 100%;
   font-size: 14px;

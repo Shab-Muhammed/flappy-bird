@@ -38,10 +38,13 @@
 
   const V_WIDTH = 360;
   const V_HEIGHT = 640;
+  const coarsePointer = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || (navigator.maxTouchPoints || 0) > 0;
+  const glowScale = coarsePointer ? 0.48 : 0.72;
+  const glowBlur = amount => amount * glowScale;
   let scale = 1;
 
   function resizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.5 : 2);
     canvas.width = V_WIDTH * dpr;
     canvas.height = V_HEIGHT * dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -457,6 +460,7 @@
   let screenShakeTimer = 0;
   let flashWhiteAlpha = 0;
   let globalFrame = 0;
+  let worldFrame = 0;
 
   // Keep the original opening pace, then increase speed with a gentle exponential curve.
   const BASE_SPEED = 2.0;
@@ -601,16 +605,24 @@
       NIGHT: { skyTop: '#060c1b', skyMid: '#101a2b', skyBot: '#202d3b', far: '#121a25', near: '#1c2429', groundTop: '#394044', groundBody: '#14181c', accent: '#c4d4da', pipeTint: '#202c37', lighting: 'rgba(8, 20, 32, 0.23)', particleEffect: 'traffic', particleDensity: 0.82, pipeShade: 0.38, emission: 12, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 1, trafficIntensity: 1, streetlightIntensity: 1 }
     }
   };
+  const THEME_CYCLE_COLOR_KEYS = ['skyTop', 'skyMid', 'skyBot', 'far', 'near', 'groundTop', 'groundBody', 'accent', 'pipeTint', 'lighting'];
+  Object.values(THEME_CYCLE_PROFILES).forEach(profiles => {
+    Object.values(profiles).forEach(profile => {
+      profile.parsed = {};
+      THEME_CYCLE_COLOR_KEYS.forEach(key => { profile.parsed[key] = parseColor(profile[key]); });
+    });
+  });
 
   function syncThemeToCycle(theme, cycle) {
     const profiles = THEME_CYCLE_PROFILES[theme.style];
     if (!profiles) return theme;
     const from = profiles[cycle.stageName];
     const to = profiles[cycle.nextStageName];
-    const mixColorValue = (first, second) => toCss(mixColor(themeColor(first), themeColor(second), cycle.stageLerp));
+    if (!from || !to) return theme;
+    const mixColorValue = key => toCss(mixColor(from.parsed[key], to.parsed[key], cycle.stageLerp));
     const synchronized = { ...theme };
-    for (const key of ['skyTop', 'skyMid', 'skyBot', 'far', 'near', 'groundTop', 'groundBody', 'accent', 'pipeTint', 'lighting']) {
-      synchronized[key] = mixColorValue(from[key], to[key]);
+    for (const key of THEME_CYCLE_COLOR_KEYS) {
+      synchronized[key] = mixColorValue(key);
     }
     synchronized.pipe = from.pipe ? from.pipe.map((color, index) => mixColorValue(color, to.pipe[index])) : theme.pipe;
     synchronized.lip = from.lip ? from.lip.map((color, index) => mixColorValue(color, to.lip[index])) : theme.lip;
@@ -712,15 +724,17 @@
   }
 
   function updateThemeAtmosphere(theme, deltaSeconds) {
-    atmosphereTime += deltaSeconds;
+    const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING;
+    if (worldActive) atmosphereTime += deltaSeconds;
     const particleStyle = `${theme.style}:${theme.particleEffect}`;
     if (ambientParticleStyle !== particleStyle) {
       ambientParticleStyle = particleStyle;
       ambientParticles.length = 0;
     }
-    const particleCount = Math.round(14 + theme.particleDensity * 30);
+    const particleCount = Math.round((coarsePointer ? 10 : 12) + theme.particleDensity * (coarsePointer ? 14 : 20));
     while (ambientParticles.length < particleCount) ambientParticles.push(makeAmbientParticle(theme, true));
     while (ambientParticles.length > particleCount) ambientParticles.pop();
+    if (!worldActive) return;
     for (let index = ambientParticles.length - 1; index >= 0; index--) {
       const particle = ambientParticles[index];
       particle.x -= particle.speed * deltaSeconds;
@@ -762,12 +776,12 @@
         ctx.beginPath(); ctx.ellipse(0, 0, particle.size * 1.9, particle.size * 0.7, 0, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = 'rgba(247, 255, 204, 0.55)'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-particle.size, 0); ctx.lineTo(particle.size, 0); ctx.stroke();
       } else if (theme.particleEffect === 'gold') {
-        ctx.shadowColor = '#ffc86b'; ctx.shadowBlur = 7;
+        ctx.shadowColor = '#ffc86b'; ctx.shadowBlur = glowBlur(7);
         ctx.fillStyle = pulse > 0.5 ? '#ffe69a' : '#e99a4c';
         ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * (0.5 + pulse * 0.55), 0, Math.PI * 2); ctx.fill();
       } else if (theme.particleEffect === 'fireflies') {
         const forestBlue = theme.style === 'forest' && particle.phase % 2 > 1;
-        ctx.shadowColor = forestBlue ? '#55dfff' : '#caff70'; ctx.shadowBlur = theme.style === 'kerala' ? 10 : 15;
+        ctx.shadowColor = forestBlue ? '#55dfff' : '#caff70'; ctx.shadowBlur = glowBlur(theme.style === 'kerala' ? 10 : 15);
         ctx.fillStyle = forestBlue ? '#69eaff' : '#dcff70';
         ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * (0.55 + pulse * 0.7), 0, Math.PI * 2); ctx.fill();
       } else if (theme.particleEffect === 'sand' || theme.particleEffect === 'dust') {
@@ -776,7 +790,7 @@
         ctx.lineWidth = particle.size * 0.55;
         ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x + particle.size * (theme.particleEffect === 'sand' ? 4 : 9), particle.y - particle.size * 0.25); ctx.stroke();
       } else if (theme.particleEffect === 'stardust') {
-        ctx.shadowColor = '#b9cfff'; ctx.shadowBlur = 6;
+        ctx.shadowColor = '#b9cfff'; ctx.shadowBlur = glowBlur(6);
         ctx.fillStyle = pulse > 0.6 ? '#ffffff' : '#9baed8';
         ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 0.65, 0, Math.PI * 2); ctx.fill();
       } else if (theme.particleEffect === 'smoke') {
@@ -785,17 +799,17 @@
         ctx.strokeStyle = 'rgba(160, 182, 202, 0.18)'; ctx.beginPath(); ctx.moveTo(particle.x - 4, particle.y + 4); ctx.lineTo(particle.x + 5, particle.y + 4); ctx.stroke();
       } else if (theme.particleEffect === 'traffic') {
         ctx.globalAlpha *= theme.style === 'highway' && theme.cycleStage === 'NIGHT' ? 0.9 : 0.42;
-        ctx.shadowColor = particle.lightColor; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 8 : 3;
+        ctx.shadowColor = particle.lightColor; ctx.shadowBlur = glowBlur(theme.cycleStage === 'NIGHT' ? 8 : 3);
         ctx.strokeStyle = particle.lightColor; ctx.lineWidth = theme.cycleStage === 'NIGHT' ? 2 : 1;
         ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x + particle.size * 11, particle.y); ctx.stroke();
       } else if (theme.particleEffect === 'pixels') {
         const pixelColor = pulse > 0.5 ? '#46f4ff' : '#ff48c8';
         ctx.globalAlpha *= theme.emission < 3 ? 0.3 : theme.emission < 8 ? 0.6 : 1;
-        ctx.shadowColor = pixelColor; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 10 : 5;
+        ctx.shadowColor = pixelColor; ctx.shadowBlur = glowBlur(theme.cycleStage === 'NIGHT' ? 10 : 5);
         ctx.fillStyle = pixelColor;
         ctx.fillRect(particle.x, particle.y, particle.size, particle.size);
       } else {
-        ctx.shadowColor = '#d7ff7a'; ctx.shadowBlur = 8;
+        ctx.shadowColor = '#d7ff7a'; ctx.shadowBlur = glowBlur(8);
         ctx.fillStyle = pulse > 0.45 ? '#e6f58a' : '#a9d76c';
         ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 0.65, 0, Math.PI * 2); ctx.fill();
       }
@@ -821,8 +835,8 @@
   }
 
   function drawThemeLandmarks(theme) {
-    const drift = (globalFrame * gameSpeed * 0.12) % 440;
-    const farDrift = (globalFrame * gameSpeed * 0.035) % 440;
+    const drift = (worldFrame * gameSpeed * 0.12) % 440;
+    const farDrift = (worldFrame * gameSpeed * 0.035) % 440;
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.fillStyle = theme.far;
@@ -874,7 +888,7 @@
         for (let i = 0; i < 8; i++) {
           const bx = x + i * 58; const h = 55 + ((i * 37) % 90); ctx.fillRect(bx, GROUND_Y - h, 42, h);
           for (let row = 0; row < Math.floor(h / 16); row++) {
-            const flicker = Math.sin(globalFrame * 0.035 + i * 5.7 + row * 3.1);
+            const flicker = Math.sin(worldFrame * 0.035 + i * 5.7 + row * 3.1);
             if (flicker > -0.15) {
               ctx.globalAlpha = windowGlow;
               ctx.fillStyle = flicker > 0.6 ? '#70f5ff' : '#e45bc8';
@@ -888,23 +902,38 @@
       }
     } else if (theme.style === 'highway') {
       for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
-        ctx.fillRect(x + 65, GROUND_Y - 100, 8, 92); ctx.fillRect(x + 34, GROUND_Y - 101, 40, 5);
-        ctx.fillRect(x + 190, GROUND_Y - 72, 8, 64); ctx.fillRect(x + 190, GROUND_Y - 74, 36, 5);
-        ctx.fillRect(x + 280, GROUND_Y - 132, 8, 124); ctx.fillRect(x + 250, GROUND_Y - 134, 40, 5);
+        ctx.fillStyle = '#39484c';
+        ctx.fillRect(x + 62, GROUND_Y - 166, 12, 158);
+        ctx.fillRect(x + 276, GROUND_Y - 166, 12, 158);
+        ctx.fillRect(x + 58, GROUND_Y - 171, 232, 9);
+        ctx.fillStyle = '#849194';
+        ctx.fillRect(x + 65, GROUND_Y - 164, 3, 152);
+        ctx.fillRect(x + 279, GROUND_Y - 164, 3, 152);
+        ctx.fillRect(x + 62, GROUND_Y - 173, 224, 2);
+        ctx.fillStyle = '#293538';
+        ctx.fillRect(x + 58, GROUND_Y - 12, 20, 5);
+        ctx.fillRect(x + 272, GROUND_Y - 12, 20, 5);
+        ctx.fillStyle = '#75888b';
+        ctx.fillRect(x + 148, GROUND_Y - 162, 8, 13);
+        ctx.fillRect(x + 252, GROUND_Y - 162, 8, 13);
+        ctx.fillStyle = '#263337';
+        ctx.fillRect(x + 146, GROUND_Y - 151, 116, 29);
+        ctx.fillStyle = '#52666a';
+        ctx.fillRect(x + 149, GROUND_Y - 148, 110, 23);
+        ctx.strokeStyle = '#a6b4b4'; ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + 146, GROUND_Y - 151, 116, 29);
+        ctx.fillStyle = '#f3d78e'; ctx.font = '700 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('EXIT 08', x + 204, GROUND_Y - 136);
         if (theme.streetlightIntensity > 0.02) {
           ctx.save();
           ctx.globalAlpha = theme.streetlightIntensity;
-          ctx.shadowColor = '#ffe4a3'; ctx.shadowBlur = 12 * theme.streetlightIntensity;
+          ctx.shadowColor = '#ffe4a3'; ctx.shadowBlur = glowBlur(12 * theme.streetlightIntensity);
           ctx.fillStyle = '#fff0c4';
-          for (const lamp of [[38, -101], [194, -74], [254, -134]]) {
+          for (const lamp of [[68, -173], [282, -173]]) {
             ctx.beginPath(); ctx.arc(x + lamp[0], GROUND_Y + lamp[1], 3, 0, Math.PI * 2); ctx.fill();
           }
           ctx.restore();
         }
-        ctx.strokeStyle = '#75888b'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(x + 28, GROUND_Y - 150); ctx.lineTo(x + 404, GROUND_Y - 150); ctx.stroke();
-        ctx.fillStyle = '#47616a'; ctx.fillRect(x + 148, GROUND_Y - 178, 112, 26);
-        ctx.fillStyle = '#e7d997'; ctx.font = '700 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('EXIT 08', x + 204, GROUND_Y - 160);
         if (theme.trafficIntensity > 0.02) {
           ctx.save();
           ctx.globalAlpha = theme.trafficIntensity;
@@ -913,7 +942,7 @@
             const lightY = GROUND_Y - 28 - (lightIndex % 3) * 5;
             const lightColor = lightIndex % 2 ? '#ff334f' : '#fff5cf';
             ctx.shadowColor = lightColor;
-            ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 8 : 3;
+            ctx.shadowBlur = glowBlur(theme.cycleStage === 'NIGHT' ? 8 : 3);
             ctx.fillStyle = lightColor;
             ctx.fillRect(lightX, lightY, 5, 2);
           }
@@ -947,7 +976,7 @@
       ctx.fillStyle = theme.accent;
       ctx.fillRect(0, GROUND_Y - 11, V_WIDTH, 9);
       ctx.fillStyle = '#a5e8d9';
-      for (let x = -(globalFrame * 0.55 % 56); x < V_WIDTH; x += 56) ctx.fillRect(x, GROUND_Y - 8, 22, 1);
+      for (let x = -(worldFrame * 0.55 % 56); x < V_WIDTH; x += 56) ctx.fillRect(x, GROUND_Y - 8, 22, 1);
     }
     if (theme.style === 'highway') {
       ctx.globalAlpha = 1;
@@ -1154,13 +1183,14 @@
 
   function getCycleState() {
     const mode = CYCLE_MODES[currentCycleModeIndex];
+    const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING;
 
-    if (mode === 'AUTO') {
+    if (mode === 'AUTO' && worldActive) {
       // Score bonus is fed in a little each frame so the sky never jumps
       const bonusStep = cycleBoost * 0.02;
       cycleBoost -= bonusStep;
       cycleProgress = (cycleProgress + CYCLE_AUTO_SPEED + bonusStep) % 1.0;
-    } else {
+    } else if (mode !== 'AUTO' && worldActive) {
       cycleBoost = 0;
       let targetP = 0.0;
       if (mode === 'DAY') targetP = 0.0;
@@ -1268,7 +1298,7 @@
     const starVis = Math.pow(cycle.nightRatio, 1.5);
     if (starVis > 0.01) {
       stars.forEach(st => {
-        const twinkle = Math.sin(globalFrame * 0.08 + st.twinkleOffset) * 0.35 + 0.65;
+        const twinkle = Math.sin(worldFrame * 0.08 + st.twinkleOffset) * 0.35 + 0.65;
         ctx.save();
         ctx.globalAlpha = starVis * twinkle;
         ctx.fillStyle = '#ffffff';
@@ -1439,7 +1469,7 @@
       ctx.save();
       if (theme.style === 'cyberpunk') {
         ctx.shadowColor = neonColor;
-        ctx.shadowBlur = theme.emission;
+        ctx.shadowBlur = glowBlur(theme.emission);
       }
       ctx.fillStyle = shaftGrad;
       ctx.fillRect(x, shaftY, w, shaftHeight);
@@ -1449,7 +1479,7 @@
       ctx.save();
       if (theme.style === 'cyberpunk') {
         ctx.shadowColor = neonColor;
-        ctx.shadowBlur = theme.emission;
+        ctx.shadowBlur = glowBlur(theme.emission);
       }
       ctx.strokeStyle = theme.style === 'cyberpunk' ? neonColor : theme.outline;
       if (theme.style === 'cyberpunk') ctx.globalAlpha = Math.max(0.1, theme.emission / 20);
@@ -1472,7 +1502,7 @@
         ctx.globalAlpha = theme.vineOpacity;
         ctx.strokeStyle = theme.cycleStage === 'NIGHT' ? '#729fbd' : '#1a4b35'; ctx.lineWidth = 3.2;
         ctx.beginPath();
-        ctx.moveTo(x + 8, shaftY); ctx.bezierCurveTo(x + 54, shaftY + shaftHeight * 0.28 + Math.sin(globalFrame * 0.03) * 4, x + 8, shaftY + shaftHeight * 0.62, x + 49, shaftY + shaftHeight);
+        ctx.moveTo(x + 8, shaftY); ctx.bezierCurveTo(x + 54, shaftY + shaftHeight * 0.28 + Math.sin(worldFrame * 0.03) * 4, x + 8, shaftY + shaftHeight * 0.62, x + 49, shaftY + shaftHeight);
         ctx.stroke();
         for (let leafY = shaftY + 24; leafY < shaftY + shaftHeight; leafY += 48) {
           const leafX = x + (Math.sin(leafY * 0.12) > 0 ? 42 : 18);
@@ -1496,11 +1526,13 @@
           ctx.beginPath(); ctx.moveTo(crackX, crackY); ctx.lineTo(crackX + 5, crackY + 7); ctx.lineTo(crackX + 2, crackY + 13); ctx.lineTo(crackX + 8, crackY + 19); ctx.stroke();
         }
         const sunEdge = ctx.createLinearGradient(x, 0, x + 12, 0);
-        sunEdge.addColorStop(0, `rgba(255,237,174,${0.28 + 0.38 * cycle.cycleBrightness})`); sunEdge.addColorStop(1, 'rgba(255,237,174,0)');
+        const pipeBrightness = Number.isFinite(cycle.pipeBrightness) ? cycle.pipeBrightness : 1;
+        const sunHighlightOpacity = Math.max(0, Math.min(1, 0.28 + 0.38 * pipeBrightness));
+        sunEdge.addColorStop(0, `rgba(255,237,174,${sunHighlightOpacity})`); sunEdge.addColorStop(1, 'rgba(255,237,174,0)');
         ctx.fillStyle = sunEdge; ctx.fillRect(x, shaftY, 12, shaftHeight);
       } else if (theme.style === 'forest') {
         ctx.strokeStyle = theme.mushroomGlow > 0.7 ? '#55c8bd' : '#374436'; ctx.lineWidth = 1.2;
-        ctx.shadowColor = '#4de0d2'; ctx.shadowBlur = 5 * theme.mushroomGlow;
+        ctx.shadowColor = '#4de0d2'; ctx.shadowBlur = glowBlur(5 * theme.mushroomGlow);
         for (let runeY = shaftY + 38; runeY < shaftY + shaftHeight; runeY += 76) {
           const runeX = x + 13 + (Math.floor(runeY / 76) % 2) * 17;
           ctx.beginPath(); ctx.moveTo(runeX, runeY - 8); ctx.lineTo(runeX + 5, runeY); ctx.lineTo(runeX, runeY + 8); ctx.moveTo(runeX + 10, runeY - 5); ctx.lineTo(runeX + 17, runeY + 5); ctx.stroke();
@@ -1511,11 +1543,11 @@
         for (let mushroomY = shaftY + 52; mushroomY < shaftY + shaftHeight; mushroomY += 94) {
           const side = mushroomY % 2 ? x + 5 : x + w - 5;
           ctx.strokeStyle = '#d8d6b6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(side, mushroomY); ctx.lineTo(side, mushroomY - 7); ctx.stroke();
-          ctx.shadowColor = mushroomY % 3 ? '#55e8ff' : '#ffe36e'; ctx.shadowBlur = 15 * theme.mushroomGlow;
+          ctx.shadowColor = mushroomY % 3 ? '#55e8ff' : '#ffe36e'; ctx.shadowBlur = glowBlur(15 * theme.mushroomGlow);
           ctx.globalAlpha = 0.22 + theme.mushroomGlow * 0.78;
           ctx.fillStyle = mushroomY % 3 ? '#61d9e7' : '#f4d86b';
           ctx.beginPath(); ctx.ellipse(side, mushroomY - 8, 5, 3, 0, Math.PI, Math.PI * 2); ctx.fill();
-          ctx.globalAlpha = 1; ctx.shadowBlur = 5 * theme.mushroomGlow;
+          ctx.globalAlpha = 1; ctx.shadowBlur = glowBlur(5 * theme.mushroomGlow);
         }
       } else if (theme.style === 'highway') {
         for (let markY = shaftY + 10; markY < shaftY + shaftHeight; markY += 52) {
@@ -1541,7 +1573,7 @@
         core.addColorStop(0, 'rgba(60,236,255,0)'); core.addColorStop(0.5, 'rgba(60,236,255,0.42)'); core.addColorStop(1, 'rgba(255,57,192,0)');
         ctx.globalAlpha = 0.08 + 0.42 * (theme.emission / 20);
         ctx.fillStyle = core; ctx.fillRect(x + 22, shaftY, 18, shaftHeight);
-        ctx.strokeStyle = neonColor; ctx.lineWidth = 1.4; ctx.shadowColor = neonColor; ctx.shadowBlur = theme.emission * 0.5;
+        ctx.strokeStyle = neonColor; ctx.lineWidth = 1.4; ctx.shadowColor = neonColor; ctx.shadowBlur = glowBlur(theme.emission * 0.5);
         ctx.globalAlpha = Math.max(0.1, theme.emission / 20);
         for (let traceY = shaftY + 18; traceY < shaftY + shaftHeight; traceY += 46) {
           const bendX = x + 16 + (Math.floor(traceY / 46) % 2) * 25;
@@ -1571,7 +1603,7 @@
       ctx.save();
       if (theme.style === 'cyberpunk') {
         ctx.shadowColor = neonColor;
-        ctx.shadowBlur = theme.emission;
+        ctx.shadowBlur = glowBlur(theme.emission);
         ctx.globalAlpha = Math.max(0.1, theme.emission / 20);
       }
       ctx.fillStyle = lipGrad;
@@ -1606,8 +1638,8 @@
         }
         ctx.restore();
         ctx.strokeStyle = '#e5e9e7'; ctx.lineWidth = 1.2; ctx.strokeRect(lipX + 3, lipY + 3, lipWidth - 6, lipHeight - 6);
-        const beaconPulse = (0.45 + 0.55 * Math.sin(globalFrame * 0.22)) * theme.hazardBrightness;
-        ctx.save(); ctx.globalAlpha = beaconPulse; ctx.shadowColor = '#ff332e'; ctx.shadowBlur = 12 * theme.hazardBrightness; ctx.fillStyle = '#ff302a';
+        const beaconPulse = (0.45 + 0.55 * Math.sin(worldFrame * 0.22)) * theme.hazardBrightness;
+        ctx.save(); ctx.globalAlpha = beaconPulse; ctx.shadowColor = '#ff332e'; ctx.shadowBlur = glowBlur(12 * theme.hazardBrightness); ctx.fillStyle = '#ff302a';
         for (const beaconX of [lipX + 7, lipX + lipWidth - 7]) {
           ctx.beginPath(); ctx.arc(beaconX, lipY + lipHeight / 2, 2.6, 0, Math.PI * 2); ctx.fill();
         }
@@ -1617,7 +1649,7 @@
         ctx.fillRect(lipX - 3, lipY + lipHeight - 7, lipWidth + 6, 8);
         ctx.fillStyle = '#e9bd63';
         ctx.fillRect(lipX - 5, lipY + lipHeight - 9, lipWidth + 10, 3);
-        ctx.save(); ctx.shadowColor = '#ffe3a0'; ctx.shadowBlur = theme.emission;
+        ctx.save(); ctx.shadowColor = '#ffe3a0'; ctx.shadowBlur = glowBlur(theme.emission);
         ctx.strokeStyle = '#f4d98e'; ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(lipX + 5, lipY + 4); ctx.lineTo(lipX + lipWidth - 5, lipY + 4); ctx.stroke();
         ctx.restore();
@@ -1643,7 +1675,7 @@
 
       // Lip Outline
       ctx.save();
-      if (theme.style === 'cyberpunk') { ctx.shadowColor = neonColor; ctx.shadowBlur = theme.emission; ctx.globalAlpha = Math.max(0.1, theme.emission / 20); }
+      if (theme.style === 'cyberpunk') { ctx.shadowColor = neonColor; ctx.shadowBlur = glowBlur(theme.emission); ctx.globalAlpha = Math.max(0.1, theme.emission / 20); }
       ctx.strokeStyle = theme.style === 'cyberpunk' ? neonColor : theme.outline;
       ctx.lineWidth = 2.5;
       this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
@@ -1651,20 +1683,20 @@
       ctx.restore();
 
       if (theme.style === 'cyberpunk') {
-        const sparkPulse = 0.55 + Math.sin(globalFrame * 0.42 + (isTop ? 0 : 1.7)) * 0.35;
+        const sparkPulse = 0.55 + Math.sin(worldFrame * 0.42 + (isTop ? 0 : 1.7)) * 0.35;
         ctx.save();
         ctx.globalAlpha = sparkPulse * Math.max(0.1, theme.emission / 20);
         ctx.strokeStyle = neonColor;
         ctx.fillStyle = '#eaffff';
         ctx.lineWidth = 1.6;
         ctx.shadowColor = neonColor;
-        ctx.shadowBlur = theme.emission * 0.5;
+        ctx.shadowBlur = glowBlur(theme.emission * 0.5);
         for (const side of [0, 1]) {
           const startX = side ? lipX + lipWidth - 4 : lipX + 4;
           const endX = side ? x + w - 3 : x + 3;
           const jointY = isTop ? lipY + lipHeight - 3 : lipY + 3;
           const direction = side ? -1 : 1;
-          const jitter = Math.sin(globalFrame * 0.71 + side * 2.1) * 2.2;
+          const jitter = Math.sin(worldFrame * 0.71 + side * 2.1) * 2.2;
           ctx.beginPath();
           ctx.moveTo(startX, jointY);
           ctx.lineTo(startX + direction * 5, jointY + jitter);
@@ -2626,7 +2658,6 @@
   const requestName = document.getElementById('request-name');
   const requestStatus = document.getElementById('request-status');
   const deathSoundControls = document.getElementById('death-sound-controls');
-  const randomDeathSoundButton = document.getElementById('random-death-sound');
   const randomDeathSoundToggle = document.getElementById('random-death-sound-toggle');
   const storeTabs = {
     bird: document.getElementById('store-tab-bird'),
@@ -2679,6 +2710,11 @@
       cv.className = 'store-preview';
       cv.dataset.kind = storeTab;
       cv.dataset.skin = item.id;
+      if (storeTab === 'sound') {
+        cv.tabIndex = 0;
+        cv.setAttribute('role', 'button');
+        cv.setAttribute('aria-label', `Play ${item.name}`);
+      }
 
       const name = document.createElement('div');
       name.className = 'store-name';
@@ -2701,13 +2737,16 @@
 
       card.append(cv, name);
       if (storeTab === 'sound') {
-        const previewBtn = document.createElement('button');
-        previewBtn.type = 'button';
-        previewBtn.className = 'lb-btn store-btn store-preview-btn';
-        previewBtn.textContent = '▶ Preview';
-        previewBtn.setAttribute('aria-label', `Preview ${item.name}`);
-        previewBtn.addEventListener('click', () => playDeathSoundPreview(item));
-        card.append(previewBtn);
+        card.classList.add('store-sound-card');
+        card.addEventListener('click', event => {
+          if (!event.target.closest('button')) playDeathSoundPreview(item);
+        });
+        cv.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            playDeathSoundPreview(item);
+          }
+        });
       }
       card.append(btn);
       storeGrid.appendChild(card);
@@ -2733,11 +2772,6 @@
       if (storePreviewAudio === preview) storePreviewAudio = null;
       storeMsg.textContent = `Could not preview ${item.name}.`;
     });
-  }
-
-  function playRandomDeathSoundPreview() {
-    const item = DEATH_SOUNDS[Math.floor(Math.random() * DEATH_SOUNDS.length)];
-    playDeathSoundPreview(item);
   }
 
   function stopDeathSoundPreview() {
@@ -2855,7 +2889,6 @@
     }
   });
   storeClose.addEventListener('click', closeStore);
-  randomDeathSoundButton.addEventListener('click', playRandomDeathSoundPreview);
   randomDeathSoundToggle.addEventListener('change', () => {
     randomDeathSoundEnabled = randomDeathSoundToggle.checked;
     lsSet('flappy_random_death_sound', String(randomDeathSoundEnabled));
@@ -2986,6 +3019,9 @@
       : Math.min(0.05, Math.max(0, (timestamp - themeLastTimestamp) / 1000));
     themeLastTimestamp = timestamp;
     globalFrame++;
+    const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING;
+    const worldDeltaSeconds = worldActive ? deltaSeconds : 0;
+    if (worldActive) worldFrame++;
 
     let shakeX = 0;
     let shakeY = 0;
@@ -3000,7 +3036,7 @@
 
     // 1. Dynamic Gradual Day & Night Sky (Sun & Moon Arc)
     const cycle = getCycleState();
-    const theme = syncThemeToCycle(getThemeState(deltaSeconds), cycle);
+    const theme = syncThemeToCycle(getThemeState(worldDeltaSeconds), cycle);
     drawSky(cycle, theme);
 
     // 2. Dynamic Gradual Seasons (Color Blending)
@@ -3014,7 +3050,7 @@
     drawThemeLandmarks(theme);
 
     // 5. Theme-specific light, filters, and ambient particles
-    updateThemeAtmosphere(theme, deltaSeconds);
+    updateThemeAtmosphere(theme, worldDeltaSeconds);
     drawThemeAtmosphere(theme);
 
     // 6. Hand-Crafted Green Pipes
