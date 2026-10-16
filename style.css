@@ -823,6 +823,7 @@ button.header-pill:focus-visible {
 .store-tabs {
   display: flex;
   gap: 6px;
+  margin-top: 12px;
 }
 
 .store-tab {
