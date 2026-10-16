@@ -14,9 +14,13 @@
     // e.g. 'https://your-project-default-rtdb.firebaseio.com'
     databaseURL: 'https://flappy-bird-ae650-default-rtdb.asia-southeast1.firebasedatabase.app/',
     collection: 'scores',
+    presenceCollection: 'presence',
     topN: 10,
     timeoutMs: 6000,
-    pollMs: 5000 // how often an open board re-fetches so every player sees new scores
+    pollMs: 5000, // how often an open board re-fetches so every player sees new scores
+    presencePollMs: 10000,
+    heartbeatMs: 30000,
+    activeWindowMs: 90000
   };
 
   const NAME_KEY = 'flappy_player_name';
@@ -42,6 +46,8 @@
     name: $('lb-name'),
     submitBtn: $('lb-submit-btn'),
     list: $('lb-list'),
+    onlineCount: $('lb-online-count'),
+    onlineList: $('lb-online-list'),
     closeBtn: $('lb-close'),
     openBtn: $('best-btn')
   };
@@ -80,6 +86,14 @@
     safeSet(ID_KEY, playerId);
   }
   let playerName = cleanName(safeGet(NAME_KEY));
+
+  const PRESENCE_ID_KEY = 'flappy_presence_id';
+  let presenceId = '';
+  try { presenceId = sessionStorage.getItem(PRESENCE_ID_KEY) || ''; } catch (e) { /* use a fresh session id */ }
+  if (!/^[a-f0-9]{24}$/.test(presenceId)) {
+    presenceId = makeId();
+    try { sessionStorage.setItem(PRESENCE_ID_KEY, presenceId); } catch (e) { /* keep it in memory */ }
+  }
 
   let visible = false;
   let lastScore = null;   // score of the run that just ended (display only)
@@ -133,6 +147,83 @@
       : [];
     return sortScores(rows);
   }
+
+  async function fetchPresence() {
+    const cutoff = Date.now() - CONFIG.activeWindowMs;
+    const query = `?orderBy=%22lastSeen%22&startAt=${cutoff}`;
+    const data = await request(`${baseURL}/${CONFIG.presenceCollection}.json${query}`);
+    const players = data
+      ? Object.entries(data).map(([id, value]) => ({
+        id,
+        name: cleanName(value && value.name),
+        lastSeen: Number(value && value.lastSeen) || 0
+      })).filter(player => player.name && player.lastSeen >= cutoff)
+      : [];
+    return players.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 20);
+  }
+
+  function renderPresence(players, message = '') {
+    ui.onlineCount.textContent = String(players.length);
+    ui.onlineList.textContent = '';
+    if (!players.length) {
+      const item = document.createElement('li');
+      item.className = 'lb-online-empty';
+      item.textContent = message || 'No named players online yet.';
+      ui.onlineList.appendChild(item);
+      return;
+    }
+    players.forEach(player => {
+      const item = document.createElement('li');
+      item.textContent = player.name;
+      if (player.id === presenceId) item.setAttribute('aria-label', `${player.name} (you)`);
+      ui.onlineList.appendChild(item);
+    });
+  }
+
+  async function refreshPresence() {
+    if (!isOnline) {
+      renderPresence([], 'Live players need the online database.');
+      return;
+    }
+    try {
+      renderPresence(await fetchPresence());
+    } catch (e) {
+      renderPresence([], 'Live player feed unavailable. Check Firebase rules.');
+    }
+  }
+
+  let heartbeatTimer = null;
+  async function sendHeartbeat() {
+    if (!isOnline || !playerName) return;
+    const url = `${baseURL}/${CONFIG.presenceCollection}/${presenceId}.json`;
+    try {
+      await request(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: playerName, lastSeen: { '.sv': 'timestamp' } })
+      });
+    } catch (e) { /* the next heartbeat can recover from temporary network errors */ }
+  }
+
+  function startPresence() {
+    if (!isOnline || !playerName) return;
+    sendHeartbeat();
+    if (!heartbeatTimer) heartbeatTimer = setInterval(sendHeartbeat, CONFIG.heartbeatMs);
+  }
+
+  function stopPresence() {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+    if (!isOnline) return;
+    fetch(`${baseURL}/${CONFIG.presenceCollection}/${presenceId}.json`, {
+      method: 'DELETE', cache: 'no-store', keepalive: true
+    }).catch(() => {});
+  }
+
+  window.addEventListener('pagehide', stopPresence);
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) startPresence();
+  });
 
   // Saves this player's best score + name into their single entry.
   // Only writes when something actually changed.
@@ -221,7 +312,11 @@
 
   function startPolling() {
     stopPolling();
-    if (isOnline) pollTimer = setInterval(() => refresh(true), CONFIG.pollMs);
+    refreshPresence();
+    if (isOnline) pollTimer = setInterval(() => {
+      refresh(true);
+      refreshPresence();
+    }, Math.max(CONFIG.pollMs, CONFIG.presencePollMs));
   }
 
   function stopPolling() {
@@ -290,6 +385,7 @@
     safeSet(NAME_KEY, name);
     hideForm();
     updatePlayerStrip();
+    startPresence();
     if (changed || unsynced > 0) syncScore(0); // pushes any waiting score and/or renames the entry
   }
 
@@ -366,5 +462,6 @@
 
   // Ask first-time visitors for a leaderboard name as soon as the page loads.
   // Existing visitors with a saved name continue straight into the game.
-  if (!playerName) open();
+  if (playerName) startPresence();
+  else open();
 })();

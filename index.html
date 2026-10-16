@@ -99,6 +99,16 @@
         <h2 id="lb-title">LEADERBOARD</h2>
         <p id="lb-status" class="lb-status" aria-live="polite"></p>
 
+        <section class="lb-presence" aria-labelledby="lb-presence-title">
+          <div class="lb-presence-heading">
+            <h3 id="lb-presence-title">ONLINE NOW</h3>
+            <span id="lb-online-count" class="lb-online-count">0</span>
+          </div>
+          <ul id="lb-online-list" class="lb-online-list" aria-live="polite">
+            <li class="lb-online-empty">Checking who's here…</li>
+          </ul>
+        </section>
+
         <div id="lb-player" class="lb-player hidden">
           <span>Playing as <b id="lb-player-name"></b></span>
           <button id="lb-rename" class="lb-link" type="button">Change name</button>

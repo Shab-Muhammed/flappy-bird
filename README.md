@@ -46,7 +46,7 @@ The `flappy bird skin creator` directory contains a separate tool for preparing 
 The leaderboard uses the Firebase Realtime Database REST API. To configure your own database:
 
 1. Create a Firebase project and a Realtime Database.
-2. Set the database rules. The rules below permit public reads and allow each player record to be created or updated when its score does not decrease:
+2. Set the database rules. The rules below permit public reads, allow each player record to be created or updated when its score does not decrease, and allow short-lived player presence records for the live feed:
 
    ```json
    {
@@ -58,6 +58,14 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
            ".write": "!data.exists() || newData.child('score').val() >= data.child('score').val()",
            ".validate": "$id.matches(/^[a-z0-9]{16,40}$/) && newData.hasChildren(['name','score','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 500"
          }
+      },
+      "presence": {
+        ".read": true,
+        ".indexOn": ["lastSeen"],
+        "$id": {
+          ".write": true,
+          ".validate": "$id.matches(/^[a-f0-9]{24}$/) && newData.hasChildren(['name','lastSeen']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 12 && newData.child('lastSeen').isNumber()"
+        }
       },
       "suggestions": {
         ".read": false,
@@ -73,6 +81,8 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
 3. Set `CONFIG.databaseURL` near the top of `leaderboard.js` to your database URL.
 
 Set the database URL to an empty string to use device-local scores without submitting to Firebase. The browser client cannot provide strong protection against fabricated scores; the rules provide basic validation and a score limit for a casual leaderboard.
+
+The live feed writes a random session ID, the player's chosen display name, and a server timestamp to `presence` every 30 seconds. It displays records updated in the last 90 seconds and attempts to delete the current record when the page closes; stale records naturally disappear from the feed after a crash or lost connection. Names are visible to anyone using the game while the session is active. This public REST setup is best-effort presence, not authenticated identity, so a determined visitor can spoof or overwrite presence data.
 
 The store's suggestion form submits category, suggestion text, and a server timestamp to the `suggestions` collection. The rules above allow new submissions while preventing edits and reads through the public client. Review requests in Firebase Console under Realtime Database data at `suggestions`. Since the form is public and unauthenticated, the validation limits the content but does not prevent spam; use an authenticated server endpoint if you need stronger abuse protection.
 

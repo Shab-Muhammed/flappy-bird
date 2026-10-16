@@ -288,6 +288,62 @@ button.header-pill:active {
   color: #6b4c20;
 }
 
+.lb-presence {
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(82, 168, 42, 0.1);
+  border: 1.5px solid rgba(82, 130, 32, 0.35);
+}
+
+.lb-presence-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.lb-presence-heading h3 {
+  font-family: var(--font-arcade);
+  font-size: 8px;
+  font-weight: 400;
+  color: #39751c;
+}
+
+.lb-online-count {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #428512;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.lb-online-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+}
+
+.lb-online-list li {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #3a321f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lb-online-list .lb-online-empty {
+  padding: 0;
+  background: transparent;
+  color: #6b4c20;
+  font-weight: 500;
+}
+
 .lb-submit {
   display: flex;
   flex-direction: column;
