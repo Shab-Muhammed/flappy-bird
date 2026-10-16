@@ -55,7 +55,16 @@
     const timeout = setTimeout(() => controller.abort(), 7000);
     try {
       const response = await fetch(requestURL, { cache: 'no-store', ...options, signal: controller.signal });
-      if (!response.ok) throw new Error(`Room request failed (${response.status}).`);
+      if (!response.ok) {
+        const responseBody = await response.text();
+        let detail = responseBody;
+        try {
+          const parsed = JSON.parse(responseBody);
+          detail = parsed && parsed.error ? parsed.error : responseBody;
+        } catch (error) { /* Keep the plain response text. */ }
+        detail = String(detail || response.statusText || 'Unknown Firebase error').trim().slice(0, 180);
+        throw new Error(`Room request failed (${response.status}): ${detail}`);
+      }
       return await response.json();
     } finally {
       clearTimeout(timeout);
