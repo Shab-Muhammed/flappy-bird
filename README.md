@@ -93,15 +93,16 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
       "rooms": {
         "$code": {
           ".read": "auth != null",
-          ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || (data.exists() && data.child('hostUid').val() === auth.uid && (!newData.exists() || newData.child('hostUid').val() === data.child('hostUid').val())))",
+          ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || (data.exists() && data.child('hostUid').val() === auth.uid && (!newData.exists() || newData.child('hostUid').val() === data.child('hostUid').val() || root.child('roomMembers').child($code).child(newData.child('hostUid').val()).exists())))",
           ".validate": "newData.hasChildren(['hostUid','phase','createdAt','startAt','seed']) && newData.child('hostUid').isString() && (newData.child('phase').val() === 'lobby' || newData.child('phase').val() === 'playing') && newData.child('createdAt').isNumber() && newData.child('startAt').isNumber() && newData.child('seed').isNumber()"
         }
       },
       "roomMembers": {
         "$code": {
           ".read": "auth != null && root.child('rooms').child($code).exists()",
+          ".write": "auth != null && (auth.uid === root.child('rooms').child($code).child('hostUid').val() || !root.child('rooms').child($code).exists())",
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($code).exists() && (!newData.exists() || data.exists() || root.child('rooms').child($code).child('phase').val() === 'lobby')",
+            ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($code).exists() && (!newData.exists() || (data.exists() && newData.child('joinedAt').val() === data.child('joinedAt').val()) || (!data.exists() && root.child('rooms').child($code).child('phase').val() === 'lobby'))",
             ".validate": "newData.hasChildren(['name','ready','joinedAt']) && newData.child('name').val() === root.child('usernameByUid').child($uid).val() && newData.child('ready').isBoolean() && newData.child('joinedAt').isNumber()"
           }
         }
@@ -109,6 +110,7 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
       "roomStates": {
         "$code": {
           ".read": "auth != null && root.child('rooms').child($code).exists() && root.child('roomMembers').child($code).child(auth.uid).exists()",
+          ".write": "auth != null && (auth.uid === root.child('rooms').child($code).child('hostUid').val() || !root.child('rooms').child($code).exists())",
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($code).exists() && root.child('roomMembers').child($code).child($uid).exists()",
             ".validate": "newData.hasChildren(['score','alive','y','roundAt','updatedAt']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 10000 && newData.child('alive').isBoolean() && newData.child('y').isNumber() && newData.child('roundAt').isNumber() && newData.child('updatedAt').isNumber()"
@@ -118,6 +120,7 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
       "roomChat": {
         "$code": {
           ".read": "auth != null && root.child('rooms').child($code).exists() && root.child('roomMembers').child($code).child(auth.uid).exists()",
+          ".write": "auth != null && (auth.uid === root.child('rooms').child($code).child('hostUid').val() || !root.child('rooms').child($code).exists())",
           ".indexOn": ["ts"],
           "$messageId": {
             ".write": "auth != null && !data.exists() && root.child('rooms').child($code).exists() && root.child('roomMembers').child($code).child(auth.uid).exists()",
@@ -137,7 +140,7 @@ The live feed writes the authenticated player's account ID, username, and server
 
 ## Private multiplayer rooms
 
-Players sign in, create a room, and share its eight-character code. The game client limits rooms to eight players, with a ready check, host-started free-for-all matches, a ranked in-room score list, and room-only chat. After each round, players can ready up for another match; rooms have no match limit. Realtime Database rules cannot count arbitrary children, so the player limit is not enforced against modified clients; use a trusted server such as a Cloud Function if the capacity limit must be security-enforced. The Firebase Realtime Database SDK registers disconnect cleanup: a disconnected host deletes the room, and a disconnected guest's membership and state are removed. Leaving as host also deletes the room. Every round uses the same seeded pipe-gap sequence for all players. There is no public room list, random matchmaking, global chat, or one-to-one chat. The room feature uses the `rooms`, `roomMembers`, `roomStates`, and `roomChat` paths included in the rules above. Publish those complete rules in Firebase Console → Realtime Database → Rules. Members need a signed-in game account; anyone with a room code can attempt to join while the room is in its lobby.
+Players sign in, create a room, and share its eight-character code. The game client limits rooms to eight players, with a ready check, host-started free-for-all matches, a full-screen ranked in-room score table, and room-only chat. After each round, players return to the room and can ready up for another match; rooms have no match limit. When a host leaves or disconnects, hosting transfers to the member with the earliest `joinedAt` timestamp. A room and its `roomMembers`, `roomStates`, and `roomChat` data are deleted when its last member leaves or disconnects. Realtime Database rules cannot count arbitrary children, so the player limit is not enforced against modified clients; use a trusted server such as a Cloud Function if the capacity limit must be security-enforced. Every round uses the same seeded pipe-gap sequence for all players. There is no public room list, random matchmaking, global chat, or one-to-one chat. The room feature uses the `rooms`, `roomMembers`, `roomStates`, and `roomChat` paths included in the rules above. Publish those complete rules in Firebase Console → Realtime Database → Rules. Members need a signed-in game account; anyone with a room code can attempt to join while the room is in its lobby.
 
 The store's suggestion form submits category, suggestion text, and a server timestamp to the `suggestions` collection. The rules above allow new submissions while preventing edits and reads through the public client. Review requests in Firebase Console under Realtime Database data at `suggestions`. Since the form is public and unauthenticated, the validation limits the content but does not prevent spam; use an authenticated server endpoint if you need stronger abuse protection.
 

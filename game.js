@@ -2761,6 +2761,9 @@
         bird.vy = 0;
         currentState = STATE.GAMEOVER;
         onRunEnded();
+        if (window.FlappyRooms && window.FlappyRooms.isInRoom()) {
+          window.FlappyRooms.showRoomAfterDeath();
+        }
       }
     } else if (currentState === STATE.GAMEOVER) {
       gameOverTimer++;

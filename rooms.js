@@ -31,7 +31,8 @@
   let lastStartAt = 0;
   let acceptNextStart = false;
   let isHostTransitioning = false;
-  let disconnectCleanupRef = null;
+  let disconnectCleanupRefs = [];
+  let disconnectCleanupSignature = '';
 
   function setStatus(message) { statusEl.textContent = message; }
   function currentUser() { return auth && auth.currentUser; }
@@ -46,21 +47,47 @@
   function scopedURL(collection, code, path = '') { return `${baseURL}/${collection}/${code}${path}.json`; }
   function ownMemberURL(code = room && room.code) { return scopedURL('roomMembers', code, `/${myUid()}`); }
 
-  async function armDisconnectCleanup(code, hostUid) {
+  async function armDisconnectCleanup(code) {
     if (!database) throw new Error('Room cleanup is unavailable. Reload and try again.');
-    const path = hostUid === myUid()
-      ? `rooms/${code}`
-      : `roomMembers/${code}/${myUid()}`;
-    const ref = database.ref(path);
-    await ref.onDisconnect().remove();
-    disconnectCleanupRef = ref;
+    const isHost = room && room.hostUid === myUid();
+    const successor = Object.entries(members)
+      .filter(([uid]) => uid !== myUid())
+      .sort((a, b) => (Number(a[1].joinedAt) || 0) - (Number(b[1].joinedAt) || 0) || a[0].localeCompare(b[0]))[0];
+    const successorUid = successor ? successor[0] : '';
+    const signature = `${code}:${isHost ? `host:${successorUid || 'empty'}` : 'member'}`;
+    if (signature === disconnectCleanupSignature) return;
+    await cancelDisconnectCleanup();
+    const operations = isHost && successorUid
+      ? [
+        { path: `rooms/${code}`, method: 'update', value: { hostUid: successorUid } },
+        { path: `roomStates/${code}/${myUid()}`, method: 'remove' },
+        { path: `roomMembers/${code}/${myUid()}`, method: 'remove' }
+      ]
+      : isHost
+        ? ['roomChat', 'roomStates', 'roomMembers', 'rooms'].map(collection => ({ path: `${collection}/${code}`, method: 'remove' }))
+        : [
+          { path: `roomMembers/${code}/${myUid()}`, method: 'remove' },
+          { path: `roomStates/${code}/${myUid()}`, method: 'remove' }
+        ];
+    for (const operation of operations) {
+      const ref = database.ref(operation.path);
+      if (operation.method === 'update') await ref.onDisconnect().update(operation.value);
+      else await ref.onDisconnect().remove();
+      disconnectCleanupRefs.push(ref);
+    }
+    disconnectCleanupSignature = signature;
   }
 
   async function cancelDisconnectCleanup() {
-    const ref = disconnectCleanupRef;
-    disconnectCleanupRef = null;
-    if (ref) {
-      try { await ref.onDisconnect().cancel(); } catch (error) { /* The disconnect cleanup can safely remain armed. */ }
+    const refs = disconnectCleanupRefs;
+    disconnectCleanupRefs = [];
+    disconnectCleanupSignature = '';
+    await Promise.all(refs.map(ref => ref.onDisconnect().cancel().catch(() => {})));
+  }
+
+  async function deleteRoomData(code) {
+    for (const collection of ['roomChat', 'roomStates', 'roomMembers', 'rooms']) {
+      await request(scopedURL(collection, code), { method: 'DELETE' });
     }
   }
 
@@ -126,9 +153,9 @@
     if (busy || !currentUser()) return openPanel();
     busy = true;
     setStatus('Creating your room…');
+    let code = '';
+    let created = false;
     try {
-      let code = '';
-      let created = false;
       for (let attempt = 0; attempt < 5 && !created; attempt++) {
         code = randomCode();
         const existing = await request(roomURL(code));
@@ -152,7 +179,7 @@
       await enterRoom(code, true);
     } catch (error) {
       if (created && code) {
-        try { await request(roomURL(code), { method: 'DELETE' }); } catch (cleanupError) { /* Keep the original room setup error. */ }
+        try { await deleteRoomData(code); } catch (cleanupError) { /* Keep the original room setup error. */ }
         if (room && room.code === code) resetRoom('Room setup failed. The room was removed.');
       }
       setStatus(error.message || 'Could not create the room. Check Firebase rules.');
@@ -184,14 +211,14 @@
     if (meta.phase !== 'lobby' && !existingMine) throw new Error('A match is already running. Join after this round.');
     if (!existingMine && Object.keys(existingMembers).length >= MAX_PLAYERS) throw new Error('This room is full (8 players maximum).');
 
-    const member = existingMine || { name: currentName(), ready: false, joinedAt: Date.now() };
-    await armDisconnectCleanup(code, meta.hostUid);
+    const member = existingMine || { name: currentName(), ready: false, joinedAt: { '.sv': 'timestamp' } };
     await request(scopedURL('roomMembers', code, `/${myUid()}`), {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(member)
     });
     room = { code, ...meta };
     members = { ...existingMembers, [myUid()]: member };
     states = await request(scopedURL('roomStates', code)) || {};
+    await armDisconnectCleanup(code);
     try { sessionStorage.setItem('flappy_private_room', code); } catch (error) { /* session storage is optional */ }
     acceptNextStart = meta.phase === 'lobby';
     lastStartAt = Number(meta.startAt) || 0;
@@ -239,6 +266,7 @@
         resetRoom('You are no longer in this room.');
         return;
       }
+      await armDisconnectCleanup(code);
       renderRoom();
       await publishMyState();
       await maybeStartRound();
@@ -275,7 +303,20 @@
       const activity = room.phase === 'lobby'
         ? (member.ready ? '· ready' : '· waiting')
         : (waitingForRound ? '· ready' : alive ? '· flying' : offline ? '· offline' : '· out');
-      li.textContent = `#${rank + 1} ${member.name}${uid === room.hostUid ? ' ★' : ''} — ${scoreFor(uid)} ${activity}`;
+      li.className = uid === myUid() ? 'room-leaderboard-me' : '';
+      const rankCell = document.createElement('span');
+      rankCell.className = 'room-rank';
+      rankCell.textContent = `#${rank + 1}`;
+      const nameCell = document.createElement('span');
+      nameCell.className = 'room-player-name';
+      nameCell.textContent = `${member.name}${uid === room.hostUid ? ' ★' : ''}${uid === myUid() ? ' (you)' : ''}`;
+      const scoreCell = document.createElement('span');
+      scoreCell.className = 'room-player-score';
+      scoreCell.textContent = String(scoreFor(uid));
+      const statusCell = document.createElement('span');
+      statusCell.className = 'room-player-status';
+      statusCell.textContent = activity.replace(/^·\s*/, '');
+      li.append(rankCell, nameCell, scoreCell, statusCell);
       playerList.appendChild(li);
     });
 
@@ -453,7 +494,20 @@
     const code = room.code;
     try {
       if (room.hostUid === myUid()) {
-        await request(roomURL(code), { method: 'DELETE' });
+        const successor = Object.entries(members)
+          .filter(([uid]) => uid !== myUid())
+          .sort((a, b) => (Number(a[1].joinedAt) || 0) - (Number(b[1].joinedAt) || 0) || a[0].localeCompare(b[0]))[0];
+        if (successor) {
+          const updated = { ...room, hostUid: successor[0] };
+          delete updated.code;
+          await request(roomURL(code), {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated)
+          });
+          await request(scopedURL('roomStates', code, `/${myUid()}`), { method: 'DELETE' });
+          await request(ownMemberURL(code), { method: 'DELETE' });
+        } else {
+          await deleteRoomData(code);
+        }
       } else {
         await request(scopedURL('roomStates', code, `/${myUid()}`), { method: 'DELETE' });
         await request(ownMemberURL(code), { method: 'DELETE' });
@@ -516,6 +570,7 @@
     isInRoom: () => !!room,
     isPanelOpen: () => !roomOverlay.classList.contains('hidden'),
     open: openPanel,
-    close: closePanel
+    close: closePanel,
+    showRoomAfterDeath() { if (room) openPanel(); }
   };
 })();

@@ -698,8 +698,24 @@ button.header-pill:focus-visible {
 }
 
 /* Private multiplayer rooms */
+#room-overlay {
+  padding: 0;
+  align-items: stretch;
+  background: rgba(14, 20, 18, 0.94);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
 .room-panel {
-  gap: 9px;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  height: 100%;
+  gap: 12px;
+  padding: clamp(16px, 3vw, 30px);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .room-controls,
@@ -755,6 +771,109 @@ button.header-pill:focus-visible {
   letter-spacing: 2px;
 }
 
+.room-session {
+  flex: 1;
+  min-height: 0;
+}
+
+.room-leaderboard {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 130px;
+  overflow: hidden;
+  border: 2px solid rgba(84, 54, 21, 0.36);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.room-leaderboard-title,
+.room-leaderboard-columns,
+.room-leaderboard-list li {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 86px 110px;
+  align-items: center;
+  gap: 10px;
+}
+
+.room-leaderboard-title {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  color: #6b4c20;
+  background: rgba(82, 168, 42, 0.13);
+}
+
+.room-leaderboard-title h3 {
+  font-family: var(--font-arcade);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.room-leaderboard-title > span {
+  font-size: 12px;
+}
+
+.room-leaderboard-columns {
+  padding: 9px 16px;
+  border-top: 1px solid rgba(84, 54, 21, 0.18);
+  border-bottom: 1px solid rgba(84, 54, 21, 0.22);
+  color: #8a704c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.room-leaderboard-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.room-leaderboard-list li {
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 1px solid rgba(84, 54, 21, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.56);
+  font-size: 13px;
+}
+
+.room-leaderboard-list li.room-leaderboard-me {
+  border-color: #68a832;
+  background: rgba(106, 188, 49, 0.14);
+}
+
+.room-rank {
+  color: #96600f;
+  font-family: var(--font-arcade);
+  font-size: 11px;
+}
+
+.room-player-name {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-player-score {
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.room-player-status {
+  color: #6b4c20;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
 .room-actions {
   display: flex;
   flex-wrap: wrap;
@@ -797,11 +916,29 @@ button.header-pill:focus-visible {
   gap: 4px;
   flex: 1;
   min-height: 72px;
-  max-height: 118px;
+  max-height: 150px;
   overflow-y: auto;
   list-style: none;
   user-select: text;
   -webkit-user-select: text;
+}
+
+@media (max-width: 520px) {
+  .room-leaderboard-title,
+  .room-leaderboard-columns,
+  .room-leaderboard-list li {
+    grid-template-columns: 42px minmax(0, 1fr) 56px;
+    gap: 6px;
+  }
+
+  .room-leaderboard-columns span:last-child,
+  .room-player-status {
+    display: none;
+  }
+
+  .room-chat {
+    min-height: 120px;
+  }
 }
 
 .room-chat-list li {
