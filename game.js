@@ -1808,6 +1808,7 @@
 
   function drawCoinCounter() {
     ctx.save();
+    ctx.translate(0, 34);
     ctx.font = '700 15px "Fredoka", sans-serif';
     const text = String(wallet.coins);
     const w = 38 + ctx.measureText(text).width;
@@ -1948,7 +1949,6 @@
 
     ctx.font = '600 12.5px "Fredoka", sans-serif';
     ctx.fillStyle = '#6b4c20';
-    ctx.fillText('Press T: Day/Night • Press S: Seasons', V_WIDTH / 2, promptY + 74);
 
     ctx.font = '700 12px "Fredoka", sans-serif';
     ctx.fillStyle = completedDaily ? '#39751c' : '#b85800';
@@ -1961,8 +1961,7 @@
   }
 
   // Menu buttons (drawn on the canvas, hit-tested in the pointerdown handler)
-  const lbButtonRect = { x: 36, y: 478, w: 138, h: 42 };
-  const storeButtonRect = { x: 186, y: 478, w: 138, h: 42 };
+  const lbButtonRect = { x: 111, y: 478, w: 138, h: 42 };
 
   function drawMenuButton(r, label, c0, c1, border) {
     ctx.save();
@@ -1993,7 +1992,6 @@
 
   function drawMenuButtons() {
     drawMenuButton(lbButtonRect, '🏆 LEADERBOARD', '#ffbf47', '#ee8a00', '#8a4b00');
-    drawMenuButton(storeButtonRect, '🐤 STORE', '#6cc3ff', '#2f86e0', '#14407a');
   }
 
   function drawTapIcon(cx, cy) {
@@ -2617,12 +2615,6 @@
         e.preventDefault();
         sound.init();
         if (window.FlappyLeaderboard) window.FlappyLeaderboard.open();
-        return;
-      }
-      if (inRect(storeButtonRect, p)) {
-        e.preventDefault();
-        sound.init();
-        openStore();
         return;
       }
     }
