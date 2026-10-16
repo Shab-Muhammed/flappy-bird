@@ -570,7 +570,7 @@
     { name: 'Kerala', icon: '🌴', skyTop: '#087e70', skyMid: '#35b58c', skyBot: '#b4e7a0', far: '#236e60', near: '#124f49', groundTop: '#4eaa52', groundBody: '#694b32', pipe: ['#275b38', '#398b50', '#68b75e', '#3c8246', '#205231', '#163c29'], lip: ['#1d4d31', '#347b43', '#62a94f', '#3f8145', '#1e4a30'], outline: '#123b2c', accent: '#b8df65', style: 'kerala' },
     { name: 'Desert', icon: '🏜️', skyTop: '#f28a62', skyMid: '#f5bc72', skyBot: '#ffe5a4', far: '#b97958', near: '#d89a5d', groundTop: '#eab85d', groundBody: '#ad7044', pipe: ['#98602e', '#c28a3d', '#f0c45b', '#cf923e', '#93602e', '#603d29'], lip: ['#80502d', '#b47637', '#e8b654', '#c1873d', '#754a2c'], outline: '#603b25', accent: '#fff0ad', style: 'desert' },
     { name: 'Cyberpunk', icon: '🌃', skyTop: '#100d31', skyMid: '#26164d', skyBot: '#47285f', far: '#17142e', near: '#211a3f', groundTop: '#211d3e', groundBody: '#141322', pipe: ['#342057', '#56358b', '#a13fca', '#7136a4', '#3c256e', '#251644'], lip: ['#322052', '#57317d', '#a945cc', '#8139aa', '#3c235d'], outline: '#f34dbb', accent: '#51f4ff', style: 'cyberpunk' },
-    { name: 'Forest', icon: '🍄', skyTop: '#173d3a', skyMid: '#285b4c', skyBot: '#9bbf83', far: '#244d3a', near: '#173d2e', groundTop: '#628b4b', groundBody: '#473f30', pipe: ['#46563d', '#62734b', '#89995d', '#63704a', '#414d37', '#303a2d'], lip: ['#3e4d36', '#596b44', '#839259', '#68774a', '#3c4932'], outline: '#283b2b', accent: '#b5d785', style: 'forest' },
+    { name: 'Swamp', icon: '🍄', skyTop: '#173d3a', skyMid: '#285b4c', skyBot: '#9bbf83', far: '#244d3a', near: '#173d2e', groundTop: '#628b4b', groundBody: '#473f30', pipe: ['#46563d', '#62734b', '#89995d', '#63704a', '#414d37', '#303a2d'], lip: ['#3e4d36', '#596b44', '#839259', '#68774a', '#3c4932'], outline: '#283b2b', accent: '#b5d785', style: 'forest' },
     { name: 'Highway', icon: '🛣️', skyTop: '#5589a2', skyMid: '#91b7bd', skyBot: '#d9d2ad', far: '#536b70', near: '#3c5559', groundTop: '#7e8584', groundBody: '#303539', pipe: ['#50595c', '#758084', '#b8c0be', '#8d9999', '#596366', '#41494c'], lip: ['#485154', '#6d797c', '#aab4b5', '#859092', '#4c5557'], outline: '#343b3d', accent: '#ffd34f', style: 'highway' }
   ];
   const THEME_CYCLE_PROFILES = {
@@ -654,7 +654,7 @@
   let themeBannerTimer = 0;
   let themeLastTimestamp = null;
   const THEME_SWITCH_SECONDS = 45;
-  const THEME_TRANSITION_SECONDS = 1.2;
+  const THEME_TRANSITION_SECONDS = 2.4;
   const THEME_BANNER_SECONDS = 2.5;
 
   function themeColor(value) {
@@ -834,11 +834,11 @@
     ctx.restore();
   }
 
-  function drawThemeLandmarks(theme) {
+  function drawThemeLandmarks(theme, opacity = 1) {
     const drift = (worldFrame * gameSpeed * 0.12) % 440;
     const farDrift = (worldFrame * gameSpeed * 0.035) % 440;
     ctx.save();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = opacity;
     ctx.fillStyle = theme.far;
     for (let x = -440 - farDrift; x < V_WIDTH + 440; x += 440) {
       if (theme.style === 'desert') {
@@ -874,7 +874,7 @@
           ctx.fillStyle = glow;
           ctx.fillRect(cityX - 72, GROUND_Y - 256, 144, 144);
           ctx.save();
-          ctx.globalAlpha = theme.cityGlow;
+          ctx.globalAlpha = theme.cityGlow * opacity;
           ctx.fillStyle = '#ffd783';
           for (let lightIndex = 0; lightIndex < 6; lightIndex++) {
             ctx.fillRect(cityX - 8 + (lightIndex % 2) * 7, GROUND_Y - 192 + Math.floor(lightIndex / 2) * 9, 2, 3);
@@ -890,10 +890,10 @@
           for (let row = 0; row < Math.floor(h / 16); row++) {
             const flicker = Math.sin(worldFrame * 0.035 + i * 5.7 + row * 3.1);
             if (flicker > -0.15) {
-              ctx.globalAlpha = windowGlow;
+              ctx.globalAlpha = windowGlow * opacity;
               ctx.fillStyle = flicker > 0.6 ? '#70f5ff' : '#e45bc8';
               ctx.fillRect(bx + 7 + (row % 2) * 15, GROUND_Y - h + 8 + row * 16, 5, 7);
-              ctx.globalAlpha = 1;
+              ctx.globalAlpha = opacity;
               ctx.fillStyle = theme.near;
             }
           }
@@ -926,7 +926,7 @@
         ctx.fillText('EXIT 08', x + 204, GROUND_Y - 136);
         if (theme.streetlightIntensity > 0.02) {
           ctx.save();
-          ctx.globalAlpha = theme.streetlightIntensity;
+          ctx.globalAlpha = theme.streetlightIntensity * opacity;
           ctx.shadowColor = '#ffe4a3'; ctx.shadowBlur = glowBlur(12 * theme.streetlightIntensity);
           ctx.fillStyle = '#fff0c4';
           for (const lamp of [[68, -173], [282, -173]]) {
@@ -936,7 +936,7 @@
         }
         if (theme.trafficIntensity > 0.02) {
           ctx.save();
-          ctx.globalAlpha = theme.trafficIntensity;
+          ctx.globalAlpha = theme.trafficIntensity * opacity;
           for (let lightIndex = 0; lightIndex < 8; lightIndex++) {
             const lightX = x + ((lightIndex * 67 - atmosphereTime * (theme.cycleStage === 'NIGHT' ? 54 : 28)) % 430 + 430) % 430;
             const lightY = GROUND_Y - 28 - (lightIndex % 3) * 5;
@@ -967,19 +967,19 @@
       }
     }
     if (theme.style === 'cyberpunk') {
-      ctx.strokeStyle = '#353052'; ctx.globalAlpha = 1; ctx.lineWidth = 1;
+      ctx.strokeStyle = '#353052'; ctx.globalAlpha = opacity; ctx.lineWidth = 1;
       for (let x = -40; x < V_WIDTH + 40; x += 40) { ctx.beginPath(); ctx.moveTo(V_WIDTH / 2, GROUND_Y - 42); ctx.lineTo(x, GROUND_Y); ctx.stroke(); }
       for (let y = GROUND_Y - 34; y < GROUND_Y; y += 12) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(V_WIDTH, y); ctx.stroke(); }
     }
     if (theme.style === 'kerala') {
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = opacity;
       ctx.fillStyle = theme.accent;
       ctx.fillRect(0, GROUND_Y - 11, V_WIDTH, 9);
       ctx.fillStyle = '#a5e8d9';
       for (let x = -(worldFrame * 0.55 % 56); x < V_WIDTH; x += 56) ctx.fillRect(x, GROUND_Y - 8, 22, 1);
     }
     if (theme.style === 'highway') {
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = opacity;
       ctx.fillStyle = '#596366';
       ctx.fillRect(0, GROUND_Y - 87, V_WIDTH, 10);
       ctx.fillStyle = theme.accent;
@@ -990,17 +990,21 @@
     ctx.restore();
   }
 
-  function drawThemeGround(theme) {
-    if (currentState === STATE.PLAYING || currentState === STATE.READY) {
+  function drawThemeGround(theme, opacity = 1, includeBase = true) {
+    if (includeBase && (currentState === STATE.PLAYING || currentState === STATE.READY)) {
       groundScrollOffset = (groundScrollOffset + gameSpeed) % GROUND_SCROLL_PERIOD;
     }
-    const gradient = ctx.createLinearGradient(0, GROUND_Y, 0, V_HEIGHT);
-    gradient.addColorStop(0, theme.groundTop);
-    gradient.addColorStop(0.18, theme.groundBody);
-    gradient.addColorStop(1, theme.groundBody);
     ctx.save();
-    ctx.fillStyle = gradient; ctx.fillRect(0, GROUND_Y, V_WIDTH, GROUND_HEIGHT);
-    ctx.fillStyle = theme.accent; ctx.fillRect(0, GROUND_Y, V_WIDTH, 3);
+    if (includeBase) {
+      const gradient = ctx.createLinearGradient(0, GROUND_Y, 0, V_HEIGHT);
+      gradient.addColorStop(0, theme.groundTop);
+      gradient.addColorStop(0.18, theme.groundBody);
+      gradient.addColorStop(1, theme.groundBody);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = gradient; ctx.fillRect(0, GROUND_Y, V_WIDTH, GROUND_HEIGHT);
+      ctx.fillStyle = theme.accent; ctx.fillRect(0, GROUND_Y, V_WIDTH, 3);
+    }
+    ctx.globalAlpha = opacity;
     if (theme.style === 'highway') {
       ctx.fillStyle = '#d2d8d6';
       for (let x = -(groundScrollOffset * 2 % 78); x < V_WIDTH; x += 78) ctx.fillRect(x, GROUND_Y + 53, 38, 4);
@@ -1050,9 +1054,20 @@
     const fade = Math.min(1, themeBannerTimer / 0.4, (THEME_BANNER_SECONDS - themeBannerTimer) / 0.3);
     const theme = THEMES[themeIndex];
     ctx.save(); ctx.globalAlpha = Math.max(0, fade);
-    ctx.fillStyle = 'rgba(12, 18, 28, 0.64)'; roundRect(ctx, 73, 112, V_WIDTH - 146, 40, 20); ctx.fill();
-    ctx.font = '700 15px "Fredoka", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
-    ctx.fillText(theme.name, V_WIDTH / 2, 132);
+    ctx.shadowColor = theme.accent;
+    ctx.shadowBlur = glowBlur(16);
+    ctx.fillStyle = 'rgba(12, 18, 28, 0.82)';
+    roundRect(ctx, 28, 104, V_WIDTH - 56, 58, 20);
+    ctx.fill();
+    ctx.strokeStyle = theme.accent;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.font = '800 24px "Fredoka", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = theme.accent;
+    ctx.fillText(`ENTERING ${theme.name.toUpperCase()}`, V_WIDTH / 2, 133, V_WIDTH - 76);
     ctx.restore();
   }
 
@@ -3047,7 +3062,14 @@
     drawClouds(cycle);
 
     // 4. Theme-specific landscape silhouettes
-    drawThemeLandmarks(theme);
+    if (theme.blend < 1 && previousThemeIndex !== themeIndex) {
+      const fromTheme = { ...theme, style: THEMES[previousThemeIndex].style };
+      const toTheme = { ...theme, style: THEMES[themeIndex].style };
+      drawThemeLandmarks(fromTheme, 1 - theme.blend);
+      drawThemeLandmarks(toTheme, theme.blend);
+    } else {
+      drawThemeLandmarks(theme);
+    }
 
     // 5. Theme-specific light, filters, and ambient particles
     updateThemeAtmosphere(theme, worldDeltaSeconds);
@@ -3084,7 +3106,14 @@
     pipes.forEach(p => p.draw(cycle, theme));
 
     // 7. Theme-specific ground
-    drawThemeGround(theme);
+    if (theme.blend < 1 && previousThemeIndex !== themeIndex) {
+      const fromTheme = { ...theme, style: THEMES[previousThemeIndex].style };
+      const toTheme = { ...theme, style: THEMES[themeIndex].style };
+      drawThemeGround(fromTheme, 1 - theme.blend);
+      drawThemeGround(toTheme, theme.blend, false);
+    } else {
+      drawThemeGround(theme);
+    }
     drawThemeLighting(theme);
 
     // 8. Authentic Hand-Crafted Original Flappy Bird
