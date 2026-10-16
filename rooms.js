@@ -5,6 +5,7 @@
 
   const $ = id => document.getElementById(id);
   const auth = window.FlappyFirebaseAuth;
+  const database = firebase.database ? firebase.database() : null;
   const baseURL = firebase.app().options.databaseURL.replace(/\/+$/, '');
   const roomOverlay = $('room-overlay');
   const statusEl = $('room-status');
@@ -30,6 +31,7 @@
   let lastStartAt = 0;
   let acceptNextStart = false;
   let isHostTransitioning = false;
+  let disconnectCleanupRef = null;
 
   function setStatus(message) { statusEl.textContent = message; }
   function currentUser() { return auth && auth.currentUser; }
@@ -43,6 +45,24 @@
   function roomURL(code, path = '') { return `${baseURL}/rooms/${code}${path}.json`; }
   function scopedURL(collection, code, path = '') { return `${baseURL}/${collection}/${code}${path}.json`; }
   function ownMemberURL(code = room && room.code) { return scopedURL('roomMembers', code, `/${myUid()}`); }
+
+  async function armDisconnectCleanup(code, hostUid) {
+    if (!database) throw new Error('Room cleanup is unavailable. Reload and try again.');
+    const path = hostUid === myUid()
+      ? `rooms/${code}`
+      : `roomMembers/${code}/${myUid()}`;
+    const ref = database.ref(path);
+    await ref.onDisconnect().remove();
+    disconnectCleanupRef = ref;
+  }
+
+  async function cancelDisconnectCleanup() {
+    const ref = disconnectCleanupRef;
+    disconnectCleanupRef = null;
+    if (ref) {
+      try { await ref.onDisconnect().cancel(); } catch (error) { /* The disconnect cleanup can safely remain armed. */ }
+    }
+  }
 
   async function request(url, options = {}) {
     const user = currentUser();
@@ -131,6 +151,10 @@
       if (!created) throw new Error('Could not allocate a room code. Please try again.');
       await enterRoom(code, true);
     } catch (error) {
+      if (created && code) {
+        try { await request(roomURL(code), { method: 'DELETE' }); } catch (cleanupError) { /* Keep the original room setup error. */ }
+        if (room && room.code === code) resetRoom('Room setup failed. The room was removed.');
+      }
       setStatus(error.message || 'Could not create the room. Check Firebase rules.');
     } finally {
       busy = false;
@@ -161,7 +185,8 @@
     if (!existingMine && Object.keys(existingMembers).length >= MAX_PLAYERS) throw new Error('This room is full (8 players maximum).');
 
     const member = existingMine || { name: currentName(), ready: false, joinedAt: Date.now() };
-    await request(`${memberURL}/${myUid()}.json`, {
+    await armDisconnectCleanup(code, meta.hostUid);
+    await request(scopedURL('roomMembers', code, `/${myUid()}`), {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(member)
     });
     room = { code, ...meta };
@@ -233,17 +258,24 @@
     $('room-code').textContent = room.code;
     $('room-player-count').textContent = String(Object.keys(members).length);
     playerList.textContent = '';
+    const scoreFor = uid => {
+      const state = states[uid] || {};
+      if (room.phase === 'playing' && Number(state.roundAt) !== Number(room.startAt)) return 0;
+      return Number(state.score) || 0;
+    };
     const roster = Object.entries(members).sort((a, b) => {
-      const aScore = Number((states[a[0]] || {}).score) || 0;
-      const bScore = Number((states[b[0]] || {}).score) || 0;
-      return bScore - aScore || String(a[1].name).localeCompare(String(b[1].name));
+      return scoreFor(b[0]) - scoreFor(a[0]) || String(a[1].name).localeCompare(String(b[1].name));
     });
-    roster.forEach(([uid, member]) => {
+    roster.forEach(([uid, member], rank) => {
       const state = states[uid] || {};
       const li = document.createElement('li');
       const offline = state.updatedAt && Date.now() - Number(state.updatedAt) > 12000;
       const alive = room.phase === 'playing' && state.roundAt === room.startAt && state.alive && !offline;
-      li.textContent = `${member.name}${uid === room.hostUid ? ' ★' : ''} — ${Number(state.score) || 0} ${room.phase === 'lobby' ? (member.ready ? '· ready' : '· waiting') : (alive ? '· flying' : (offline ? '· offline' : '· out'))}`;
+      const waitingForRound = room.phase === 'playing' && (room.startAt > Date.now() || Number(state.roundAt) !== Number(room.startAt));
+      const activity = room.phase === 'lobby'
+        ? (member.ready ? '· ready' : '· waiting')
+        : (waitingForRound ? '· ready' : alive ? '· flying' : offline ? '· offline' : '· out');
+      li.textContent = `#${rank + 1} ${member.name}${uid === room.hostUid ? ' ★' : ''} — ${scoreFor(uid)} ${activity}`;
       playerList.appendChild(li);
     });
 
@@ -256,9 +288,16 @@
     const allReady = roster.length >= 2 && roster.every(([, player]) => player.ready);
     $('room-start-btn').disabled = !allReady;
     $('room-start-btn').title = allReady ? 'Start this room match' : 'At least two players must be ready';
+    const hasPlayed = Object.values(states).some(state => Number(state.roundAt) > 0);
     $('room-result').textContent = isPlaying
       ? (room.startAt > Date.now() ? `Match starts in ${Math.max(1, Math.ceil((room.startAt - Date.now()) / 1000))}…` : 'Match in progress — scores update live.')
-      : (roster.length < 2 ? 'Share the code to invite up to 7 friends.' : allReady ? 'Everyone is ready. The host can start.' : 'Everyone must mark ready before the host starts.');
+      : (roster.length < 2
+        ? 'Share the code to invite up to 7 friends.'
+        : allReady
+          ? 'Everyone is ready. The host can start another match.'
+          : hasPlayed
+            ? 'Round complete — ready up whenever you want to play again.'
+            : 'Everyone must mark ready before the host starts.');
     if (roomOverlay.classList.contains('hidden')) return;
     if (isPlaying) setStatus('Private room match');
     else setStatus('Private room lobby');
@@ -419,6 +458,7 @@
         await request(scopedURL('roomStates', code, `/${myUid()}`), { method: 'DELETE' });
         await request(ownMemberURL(code), { method: 'DELETE' });
       }
+      await cancelDisconnectCleanup();
       resetRoom('You left the room.');
     } catch (error) { setStatus('Could not leave room. Check Firebase rules.'); }
     finally { busy = false; }
