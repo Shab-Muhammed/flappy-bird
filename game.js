@@ -1225,6 +1225,17 @@
   const PIPE_GAP = 152;
   const PIPE_SPACING = 235;   // horizontal distance between pipe pairs (px)
   let pipeTimer = 0;
+  let roomPipeSeed = 0;
+
+  function pipeRandom() {
+    if (!roomPipeSeed) return Math.random();
+    // Mulberry32: deterministic pipe gaps for every player in the same room round.
+    roomPipeSeed = (roomPipeSeed + 0x6D2B79F5) | 0;
+    let value = roomPipeSeed;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  }
 
   class PipePair {
     constructor(x) {
@@ -1232,7 +1243,7 @@
       this.w = PIPE_WIDTH;
       const minCenter = 130 + PIPE_GAP / 2;
       const maxCenter = GROUND_Y - 80 - PIPE_GAP / 2;
-      this.gapCenter = Math.floor(Math.random() * (maxCenter - minCenter + 1)) + minCenter;
+      this.gapCenter = Math.floor(pipeRandom() * (maxCenter - minCenter + 1)) + minCenter;
       this.topHeight = this.gapCenter - PIPE_GAP / 2;
       this.bottomY = this.gapCenter + PIPE_GAP / 2;
       this.bottomHeight = GROUND_Y - this.bottomY;
@@ -2278,12 +2289,15 @@
     sound.init();
 
     if (currentState === STATE.READY) {
+      if (window.FlappyRooms && window.FlappyRooms.isInRoom()) return;
+      roomPipeSeed = 0;
       currentState = STATE.PLAYING;
       bird.jump();
       srAnnouncements.textContent = 'Game started. Tap to fly!';
     } else if (currentState === STATE.PLAYING) {
       bird.jump();
     } else if (currentState === STATE.GAMEOVER) {
+      if (window.FlappyRooms && window.FlappyRooms.isInRoom()) return;
       if (gameOverTimer > 18) {
         restartGame();
       }
@@ -2567,6 +2581,7 @@
     scorePopups.length = 0;
     score = 0;
     pipeTimer = 0;
+    roomPipeSeed = 0;
     bird.reset();
     currentState = STATE.READY;
     srAnnouncements.textContent = 'Game reset. Ready to fly.';
@@ -2604,6 +2619,7 @@
         return;
       }
     }
+    if (currentState === STATE.READY && window.FlappyRooms && window.FlappyRooms.isInRoom()) return;
     if (currentState === STATE.GAMEOVER && gameOverTimer > 18) {
       const p = pointerToVirtual(e);
       if (inRect(gameOverLbButtonRect, p)) {
@@ -2613,6 +2629,7 @@
       }
       if (inRect(restartButtonRect, p)) {
         e.preventDefault();
+        if (window.FlappyRooms && window.FlappyRooms.isInRoom()) return;
         restartGame();
         return;
       }
@@ -2620,7 +2637,29 @@
     handleAction(e);
   }, { passive: false });
 
+  let coinShortcut = '';
+  let coinShortcutTimer = 0;
   window.addEventListener('keydown', (e) => {
+    if (e.target && e.target.closest && e.target.closest('input, textarea, select')) return;
+    // Hidden keyboard code: type "coins" to add 100 coins to this device's wallet.
+    if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+      coinShortcut = (coinShortcut + e.key.toLowerCase()).slice(-5);
+      clearTimeout(coinShortcutTimer);
+      coinShortcutTimer = setTimeout(() => { coinShortcut = ''; }, 1800);
+      if (coinShortcut === 'coins') {
+        wallet.coins += 100;
+        saveWallet();
+        if (storeVisible) renderStore();
+        coinShortcut = '';
+        clearTimeout(coinShortcutTimer);
+        e.preventDefault();
+        return;
+      }
+    } else {
+      coinShortcut = '';
+      clearTimeout(coinShortcutTimer);
+    }
+
     // Leave the keyboard alone while the leaderboard (and its name box) is open
     if (overlayOpen()) return;
 
@@ -2750,5 +2789,18 @@
   }
 
   requestAnimationFrame(gameLoop);
+
+  window.FlappyGame = {
+    startRoomRound(seed) {
+      restartGame();
+      roomPipeSeed = (Number(seed) >>> 0) || 1;
+      currentState = STATE.PLAYING;
+      bird.jump();
+      srAnnouncements.textContent = 'Private room match started. Tap to fly!';
+    },
+    roomSnapshot() {
+      return { score, alive: currentState === STATE.PLAYING, y: Math.round(bird.y) };
+    }
+  };
 
 })();

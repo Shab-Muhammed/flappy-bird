@@ -56,6 +56,7 @@
         <span class="pill-label">BEST</span>
         <span id="best-score-badge" class="pill-value">0</span>
       </button>
+      <button id="room-quick-open" class="header-pill room-quick-open hidden" aria-label="Open private room" title="Private room">🏠</button>
     </header>
 
     <!-- Main Responsive High-DPI HTML5 Canvas -->
@@ -109,24 +110,61 @@
           </ul>
         </section>
 
-        <div id="lb-player" class="lb-player hidden">
-          <span>Playing as <b id="lb-player-name"></b></span>
-          <button id="lb-rename" class="lb-link" type="button">Change name</button>
-        </div>
-        <p id="lb-note" class="lb-note" aria-live="polite"></p>
-
-        <div id="lb-submit" class="lb-submit hidden">
-          <div id="lb-score-line" class="lb-your-score">Your score: <b id="lb-score">0</b></div>
-          <p id="lb-hint" class="lb-hint"></p>
+        <div id="lb-auth" class="lb-submit hidden">
+          <p id="lb-auth-message" class="lb-hint">Sign in or create an account to save your unique leaderboard name.</p>
+          <div class="lb-row"><input id="lb-account-name" type="text" maxlength="12" placeholder="Username" autocomplete="username" aria-label="Username"></div>
+          <div class="lb-row"><input id="lb-password" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password"></div>
           <div class="lb-row">
-            <input id="lb-name" type="text" maxlength="12" placeholder="Your name" autocomplete="off"
-              autocapitalize="words" spellcheck="false" aria-label="Your name">
-            <button id="lb-submit-btn" class="lb-btn" type="button">Save</button>
+            <button id="lb-login-btn" class="lb-btn" type="button">Sign in</button>
+            <button id="lb-register-btn" class="lb-btn lb-btn-secondary" type="button">Create account</button>
           </div>
         </div>
 
+        <div id="lb-player" class="lb-player hidden">
+          <span>Playing as <b id="lb-player-name"></b></span>
+          <button id="lb-signout" class="lb-link" type="button">Sign out</button>
+        </div>
+        <button id="room-open-btn" class="lb-btn lb-btn-secondary" type="button">Private Rooms</button>
+        <p id="lb-note" class="lb-note" aria-live="polite"></p>
+
         <ol id="lb-list" class="lb-list"></ol>
         <button id="lb-close" class="lb-btn lb-btn-secondary" type="button">Close</button>
+      </div>
+    </div>
+
+    <div id="room-overlay" class="lb-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="room-title">
+      <div class="lb-panel room-panel">
+        <h2 id="room-title">PRIVATE ROOM</h2>
+        <p id="room-status" class="lb-status" aria-live="polite">Create a room and share its code with friends.</p>
+        <div id="room-join-controls" class="room-controls">
+          <button id="room-create-btn" class="lb-btn" type="button">Create room</button>
+          <div class="lb-row">
+            <input id="room-code-input" type="text" maxlength="8" placeholder="ROOM CODE" autocomplete="off" aria-label="Room code">
+            <button id="room-join-btn" class="lb-btn lb-btn-secondary" type="button">Join</button>
+          </div>
+        </div>
+        <div id="room-session" class="room-session hidden">
+          <div class="room-code-row"><span>ROOM CODE</span><strong id="room-code"></strong><button id="room-copy-btn" class="lb-link" type="button">Copy</button></div>
+          <div class="lb-presence">
+            <div class="lb-presence-heading"><h3>PLAYERS</h3><span id="room-player-count" class="lb-online-count">0</span></div>
+            <ul id="room-player-list" class="lb-online-list"></ul>
+          </div>
+          <div class="room-actions">
+            <button id="room-ready-btn" class="lb-btn lb-btn-secondary" type="button">I’m ready</button>
+            <button id="room-start-btn" class="lb-btn hidden" type="button">Start match</button>
+            <button id="room-leave-btn" class="lb-btn lb-btn-secondary" type="button">Leave room</button>
+          </div>
+          <p id="room-result" class="room-result" aria-live="polite"></p>
+          <section class="room-chat" aria-label="Room chat">
+            <h3>ROOM CHAT</h3>
+            <ul id="room-chat-list" class="room-chat-list" aria-live="polite"></ul>
+            <form id="room-chat-form" class="room-chat-form">
+              <input id="room-chat-input" type="text" maxlength="180" placeholder="Message your room" autocomplete="off" aria-label="Room message" required>
+              <button id="room-chat-send" class="lb-btn" type="submit">Send</button>
+            </form>
+          </section>
+        </div>
+        <button id="room-close-btn" class="lb-btn lb-btn-secondary" type="button">Close</button>
       </div>
     </div>
 
@@ -134,7 +172,23 @@
     <div id="sr-announcements" class="sr-only" aria-live="polite"></div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyCqR4pVsD8VIwu-uZSOg7aidaZng_AX0h8",
+      authDomain: "flappy-bird-ae650.firebaseapp.com",
+      databaseURL: "https://flappy-bird-ae650-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "flappy-bird-ae650",
+      storageBucket: "flappy-bird-ae650.firebasestorage.app",
+      messagingSenderId: "610617873523",
+      appId: "1:610617873523:web:296c0515bb8538ee6a4606",
+      measurementId: "G-VP2JR186D6"
+    });
+    window.FlappyFirebaseAuth = firebase.auth();
+  </script>
   <script src="leaderboard.js"></script>
+  <script src="rooms.js"></script>
   <script src="custom-skins.js"></script>
   <script src="sounds/death/death-sounds.js"></script>
   <script src="game.js"></script>

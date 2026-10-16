@@ -3,9 +3,8 @@
  *
  * One entry per player: the first time you finish a run you pick a name, and after that
  * every run quietly updates the SAME entry (your best score), so there are no duplicates.
- * Entries are stored under a random per-browser player id in a Firebase Realtime Database
- * over plain REST (no SDK, no build step). Until you paste your database URL below, the
- * board runs in "local" mode and shows scores from this device only. See README.md.
+ * Scores are stored under authenticated Firebase account IDs. Username claims keep display
+ * names unique. See README.md for the required Firebase Authentication and database rules.
  */
 (() => {
   'use strict';
@@ -27,7 +26,7 @@
   const ID_KEY = 'flappy_player_id';
   const LOCAL_KEY = 'flappy_local_scores';
   const MAX_NAME = 12;
-  const MAX_SCORE = 500; // keep in sync with the database rule in README.md
+  const MAX_SCORE = 10000; // keep in sync with the database rule in README.md
 
   const $ = (id) => document.getElementById(id);
   const overlay = $('lb-overlay');
@@ -38,19 +37,21 @@
     note: $('lb-note'),
     player: $('lb-player'),
     playerName: $('lb-player-name'),
-    rename: $('lb-rename'),
-    submit: $('lb-submit'),
-    scoreLine: $('lb-score-line'),
-    score: $('lb-score'),
-    hint: $('lb-hint'),
-    name: $('lb-name'),
-    submitBtn: $('lb-submit-btn'),
     list: $('lb-list'),
     onlineCount: $('lb-online-count'),
     onlineList: $('lb-online-list'),
     closeBtn: $('lb-close'),
     openBtn: $('best-btn')
   };
+
+  const auth = window.firebase && firebase.auth ? firebase.auth() : null;
+  const accountBox = $('lb-auth');
+  const accountName = $('lb-account-name');
+  const accountPassword = $('lb-password');
+  const accountMessage = $('lb-auth-message');
+  const USERNAME_DOMAIN = '@users.flappy-bird-ae650.firebaseapp.com';
+  let accountReady = false;
+  let accountBusy = false;
 
   const baseURL = CONFIG.databaseURL.trim().replace(/\/+$/, '');
   const isOnline = baseURL.length > 0;
@@ -67,6 +68,157 @@
     return String(raw || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, MAX_NAME);
   }
 
+  function cleanUsername(raw) {
+    return String(raw || '').trim().replace(/[^a-z0-9_]/gi, '').slice(0, MAX_NAME);
+  }
+
+  function usernameEmail(raw) {
+    return `${cleanUsername(raw).toLowerCase()}${USERNAME_DOMAIN}`;
+  }
+
+  function usernameKey(raw) {
+    return cleanUsername(raw).toLowerCase();
+  }
+
+  function authErrorMessage(error) {
+    const code = error && error.code;
+    if (code === 'auth/email-already-in-use') return 'That username is already taken.';
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'Username or password is incorrect.';
+    if (code === 'auth/weak-password') return 'Use a password with at least 6 characters.';
+    if (code === 'auth/too-many-requests') return 'Too many attempts. Try again later.';
+    return 'Could not sign in. Check your connection and try again.';
+  }
+
+  function applyUser(user) {
+    if (!user) {
+      accountReady = false;
+      playerName = '';
+      safeSet(NAME_KEY, '');
+      stopPresence();
+      updatePlayerStrip();
+      if (visible) showAccountForm();
+      return;
+    }
+    const email = String(user.email || '');
+    const suffix = USERNAME_DOMAIN.toLowerCase();
+    if (!email.toLowerCase().endsWith(suffix)) {
+      auth.signOut();
+      setNote('This account is not set up for a game username.');
+      return;
+    }
+    playerId = user.uid;
+    presenceId = user.uid;
+    const username = cleanUsername(email.slice(0, -USERNAME_DOMAIN.length));
+    playerName = username;
+    safeSet(NAME_KEY, username);
+    accountReady = true;
+    if (accountBox) accountBox.classList.add('hidden');
+    updatePlayerStrip();
+    startPresence();
+    if (visible) refresh();
+  }
+
+  function showAccountForm(message = 'Sign in or create an account with a username and password.') {
+    if (!accountBox) return;
+    accountBox.classList.remove('hidden');
+    accountMessage.textContent = message;
+    if (accountName && !accountName.value && legacyPlayerName) accountName.value = cleanUsername(legacyPlayerName);
+    ui.player.classList.add('hidden');
+    setTimeout(() => accountName && accountName.focus({ preventScroll: true }), 60);
+  }
+
+  async function authenticate(createAccount) {
+    if (!auth || accountBusy) {
+      accountMessage.textContent = 'Sign-in is unavailable. Reload the page and try again.';
+      return;
+    }
+    const username = cleanUsername(accountName.value);
+    const password = accountPassword.value;
+    if (!/^[a-z0-9_]{3,12}$/i.test(username)) {
+      accountMessage.textContent = 'Username must be 3–12 letters, numbers, or underscores.';
+      return;
+    }
+    if (!password) {
+      accountMessage.textContent = 'Enter your password.';
+      return;
+    }
+    accountBusy = true;
+    accountMessage.textContent = createAccount ? 'Creating account…' : 'Signing in…';
+    try {
+      if (createAccount) await assertUsernameAvailable(username);
+      const result = createAccount
+        ? await auth.createUserWithEmailAndPassword(usernameEmail(username), password)
+        : await auth.signInWithEmailAndPassword(usernameEmail(username), password);
+      await reserveUsername(result.user, username);
+      await migrateLegacyScore(result.user, username);
+      applyUser(result.user);
+      accountPassword.value = '';
+      if (unsynced > 0) syncScore(0);
+    } catch (error) {
+      if (error && error.message === 'USERNAME_RESERVATION_FAILED') {
+        accountMessage.textContent = 'That username is already reserved. Choose another username or sign in to its account.';
+      } else if (error && error.message === 'USERNAME_TAKEN') {
+        accountMessage.textContent = 'That username is already on the leaderboard. Choose another one.';
+      } else {
+        accountMessage.textContent = authErrorMessage(error);
+      }
+    } finally {
+      accountBusy = false;
+    }
+  }
+
+  async function reserveUsername(user, username) {
+    const key = usernameKey(username);
+    const claimURL = `${baseURL}/usernames/${key}.json`;
+    let claim = await request(claimURL);
+    if (claim !== user.uid) {
+      if (claim !== null) throw new Error('USERNAME_RESERVATION_FAILED');
+      await assertUsernameAvailable(username, user.uid);
+      try {
+        await request(claimURL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(user.uid) });
+      } catch (e) {
+        claim = await request(claimURL);
+        if (claim !== user.uid) throw e;
+      }
+    }
+    const reverseURL = `${baseURL}/usernameByUid/${user.uid}.json`;
+    let savedName = await request(reverseURL);
+    if (savedName !== key) {
+      if (savedName !== null) throw new Error('USERNAME_RESERVATION_FAILED');
+      try {
+        await request(reverseURL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(key) });
+      } catch (e) {
+        savedName = await request(reverseURL);
+        if (savedName !== key) throw e;
+      }
+    }
+  }
+
+  async function assertUsernameAvailable(username, uid = '') {
+    const rows = await request(`${baseURL}/${CONFIG.collection}.json`);
+    const wanted = usernameKey(username);
+    const alreadyUsed = rows && Object.entries(rows).some(([id, row]) =>
+      id !== uid && id !== legacyPlayerId && usernameKey(row && row.name) === wanted
+    );
+    if (alreadyUsed) throw new Error('USERNAME_TAKEN');
+  }
+
+  async function migrateLegacyScore(user, username) {
+    if (!legacyPlayerId || legacyPlayerId === user.uid) return;
+    const old = await request(`${baseURL}/${CONFIG.collection}/${legacyPlayerId}.json`);
+    const oldLocal = readLocal().find(row => row.id === legacyPlayerId && usernameKey(row.name) === usernameKey(username));
+    if ((!old || usernameKey(old.name) !== usernameKey(username)) && !oldLocal) return;
+    const currentURL = `${baseURL}/${CONFIG.collection}/${user.uid}.json`;
+    const current = await request(currentURL);
+    const best = Math.max(Number(old && old.score) || 0, Number(oldLocal && oldLocal.score) || 0, Number(current && current.score) || 0);
+    if (best <= (Number(current && current.score) || 0)) return;
+    await request(currentURL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: usernameKey(username), score: best, ts: { '.sv': 'timestamp' } })
+    });
+  }
+
   function makeId() {
     try {
       const bytes = new Uint8Array(12);
@@ -79,26 +231,21 @@
     }
   }
 
-  // Identity of this player on this browser (random id + chosen name)
+  // Legacy local ID is used only for device-local score fallback; online records use Firebase UIDs.
   let playerId = safeGet(ID_KEY);
   if (!/^[a-z0-9]{16,40}$/.test(playerId || '')) {
     playerId = makeId();
     safeSet(ID_KEY, playerId);
   }
   let playerName = cleanName(safeGet(NAME_KEY));
+  const legacyPlayerId = playerId;
+  const legacyPlayerName = playerName;
 
-  const PRESENCE_ID_KEY = 'flappy_presence_id';
   let presenceId = '';
-  try { presenceId = sessionStorage.getItem(PRESENCE_ID_KEY) || ''; } catch (e) { /* use a fresh session id */ }
-  if (!/^[a-f0-9]{24}$/.test(presenceId)) {
-    presenceId = makeId();
-    try { sessionStorage.setItem(PRESENCE_ID_KEY, presenceId); } catch (e) { /* keep it in memory */ }
-  }
 
   let visible = false;
   let lastScore = null;   // score of the run that just ended (display only)
   let unsynced = 0;       // best score not yet saved (waiting for a name, or a failed save)
-  let formMode = null;    // 'first' | 'rename' | null
 
   function sortScores(rows) {
     return rows.sort((a, b) => b.score - a.score || (a.ts || 0) - (b.ts || 0));
@@ -124,7 +271,12 @@
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), CONFIG.timeoutMs);
     try {
-      const res = await fetch(url, { cache: 'no-store', ...options, signal: ctrl.signal });
+      let requestURL = url;
+      if (auth && baseURL && requestURL.startsWith(baseURL) && auth.currentUser) {
+        const token = await auth.currentUser.getIdToken();
+        requestURL += `${requestURL.includes('?') ? '&' : '?'}auth=${encodeURIComponent(token)}`;
+      }
+      const res = await fetch(requestURL, { cache: 'no-store', ...options, signal: ctrl.signal });
       if (!res.ok) {
         const detail = await res.text();
         throw new Error(`HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
@@ -148,7 +300,13 @@
         ts: Number(v && v.ts) || 0
       }))
       : [];
-    return sortScores(rows);
+    const seen = new Set();
+    return sortScores(rows).filter(row => {
+      const key = usernameKey(row.name);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   async function fetchPresence() {
@@ -214,13 +372,16 @@
     if (!heartbeatTimer) heartbeatTimer = setInterval(sendHeartbeat, CONFIG.heartbeatMs);
   }
 
-  function stopPresence() {
+  async function stopPresence() {
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     heartbeatTimer = null;
-    if (!isOnline) return;
-    fetch(`${baseURL}/${CONFIG.presenceCollection}/${presenceId}.json`, {
-      method: 'DELETE', cache: 'no-store', keepalive: true
-    }).catch(() => {});
+    if (!isOnline || !presenceId || !auth || !auth.currentUser) return;
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await fetch(`${baseURL}/${CONFIG.presenceCollection}/${presenceId}.json?auth=${encodeURIComponent(token)}`, {
+        method: 'DELETE', cache: 'no-store', keepalive: true
+      });
+    } catch (e) { /* stale presence expires from the feed after the active window */ }
   }
 
   window.addEventListener('pagehide', stopPresence);
@@ -353,43 +514,10 @@
     }
   }
 
-  // ---------- name form (first run, or "Change name") ----------
+  // ---------- signed-in player display ----------
   function updatePlayerStrip() {
     ui.player.classList.toggle('hidden', !playerName);
     ui.playerName.textContent = playerName;
-  }
-
-  function showForm(mode) {
-    formMode = mode;
-    ui.submit.classList.remove('hidden');
-    ui.scoreLine.classList.toggle('hidden', mode === 'rename');
-    ui.score.textContent = unsynced || lastScore || 0;
-    ui.hint.textContent = mode === 'first'
-      ? "Pick a name for the leaderboard. You'll only be asked once."
-      : 'Your best score moves to the new name. No duplicate entry is created.';
-    ui.submitBtn.textContent = mode === 'first' ? 'Save' : 'Save name';
-    ui.name.value = playerName;
-    setTimeout(() => ui.name.focus({ preventScroll: true }), 60);
-  }
-
-  function hideForm() {
-    formMode = null;
-    ui.submit.classList.add('hidden');
-  }
-
-  function submitName() {
-    const name = cleanName(ui.name.value);
-    if (!name) {
-      setNote('Type a name to continue.');
-      return;
-    }
-    const changed = name !== playerName;
-    playerName = name;
-    safeSet(NAME_KEY, name);
-    hideForm();
-    updatePlayerStrip();
-    startPresence();
-    if (changed || unsynced > 0) syncScore(0); // pushes any waiting score and/or renames the entry
   }
 
   // ---------- open / close ----------
@@ -399,8 +527,9 @@
     overlay.classList.remove('hidden');
     updatePlayerStrip();
 
-    if (!playerName) showForm('first');
-    else if (formMode !== 'rename') hideForm();
+    if (!auth || !auth.currentUser) showAccountForm();
+    else if (!accountReady) showAccountForm();
+    else if (accountBox) accountBox.classList.add('hidden');
     if (playerName && unsynced > 0) syncScore(0); // retry a save that failed earlier
 
     refresh();
@@ -415,11 +544,18 @@
   }
 
   // ---------- events ----------
-  ui.submitBtn.addEventListener('click', submitName);
-  ui.rename.addEventListener('click', () => showForm('rename'));
+  $('lb-login-btn').addEventListener('click', () => authenticate(false));
+  $('lb-register-btn').addEventListener('click', () => authenticate(true));
+  $('lb-signout').addEventListener('click', async () => {
+    await stopPresence();
+    if (auth) await auth.signOut();
+    showAccountForm('Signed out. Sign in or create an account.');
+  });
+  [accountName, accountPassword].forEach(input => input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); authenticate(false); }
+  }));
   ui.closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  ui.name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitName(); } });
   document.addEventListener('keydown', (e) => { if (visible && e.key === 'Escape') close(); });
   if (ui.openBtn) {
     ui.openBtn.addEventListener('click', (e) => {
@@ -463,8 +599,32 @@
   };
   window.FlappyLeaderboard = api;
 
-  // Ask first-time visitors for a leaderboard name as soon as the page loads.
-  // Existing visitors with a saved name continue straight into the game.
-  if (playerName) startPresence();
-  else open();
+  // Restore the signed-in account or show the username/password form for new visitors.
+  if (auth) {
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+    auth.onAuthStateChanged(async user => {
+      if (!user) {
+        applyUser(null);
+        if (!visible) open();
+        return;
+      }
+      applyUser(user);
+      const username = cleanUsername(String(user.email || '').slice(0, -USERNAME_DOMAIN.length));
+      try {
+        await reserveUsername(user, username);
+        await migrateLegacyScore(user, username);
+      } catch (e) {
+        if (e && e.message === 'USERNAME_RESERVATION_FAILED') {
+          await auth.signOut();
+          setNote('That username is reserved by a different account.');
+        } else {
+          accountReady = false;
+          showAccountForm('Could not verify your username. Check that the Firebase database rules are published.');
+        }
+      }
+      if (accountReady && unsynced > 0) syncScore(0);
+      if (visible) refresh();
+    });
+  }
+  if (!auth || !auth.currentUser) open();
 })();
