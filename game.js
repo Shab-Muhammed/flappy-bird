@@ -2546,6 +2546,10 @@
   storeTabs.bird.addEventListener('click', () => setStoreTab('bird'));
   storeTabs.pipe.addEventListener('click', () => setStoreTab('pipe'));
   storeTabs.sound.addEventListener('click', () => setStoreTab('sound'));
+  document.getElementById('store-menu-btn').addEventListener('click', () => {
+    sound.init();
+    openStore();
+  });
   requestForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const value = requestName.value.trim();

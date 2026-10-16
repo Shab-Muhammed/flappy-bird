@@ -30,6 +30,7 @@
 
   const $ = (id) => document.getElementById(id);
   const overlay = $('lb-overlay');
+  const accountOverlay = $('account-overlay');
   if (!overlay) return;
 
   const ui = {
@@ -41,7 +42,9 @@
     onlineCount: $('lb-online-count'),
     onlineList: $('lb-online-list'),
     closeBtn: $('lb-close'),
-    openBtn: $('best-btn')
+    openBtn: $('best-btn'),
+    accountOpenBtn: $('account-menu-btn'),
+    accountCloseBtn: $('account-close')
   };
 
   const auth = window.firebase && firebase.auth ? firebase.auth() : null;
@@ -96,7 +99,7 @@
       safeSet(NAME_KEY, '');
       stopPresence();
       updatePlayerStrip();
-      if (visible) showAccountForm();
+      if (accountVisible) showAccountForm();
       return;
     }
     const email = String(user.email || '');
@@ -120,6 +123,8 @@
 
   function showAccountForm(message = 'Sign in or create an account with a username and password.') {
     if (!accountBox) return;
+    accountVisible = true;
+    accountOverlay.classList.remove('hidden');
     accountBox.classList.remove('hidden');
     accountMessage.textContent = message;
     if (accountName && !accountName.value && legacyPlayerName) accountName.value = cleanUsername(legacyPlayerName);
@@ -244,6 +249,7 @@
   let presenceId = '';
 
   let visible = false;
+  let accountVisible = false;
   let lastScore = null;   // score of the run that just ended (display only)
   let unsynced = 0;       // best score not yet saved (waiting for a name, or a failed save)
 
@@ -526,10 +532,6 @@
     visible = true;
     overlay.classList.remove('hidden');
     updatePlayerStrip();
-
-    if (!auth || !auth.currentUser) showAccountForm();
-    else if (!accountReady) showAccountForm();
-    else if (accountBox) accountBox.classList.add('hidden');
     if (playerName && unsynced > 0) syncScore(0); // retry a save that failed earlier
 
     refresh();
@@ -540,6 +542,21 @@
     visible = false;
     overlay.classList.add('hidden');
     stopPolling();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+
+  function openAccount() {
+    if (!api.canOpen()) return;
+    accountVisible = true;
+    accountOverlay.classList.remove('hidden');
+    updatePlayerStrip();
+    if (!auth || !auth.currentUser || !accountReady) showAccountForm();
+    else if (accountBox) accountBox.classList.add('hidden');
+  }
+
+  function closeAccount() {
+    accountVisible = false;
+    accountOverlay.classList.add('hidden');
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
 
@@ -556,7 +573,11 @@
   }));
   ui.closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  ui.accountCloseBtn.addEventListener('click', closeAccount);
+  accountOverlay.addEventListener('click', (e) => { if (e.target === accountOverlay) closeAccount(); });
   document.addEventListener('keydown', (e) => { if (visible && e.key === 'Escape') close(); });
+  document.addEventListener('keydown', (e) => { if (accountVisible && e.key === 'Escape') closeAccount(); });
+  ui.accountOpenBtn.addEventListener('click', openAccount);
   if (ui.openBtn) {
     ui.openBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -572,6 +593,8 @@
     canOpen: () => true,
     open,
     close,
+    openAccount,
+    closeAccount,
     async submitSuggestion(category, suggestion) {
       if (!isOnline) throw new Error('Suggestion submissions are not configured.');
       const allowedCategories = ['Pipe', 'Skin', 'Audio'];
@@ -605,7 +628,7 @@
     auth.onAuthStateChanged(async user => {
       if (!user) {
         applyUser(null);
-        if (!visible) open();
+        if (!accountVisible) openAccount();
         return;
       }
       applyUser(user);
@@ -626,5 +649,5 @@
       if (visible) refresh();
     });
   }
-  if (!auth || !auth.currentUser) open();
+  if (!auth || !auth.currentUser) openAccount();
 })();

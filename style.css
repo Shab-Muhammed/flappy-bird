@@ -79,15 +79,54 @@ html, body {
 /* Retro Arcade UI Header */
 #ui-header {
   position: absolute;
-  top: 12px;
+  top: 8px;
   left: 10px;
   right: 10px;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   z-index: 20;
   pointer-events: none;
   gap: 8px;
+}
+
+.game-menu {
+  flex: 1 0 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  pointer-events: auto;
+}
+
+.menu-btn {
+  min-width: 0;
+  padding: 6px 8px;
+  border-color: #704719;
+  background: linear-gradient(#fff6d7, #e6c46e);
+  color: #39240e;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.menu-btn:hover {
+  background: linear-gradient(#fffbe9, #f4d77e);
+}
+
+.best-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 380px) {
+  #ui-header { left: 6px; right: 6px; gap: 6px; }
+  .game-menu { gap: 4px; }
+  .menu-btn { padding: 6px 6px; font-size: 10px; }
 }
 
 /* Stylized Retro Buttons */
@@ -239,18 +278,6 @@ button.header-pill:active {
    ========================================================================== */
 #best-icon {
   font-size: 12px;
-}
-
-.room-quick-open {
-  pointer-events: auto;
-  flex: 0 0 38px;
-  width: 38px;
-  min-width: 38px;
-  padding: 0;
-  justify-content: center;
-  font-size: 18px;
-  cursor: pointer;
-  touch-action: manipulation;
 }
 
 .lb-overlay {
@@ -640,6 +667,34 @@ button.header-pill:focus-visible {
   line-height: 1.4;
   text-align: center;
   color: #7a6544;
+}
+
+.account-panel {
+  max-width: 320px;
+}
+
+.account-input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 2.5px solid #76501e;
+  border-radius: 12px;
+  outline: none;
+  background: linear-gradient(180deg, #fffdf2, #f7edcf);
+  color: #33200c;
+  box-shadow: inset 0 2px 4px rgba(88, 56, 17, 0.12), 0 2px 0 rgba(255, 255, 255, 0.8);
+  font: 600 16px var(--font-ui);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.account-input::placeholder {
+  color: #9b8158;
+}
+
+.account-input:focus {
+  border-color: #bd771a;
+  box-shadow: 0 0 0 3px rgba(248, 192, 32, 0.28), inset 0 2px 4px rgba(88, 56, 17, 0.1);
 }
 
 /* Private multiplayer rooms */

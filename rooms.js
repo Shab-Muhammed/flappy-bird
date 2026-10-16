@@ -75,13 +75,13 @@
   }
 
   function openPanel() {
-    roomOverlay.classList.remove('hidden');
+    if (window.FlappyLeaderboard && !window.FlappyLeaderboard.canOpen()) return;
     if (!currentUser()) {
-      setStatus('Sign in from the leaderboard before creating or joining a room.');
-      joinControls.classList.add('hidden');
-      sessionPanel.classList.add('hidden');
+      roomOverlay.classList.add('hidden');
+      if (window.FlappyLeaderboard) window.FlappyLeaderboard.openAccount();
       return;
     }
+    roomOverlay.classList.remove('hidden');
     if (!room) {
       joinControls.classList.remove('hidden');
       sessionPanel.classList.add('hidden');
@@ -165,7 +165,6 @@
     lastChatKey = '';
     joinControls.classList.add('hidden');
     sessionPanel.classList.remove('hidden');
-    $('room-quick-open').classList.remove('hidden');
     renderRoom();
     startPolling();
     if (createdByMe) setStatus('Room created. Share the code with your friends.');
@@ -429,11 +428,9 @@
     try { sessionStorage.removeItem('flappy_private_room'); } catch (error) { /* session storage is optional */ }
     joinControls.classList.remove('hidden');
     sessionPanel.classList.add('hidden');
-    $('room-quick-open').classList.add('hidden');
     setStatus(message);
   }
 
-  $('room-open-btn').addEventListener('click', openPanel);
   $('room-quick-open').addEventListener('click', openPanel);
   $('room-create-btn').addEventListener('click', createRoom);
   $('room-join-btn').addEventListener('click', joinRoom);

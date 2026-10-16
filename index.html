@@ -49,14 +49,15 @@
         <span id="season-icon">🌸</span>
         <span id="season-text" class="pill-season">SPRING</span>
       </button>
-
-      <!-- Best score (tap to open the leaderboard) -->
-      <button id="best-btn" class="header-pill best-pill" aria-label="Open leaderboard" title="Leaderboard">
-        <span id="best-icon" aria-hidden="true">🏆</span>
-        <span class="pill-label">BEST</span>
-        <span id="best-score-badge" class="pill-value">0</span>
-      </button>
-      <button id="room-quick-open" class="header-pill room-quick-open hidden" aria-label="Open private room" title="Private room">🏠</button>
+      <nav class="game-menu" aria-label="Game menu">
+        <button id="store-menu-btn" class="header-pill menu-btn" type="button" aria-label="Open store">🛒 Store</button>
+        <button id="best-btn" class="header-pill menu-btn best-pill" aria-label="Open leaderboard" title="Leaderboard">
+          <span id="best-icon" aria-hidden="true">🏆</span><span>Board</span>
+          <span id="best-score-badge" class="pill-value">0</span>
+        </button>
+        <button id="room-quick-open" class="header-pill menu-btn" type="button" aria-label="Open private rooms">🏠 Rooms</button>
+        <button id="account-menu-btn" class="header-pill menu-btn" type="button" aria-label="Open account">👤 Account</button>
+      </nav>
     </header>
 
     <!-- Main Responsive High-DPI HTML5 Canvas -->
@@ -110,26 +111,31 @@
           </ul>
         </section>
 
+        <p id="lb-note" class="lb-note" aria-live="polite"></p>
+
+        <ol id="lb-list" class="lb-list"></ol>
+        <button id="lb-close" class="lb-btn lb-btn-secondary" type="button">Close</button>
+      </div>
+    </div>
+
+    <div id="account-overlay" class="lb-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="account-title">
+      <div class="lb-panel account-panel">
+        <h2 id="account-title">PLAYER ACCOUNT</h2>
         <div id="lb-auth" class="lb-submit hidden">
           <p id="lb-auth-message" class="lb-hint">Sign in or create an account to save your unique leaderboard name.</p>
-          <div class="lb-row"><input id="lb-account-name" type="text" maxlength="12" placeholder="Username" autocomplete="username" aria-label="Username"></div>
-          <div class="lb-row"><input id="lb-password" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password"></div>
+          <div class="lb-row"><input class="account-input" id="lb-account-name" type="text" maxlength="12" placeholder="Username" autocomplete="username" aria-label="Username"></div>
+          <div class="lb-row"><input class="account-input" id="lb-password" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password"></div>
           <div class="lb-row">
             <button id="lb-login-btn" class="lb-btn" type="button">Sign in</button>
             <button id="lb-register-btn" class="lb-btn lb-btn-secondary" type="button">Create account</button>
           </div>
           <p class="lb-forgot-hint">Password slipped away? Contact the game admin to get back in.</p>
         </div>
-
         <div id="lb-player" class="lb-player hidden">
           <span>Playing as <b id="lb-player-name"></b></span>
           <button id="lb-signout" class="lb-link" type="button">Sign out</button>
         </div>
-        <button id="room-open-btn" class="lb-btn lb-btn-secondary" type="button">Private Rooms</button>
-        <p id="lb-note" class="lb-note" aria-live="polite"></p>
-
-        <ol id="lb-list" class="lb-list"></ol>
-        <button id="lb-close" class="lb-btn lb-btn-secondary" type="button">Close</button>
+        <button id="account-close" class="lb-btn lb-btn-secondary" type="button">Close</button>
       </div>
     </div>
 
