@@ -569,6 +569,62 @@
     { name: 'Forest', icon: '🍄', skyTop: '#173d3a', skyMid: '#285b4c', skyBot: '#9bbf83', far: '#244d3a', near: '#173d2e', groundTop: '#628b4b', groundBody: '#473f30', pipe: ['#46563d', '#62734b', '#89995d', '#63704a', '#414d37', '#303a2d'], lip: ['#3e4d36', '#596b44', '#839259', '#68774a', '#3c4932'], outline: '#283b2b', accent: '#b5d785', style: 'forest' },
     { name: 'Highway', icon: '🛣️', skyTop: '#5589a2', skyMid: '#91b7bd', skyBot: '#d9d2ad', far: '#536b70', near: '#3c5559', groundTop: '#7e8584', groundBody: '#303539', pipe: ['#50595c', '#758084', '#b8c0be', '#8d9999', '#596366', '#41494c'], lip: ['#485154', '#6d797c', '#aab4b5', '#859092', '#4c5557'], outline: '#343b3d', accent: '#ffd34f', style: 'highway' }
   ];
+  const THEME_CYCLE_PROFILES = {
+    kerala: {
+      DAWN: { skyTop: '#e59ba9', skyMid: '#f3c6a0', skyBot: '#fff0c9', far: '#937d91', near: '#627b72', groundTop: '#4b8973', groundBody: '#3c5148', accent: '#d4b87a', pipeTint: '#d8b782', lighting: 'rgba(255, 193, 180, 0.12)', particleEffect: 'mist', particleDensity: 0.45, pipeShade: 0.08, emission: 0, vineOpacity: 0.8, mushroomGlow: 0, hazardBrightness: 0.5 },
+      DAY: { skyTop: '#29a9d4', skyMid: '#6bcce0', skyBot: '#c6f3e5', far: '#398d73', near: '#155d45', groundTop: '#4eaa52', groundBody: '#416544', accent: '#a8e7cc', pipeTint: '#e0d4a4', lighting: 'rgba(22, 135, 91, 0.07)', particleEffect: 'leaves', particleDensity: 0.7, pipeShade: 0, emission: 0, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 },
+      SUNSET: { skyTop: '#773d66', skyMid: '#e07853', skyBot: '#f6bc75', far: '#583c59', near: '#3d3b49', groundTop: '#bd8452', groundBody: '#473632', accent: '#f3bd69', pipeTint: '#d27b38', lighting: 'rgba(245, 119, 49, 0.13)', particleEffect: 'gold', particleDensity: 0.48, pipeShade: 0.2, emission: 0, vineOpacity: 0.88, mushroomGlow: 0, hazardBrightness: 0.5 },
+      NIGHT: { skyTop: '#101a3b', skyMid: '#17294a', skyBot: '#283b58', far: '#182b38', near: '#102927', groundTop: '#24483d', groundBody: '#17231f', accent: '#74a9b2', pipeTint: '#18304a', lighting: 'rgba(12, 27, 62, 0.22)', particleEffect: 'fireflies', particleDensity: 0.78, pipeShade: 0.55, emission: 2, vineOpacity: 0.78, mushroomGlow: 0, hazardBrightness: 0.55 }
+    },
+    desert: {
+      DAWN: { skyTop: '#e5a5a2', skyMid: '#f2c29a', skyBot: '#ffe5b3', far: '#aa8277', near: '#b58769', groundTop: '#e2b46c', groundBody: '#996746', accent: '#ffe2a1', pipeTint: '#f1c28d', lighting: 'rgba(255, 197, 161, 0.13)', particleEffect: 'sand', particleDensity: 0.42, pipeShade: 0.04, emission: 0, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5, cityGlow: 0 },
+      DAY: { skyTop: '#80b7d5', skyMid: '#b8d8dd', skyBot: '#f8e6b5', far: '#c3a071', near: '#d7a75e', groundTop: '#f2d07d', groundBody: '#b77b43', accent: '#fff0ab', pipeTint: '#fff0bd', lighting: 'rgba(255, 222, 143, 0.12)', particleEffect: 'sand', particleDensity: 1, pipeShade: 0, emission: 0, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5, cityGlow: 0 },
+      SUNSET: { skyTop: '#401d45', skyMid: '#aa3f50', skyBot: '#f0804e', far: '#542843', near: '#763f49', groundTop: '#c66b42', groundBody: '#5e3540', accent: '#ffb34e', pipeTint: '#a74b36', lighting: 'rgba(187, 50, 49, 0.16)', particleEffect: 'gold', particleDensity: 0.58, pipeShade: 0.22, emission: 0, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5, cityGlow: 0.24 },
+      NIGHT: { skyTop: '#09152e', skyMid: '#14213d', skyBot: '#222b47', far: '#20253d', near: '#302b49', groundTop: '#65506a', groundBody: '#262238', accent: '#dbb9ff', pipeTint: '#263459', lighting: 'rgba(13, 28, 62, 0.27)', particleEffect: 'stardust', particleDensity: 0.54, pipeShade: 0.48, emission: 8, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5, cityGlow: 0.8 }
+    },
+    cyberpunk: {
+      DAWN: { skyTop: '#242d52', skyMid: '#45456b', skyBot: '#5b7185', far: '#202941', near: '#262946', groundTop: '#36374d', groundBody: '#171927', accent: '#7cabb8', pipeTint: '#313644', lighting: 'rgba(115, 175, 218, 0.08)', particleEffect: 'pixels', particleDensity: 0.28, pipeShade: 0.1, emission: 6, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 },
+      DAY: { skyTop: '#555e68', skyMid: '#737d83', skyBot: '#8d9696', far: '#41464f', near: '#303640', groundTop: '#535661', groundBody: '#20222b', accent: '#8f9296', pipeTint: '#68717b', lighting: 'rgba(145, 167, 183, 0.11)', particleEffect: 'smoke', particleDensity: 0.25, pipeShade: 0.12, emission: 2, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 },
+      SUNSET: { skyTop: '#351846', skyMid: '#672455', skyBot: '#a54169', far: '#281b3d', near: '#321a42', groundTop: '#3d2453', groundBody: '#151324', accent: '#f046c7', pipeTint: '#8b3169', lighting: 'rgba(221, 49, 157, 0.13)', particleEffect: 'pixels', particleDensity: 0.62, pipeShade: 0.06, emission: 12, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 },
+      NIGHT: { skyTop: '#02040d', skyMid: '#080d20', skyBot: '#121329', far: '#080b19', near: '#101124', groundTop: '#21182f', groundBody: '#090b15', accent: '#38edff', pipeTint: '#131328', lighting: 'rgba(20, 18, 56, 0.08)', particleEffect: 'pixels', particleDensity: 1, pipeShade: 0, emission: 20, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 }
+    },
+    forest: {
+      DAWN: { skyTop: '#688b91', skyMid: '#9bb9ad', skyBot: '#ccd8bc', far: '#41685e', near: '#315247', groundTop: '#6a8b58', groundBody: '#45483a', accent: '#c1d6a0', pipeTint: '#c8d2ce', lighting: 'rgba(171, 215, 214, 0.12)', particleEffect: 'mist', particleDensity: 0.55, pipeShade: 0.12, emission: 0, vineOpacity: 1, mushroomGlow: 0.22, hazardBrightness: 0.5, rayStrength: 0.55 },
+      DAY: { skyTop: '#55a875', skyMid: '#99c581', skyBot: '#d3dfa2', far: '#346846', near: '#1e472e', groundTop: '#78a64d', groundBody: '#465039', accent: '#c0df7f', pipeTint: '#b4c78e', lighting: 'rgba(172, 224, 124, 0.09)', particleEffect: 'leaves', particleDensity: 0.78, pipeShade: 0, emission: 0, vineOpacity: 1, mushroomGlow: 0.42, hazardBrightness: 0.5, rayStrength: 1 },
+      SUNSET: { skyTop: '#49364d', skyMid: '#a66b58', skyBot: '#d8a36b', far: '#4c493c', near: '#4a4036', groundTop: '#8d754b', groundBody: '#37332d', accent: '#e8ab62', pipeTint: '#c38b55', lighting: 'rgba(223, 142, 73, 0.15)', particleEffect: 'gold', particleDensity: 0.62, pipeShade: 0.12, emission: 1, vineOpacity: 1, mushroomGlow: 0.55, hazardBrightness: 0.5, rayStrength: 0.35 },
+      NIGHT: { skyTop: '#071624', skyMid: '#0d2631', skyBot: '#18333a', far: '#101e24', near: '#10201e', groundTop: '#35422c', groundBody: '#171d18', accent: '#4da9a9', pipeTint: '#182b35', lighting: 'rgba(4, 22, 34, 0.24)', particleEffect: 'fireflies', particleDensity: 0.92, pipeShade: 0.5, emission: 15, vineOpacity: 1, mushroomGlow: 1, hazardBrightness: 0.5, rayStrength: 0.05 }
+    },
+    highway: {
+      DAWN: { skyTop: '#737a9e', skyMid: '#a2a9bb', skyBot: '#d1c8c5', far: '#55616f', near: '#46535a', groundTop: '#7a8187', groundBody: '#292f35', accent: '#e2c96a', pipeTint: '#c7cbd0', lighting: 'rgba(176, 180, 216, 0.10)', particleEffect: 'haze', particleDensity: 0.46, pipeShade: 0.08, emission: 0, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5, trafficIntensity: 0.08, streetlightIntensity: 0.35 },
+      DAY: { skyTop: '#69afd3', skyMid: '#a1d3e2', skyBot: '#e4e3ce', far: '#697f86', near: '#495f63', groundTop: '#929a9b', groundBody: '#34393b', accent: '#ffda43', pipeTint: '#e6e9e4', lighting: 'rgba(195, 219, 231, 0.08)', particleEffect: 'dust', particleDensity: 0.75, pipeShade: 0, emission: 0, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.62, trafficIntensity: 0.05, streetlightIntensity: 0 },
+      SUNSET: { skyTop: '#51435f', skyMid: '#b56250', skyBot: '#ee9b57', far: '#4a424c', near: '#403a40', groundTop: '#76604c', groundBody: '#292a2d', accent: '#ff9f43', pipeTint: '#d78651', lighting: 'rgba(239, 119, 57, 0.13)', particleEffect: 'traffic', particleDensity: 0.52, pipeShade: 0.16, emission: 0, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5, trafficIntensity: 0.55, streetlightIntensity: 0.62 },
+      NIGHT: { skyTop: '#060c1b', skyMid: '#101a2b', skyBot: '#202d3b', far: '#121a25', near: '#1c2429', groundTop: '#394044', groundBody: '#14181c', accent: '#c4d4da', pipeTint: '#202c37', lighting: 'rgba(8, 20, 32, 0.23)', particleEffect: 'traffic', particleDensity: 0.82, pipeShade: 0.38, emission: 12, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 1, trafficIntensity: 1, streetlightIntensity: 1 }
+    }
+  };
+
+  function syncThemeToCycle(theme, cycle) {
+    const profiles = THEME_CYCLE_PROFILES[theme.style];
+    if (!profiles) return theme;
+    const from = profiles[cycle.stageName];
+    const to = profiles[cycle.nextStageName];
+    const mixColorValue = (first, second) => toCss(mixColor(themeColor(first), themeColor(second), cycle.stageLerp));
+    const synchronized = { ...theme };
+    for (const key of ['skyTop', 'skyMid', 'skyBot', 'far', 'near', 'groundTop', 'groundBody', 'accent', 'pipeTint', 'lighting']) {
+      synchronized[key] = mixColorValue(from[key], to[key]);
+    }
+    synchronized.pipe = from.pipe ? from.pipe.map((color, index) => mixColorValue(color, to.pipe[index])) : theme.pipe;
+    synchronized.lip = from.lip ? from.lip.map((color, index) => mixColorValue(color, to.lip[index])) : theme.lip;
+    for (const key of ['particleDensity', 'pipeShade', 'emission', 'vineOpacity', 'mushroomGlow', 'hazardBrightness', 'rayStrength', 'trafficIntensity', 'streetlightIntensity', 'cityGlow']) {
+      if (from[key] === undefined || to[key] === undefined) continue;
+      synchronized[key] = from[key] + (to[key] - from[key]) * cycle.stageLerp;
+    }
+    synchronized.particleEffect = cycle.stageLerp < 0.5 ? from.particleEffect : to.particleEffect;
+    synchronized.cycleStage = cycle.stageLerp < 0.5 ? cycle.stageName : cycle.nextStageName;
+    synchronized.cycleBrightness = cycle.pipeBrightness;
+    synchronized.nightRatio = cycle.nightRatio;
+    synchronized.cycleStageLerp = cycle.stageLerp;
+    return synchronized;
+  }
   function shuffledThemeOrder() {
     const order = THEMES.map((_, index) => index);
     for (let index = order.length - 1; index > 0; index--) {
@@ -636,32 +692,41 @@
   const ambientParticles = [];
 
   function makeAmbientParticle(theme, initial = false) {
+    const groundEffect = theme.particleEffect === 'sand' || theme.particleEffect === 'dust' || theme.particleEffect === 'haze' || theme.particleEffect === 'traffic';
     const particle = {
       x: initial ? Math.random() * V_WIDTH : V_WIDTH + Math.random() * 40,
-      y: Math.random() * (GROUND_Y - 16),
+      y: groundEffect ? GROUND_Y - 12 - Math.pow(Math.random(), 2) * 112 : Math.random() * (GROUND_Y - 16),
       size: 1 + Math.random() * 2.4,
       phase: Math.random() * Math.PI * 2,
       speed: 10 + Math.random() * 28,
       drift: (Math.random() - 0.5) * 12
     };
-    if (theme.style === 'desert') particle.speed += 22;
-    if (theme.style === 'highway') particle.speed += 55;
+    if (theme.particleEffect === 'traffic') particle.y = GROUND_Y - 26 - Math.random() * 88;
+    if (theme.particleEffect === 'mist') particle.drift = -8 - Math.random() * 16;
+    if (theme.particleEffect === 'sand') particle.speed += 18 + theme.particleDensity * 38;
+    if (theme.particleEffect === 'dust' || theme.particleEffect === 'traffic') particle.speed += 48 + theme.particleDensity * 76;
+    if (theme.particleEffect === 'pixels') particle.drift = -12 - Math.random() * 24;
+    if (theme.particleEffect === 'fireflies') particle.speed *= 0.35;
+    if (theme.particleEffect === 'traffic') particle.lightColor = Math.random() < 0.52 ? '#ff334f' : '#fff5cf';
     return particle;
   }
 
   function updateThemeAtmosphere(theme, deltaSeconds) {
     atmosphereTime += deltaSeconds;
-    if (ambientParticleStyle !== theme.style) {
-      ambientParticleStyle = theme.style;
+    const particleStyle = `${theme.style}:${theme.particleEffect}`;
+    if (ambientParticleStyle !== particleStyle) {
+      ambientParticleStyle = particleStyle;
       ambientParticles.length = 0;
-      for (let index = 0; index < 28; index++) ambientParticles.push(makeAmbientParticle(theme, true));
     }
+    const particleCount = Math.round(14 + theme.particleDensity * 30);
+    while (ambientParticles.length < particleCount) ambientParticles.push(makeAmbientParticle(theme, true));
+    while (ambientParticles.length > particleCount) ambientParticles.pop();
     for (let index = ambientParticles.length - 1; index >= 0; index--) {
       const particle = ambientParticles[index];
       particle.x -= particle.speed * deltaSeconds;
-      particle.y += particle.drift * deltaSeconds;
+      particle.y += particle.drift * deltaSeconds + Math.sin(particle.phase) * deltaSeconds * 4;
       particle.phase += deltaSeconds * (1.4 + particle.size * 0.4);
-      if (particle.x < -24 || particle.y < -12 || particle.y > GROUND_Y) {
+      if (particle.x < -32 || particle.y < -12 || particle.y > GROUND_Y) {
         ambientParticles[index] = makeAmbientParticle(theme);
       }
     }
@@ -673,40 +738,66 @@
       for (let index = 0; index < 4; index++) {
         const beamX = 38 + index * 92 + Math.sin(atmosphereTime * 0.18 + index) * 15;
         const beam = ctx.createLinearGradient(beamX, 0, beamX + 55, GROUND_Y - 20);
-        beam.addColorStop(0, 'rgba(204, 255, 160, 0.12)');
+        beam.addColorStop(0, `rgba(204, 255, 160, ${0.16 * (theme.rayStrength || 0)})`);
         beam.addColorStop(1, 'rgba(204, 255, 160, 0)');
         ctx.fillStyle = beam;
         ctx.beginPath(); ctx.moveTo(beamX - 7, 0); ctx.lineTo(beamX + 7, 0); ctx.lineTo(beamX + 66, GROUND_Y - 20); ctx.lineTo(beamX + 40, GROUND_Y - 20); ctx.closePath(); ctx.fill();
       }
-    } else if (theme.style === 'cyberpunk') {
-      const bloom = ctx.createLinearGradient(0, 0, V_WIDTH, 0);
-      bloom.addColorStop(0, 'rgba(47, 232, 255, 0.12)');
-      bloom.addColorStop(0.5, 'rgba(75, 34, 155, 0.02)');
-      bloom.addColorStop(1, 'rgba(255, 49, 174, 0.12)');
-      ctx.fillStyle = bloom; ctx.fillRect(0, 0, V_WIDTH, GROUND_Y);
     }
 
     ambientParticles.forEach(particle => {
       const pulse = 0.5 + Math.sin(particle.phase) * 0.5;
       ctx.save();
-      if (theme.style === 'kerala') {
+      ctx.globalAlpha = Math.min(1, 0.28 + theme.particleDensity * 0.72);
+      if (theme.particleEffect === 'mist' || theme.particleEffect === 'haze') {
+        ctx.fillStyle = theme.particleEffect === 'mist' ? 'rgba(232, 251, 239, 0.5)' : 'rgba(218, 230, 238, 0.48)';
+        ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 2.2, 0, Math.PI * 2); ctx.fill();
+        if (theme.particleEffect === 'mist') {
+          ctx.fillStyle = 'rgba(208, 241, 235, 0.62)';
+          ctx.beginPath(); ctx.arc(particle.x + 4, particle.y + 3, Math.max(0.7, particle.size * 0.35), 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (theme.particleEffect === 'leaves') {
+        ctx.fillStyle = theme.style === 'kerala' ? '#a6d75d' : '#d4df88';
+        ctx.translate(particle.x, particle.y); ctx.rotate(Math.sin(particle.phase) * 0.7);
+        ctx.beginPath(); ctx.ellipse(0, 0, particle.size * 1.9, particle.size * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(247, 255, 204, 0.55)'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-particle.size, 0); ctx.lineTo(particle.size, 0); ctx.stroke();
+      } else if (theme.particleEffect === 'gold') {
+        ctx.shadowColor = '#ffc86b'; ctx.shadowBlur = 7;
+        ctx.fillStyle = pulse > 0.5 ? '#ffe69a' : '#e99a4c';
+        ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * (0.5 + pulse * 0.55), 0, Math.PI * 2); ctx.fill();
+      } else if (theme.particleEffect === 'fireflies') {
+        const forestBlue = theme.style === 'forest' && particle.phase % 2 > 1;
+        ctx.shadowColor = forestBlue ? '#55dfff' : '#caff70'; ctx.shadowBlur = theme.style === 'kerala' ? 10 : 15;
+        ctx.fillStyle = forestBlue ? '#69eaff' : '#dcff70';
+        ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * (0.55 + pulse * 0.7), 0, Math.PI * 2); ctx.fill();
+      } else if (theme.particleEffect === 'sand' || theme.particleEffect === 'dust') {
+        ctx.strokeStyle = theme.particleEffect === 'sand' ? '#ffe0a0' : '#d7e1e2';
+        ctx.globalAlpha *= theme.particleEffect === 'sand' ? 0.42 + theme.particleDensity * 0.48 : 0.28 + theme.particleDensity * 0.42;
+        ctx.lineWidth = particle.size * 0.55;
+        ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x + particle.size * (theme.particleEffect === 'sand' ? 4 : 9), particle.y - particle.size * 0.25); ctx.stroke();
+      } else if (theme.particleEffect === 'stardust') {
+        ctx.shadowColor = '#b9cfff'; ctx.shadowBlur = 6;
+        ctx.fillStyle = pulse > 0.6 ? '#ffffff' : '#9baed8';
+        ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 0.65, 0, Math.PI * 2); ctx.fill();
+      } else if (theme.particleEffect === 'smoke') {
+        ctx.fillStyle = 'rgba(174, 191, 201, 0.28)';
+        ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 1.7, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(160, 182, 202, 0.18)'; ctx.beginPath(); ctx.moveTo(particle.x - 4, particle.y + 4); ctx.lineTo(particle.x + 5, particle.y + 4); ctx.stroke();
+      } else if (theme.particleEffect === 'traffic') {
+        ctx.globalAlpha *= theme.style === 'highway' && theme.cycleStage === 'NIGHT' ? 0.9 : 0.42;
+        ctx.shadowColor = particle.lightColor; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 8 : 3;
+        ctx.strokeStyle = particle.lightColor; ctx.lineWidth = theme.cycleStage === 'NIGHT' ? 2 : 1;
+        ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x + particle.size * 11, particle.y); ctx.stroke();
+      } else if (theme.particleEffect === 'pixels') {
+        const pixelColor = pulse > 0.5 ? '#46f4ff' : '#ff48c8';
+        ctx.globalAlpha *= theme.emission < 3 ? 0.3 : theme.emission < 8 ? 0.6 : 1;
+        ctx.shadowColor = pixelColor; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 10 : 5;
+        ctx.fillStyle = pixelColor;
+        ctx.fillRect(particle.x, particle.y, particle.size, particle.size);
+      } else {
         ctx.shadowColor = '#d7ff7a'; ctx.shadowBlur = 8;
         ctx.fillStyle = pulse > 0.45 ? '#e6f58a' : '#a9d76c';
         ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 0.65, 0, Math.PI * 2); ctx.fill();
-      } else if (theme.style === 'desert') {
-        ctx.strokeStyle = '#ffe0a0'; ctx.lineWidth = particle.size * 0.55;
-        ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x + particle.size * 4, particle.y - particle.size * 0.25); ctx.stroke();
-      } else if (theme.style === 'cyberpunk') {
-        ctx.shadowColor = pulse > 0.5 ? '#46f4ff' : '#ff48c8'; ctx.shadowBlur = 7;
-        ctx.fillStyle = pulse > 0.5 ? '#46f4ff' : '#ff48c8';
-        ctx.fillRect(particle.x, particle.y, particle.size, particle.size);
-      } else if (theme.style === 'forest') {
-        ctx.shadowColor = '#caff70'; ctx.shadowBlur = 10;
-        ctx.fillStyle = `rgba(218, 255, 126, ${0.35 + pulse * 0.65})`;
-        ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * (0.55 + pulse * 0.45), 0, Math.PI * 2); ctx.fill();
-      } else {
-        ctx.strokeStyle = '#e6f3f4'; ctx.globalAlpha = 0.2 + pulse * 0.25; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x + particle.size * 7, particle.y); ctx.stroke();
       }
       ctx.restore();
     });
@@ -715,21 +806,17 @@
 
   function drawThemeLighting(theme) {
     ctx.save();
-    if (theme.style === 'cyberpunk') {
-      const bloom = ctx.createLinearGradient(0, 0, V_WIDTH, GROUND_Y);
-      bloom.addColorStop(0, 'rgba(31, 213, 255, 0.08)');
-      bloom.addColorStop(0.5, 'rgba(86, 49, 148, 0.035)');
-      bloom.addColorStop(1, 'rgba(255, 48, 174, 0.09)');
-      ctx.fillStyle = bloom;
-    } else {
-      ctx.fillStyle = {
-        kerala: 'rgba(0, 105, 65, 0.065)',
-        desert: 'rgba(255, 178, 72, 0.085)',
-        forest: 'rgba(52, 118, 68, 0.075)',
-        highway: 'rgba(151, 195, 211, 0.06)'
-      }[theme.style];
-    }
+    ctx.fillStyle = theme.lighting;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+    if (theme.style === 'cyberpunk' && theme.emission > 8) {
+      const bloom = ctx.createLinearGradient(0, 0, V_WIDTH, GROUND_Y);
+      const strength = Math.min(0.14, (theme.emission - 8) * 0.012);
+      bloom.addColorStop(0, `rgba(31, 213, 255, ${strength})`);
+      bloom.addColorStop(0.5, 'rgba(86, 34, 155, 0.025)');
+      bloom.addColorStop(1, `rgba(255, 48, 174, ${strength})`);
+      ctx.fillStyle = bloom;
+      ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+    }
     ctx.restore();
   }
 
@@ -765,16 +852,34 @@
           const ridgeY = GROUND_Y - 28 - ridge * 11;
           ctx.beginPath(); ctx.moveTo(x + 15, ridgeY); ctx.quadraticCurveTo(x + 118, ridgeY - 34, x + 232, ridgeY - 3); ctx.quadraticCurveTo(x + 328, ridgeY - 23, x + 424, ridgeY); ctx.stroke();
         }
+        if (theme.cityGlow > 0.02) {
+          const cityX = x + 299;
+          const glow = ctx.createRadialGradient(cityX, GROUND_Y - 184, 2, cityX, GROUND_Y - 184, 72);
+          glow.addColorStop(0, `rgba(255, 181, 119, ${theme.cityGlow * 0.36})`);
+          glow.addColorStop(1, 'rgba(255, 135, 92, 0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(cityX - 72, GROUND_Y - 256, 144, 144);
+          ctx.save();
+          ctx.globalAlpha = theme.cityGlow;
+          ctx.fillStyle = '#ffd783';
+          for (let lightIndex = 0; lightIndex < 6; lightIndex++) {
+            ctx.fillRect(cityX - 8 + (lightIndex % 2) * 7, GROUND_Y - 192 + Math.floor(lightIndex / 2) * 9, 2, 3);
+          }
+          ctx.restore();
+        }
       }
     } else if (theme.style === 'cyberpunk') {
       for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+        const windowGlow = 0.1 + 0.9 * (theme.emission / 20);
         for (let i = 0; i < 8; i++) {
           const bx = x + i * 58; const h = 55 + ((i * 37) % 90); ctx.fillRect(bx, GROUND_Y - h, 42, h);
           for (let row = 0; row < Math.floor(h / 16); row++) {
             const flicker = Math.sin(globalFrame * 0.035 + i * 5.7 + row * 3.1);
             if (flicker > -0.15) {
+              ctx.globalAlpha = windowGlow;
               ctx.fillStyle = flicker > 0.6 ? '#70f5ff' : '#e45bc8';
               ctx.fillRect(bx + 7 + (row % 2) * 15, GROUND_Y - h + 8 + row * 16, 5, 7);
+              ctx.globalAlpha = 1;
               ctx.fillStyle = theme.near;
             }
           }
@@ -786,10 +891,34 @@
         ctx.fillRect(x + 65, GROUND_Y - 100, 8, 92); ctx.fillRect(x + 34, GROUND_Y - 101, 40, 5);
         ctx.fillRect(x + 190, GROUND_Y - 72, 8, 64); ctx.fillRect(x + 190, GROUND_Y - 74, 36, 5);
         ctx.fillRect(x + 280, GROUND_Y - 132, 8, 124); ctx.fillRect(x + 250, GROUND_Y - 134, 40, 5);
+        if (theme.streetlightIntensity > 0.02) {
+          ctx.save();
+          ctx.globalAlpha = theme.streetlightIntensity;
+          ctx.shadowColor = '#ffe4a3'; ctx.shadowBlur = 12 * theme.streetlightIntensity;
+          ctx.fillStyle = '#fff0c4';
+          for (const lamp of [[38, -101], [194, -74], [254, -134]]) {
+            ctx.beginPath(); ctx.arc(x + lamp[0], GROUND_Y + lamp[1], 3, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        }
         ctx.strokeStyle = '#75888b'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(x + 28, GROUND_Y - 150); ctx.lineTo(x + 404, GROUND_Y - 150); ctx.stroke();
         ctx.fillStyle = '#47616a'; ctx.fillRect(x + 148, GROUND_Y - 178, 112, 26);
         ctx.fillStyle = '#e7d997'; ctx.font = '700 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('EXIT 08', x + 204, GROUND_Y - 160);
+        if (theme.trafficIntensity > 0.02) {
+          ctx.save();
+          ctx.globalAlpha = theme.trafficIntensity;
+          for (let lightIndex = 0; lightIndex < 8; lightIndex++) {
+            const lightX = x + ((lightIndex * 67 - atmosphereTime * (theme.cycleStage === 'NIGHT' ? 54 : 28)) % 430 + 430) % 430;
+            const lightY = GROUND_Y - 28 - (lightIndex % 3) * 5;
+            const lightColor = lightIndex % 2 ? '#ff334f' : '#fff5cf';
+            ctx.shadowColor = lightColor;
+            ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 8 : 3;
+            ctx.fillStyle = lightColor;
+            ctx.fillRect(lightX, lightY, 5, 2);
+          }
+          ctx.restore();
+        }
         ctx.fillStyle = theme.near;
       }
     } else {
@@ -815,7 +944,7 @@
     }
     if (theme.style === 'kerala') {
       ctx.globalAlpha = 1;
-      ctx.fillStyle = '#3d9f98';
+      ctx.fillStyle = theme.accent;
       ctx.fillRect(0, GROUND_Y - 11, V_WIDTH, 9);
       ctx.fillStyle = '#a5e8d9';
       for (let x = -(globalFrame * 0.55 % 56); x < V_WIDTH; x += 56) ctx.fillRect(x, GROUND_Y - 8, 22, 1);
@@ -1077,7 +1206,10 @@
       cloudShadow: mix('cloudShadow'),
       nightRatio,
       pipeBrightness,
-      cycleProgress
+      cycleProgress,
+      stageName: fromCycle.name,
+      nextStageName: toCycle.name,
+      stageLerp
     };
   }
 
@@ -1307,7 +1439,7 @@
       ctx.save();
       if (theme.style === 'cyberpunk') {
         ctx.shadowColor = neonColor;
-        ctx.shadowBlur = 13;
+        ctx.shadowBlur = theme.emission;
       }
       ctx.fillStyle = shaftGrad;
       ctx.fillRect(x, shaftY, w, shaftHeight);
@@ -1317,9 +1449,10 @@
       ctx.save();
       if (theme.style === 'cyberpunk') {
         ctx.shadowColor = neonColor;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = theme.emission;
       }
       ctx.strokeStyle = theme.style === 'cyberpunk' ? neonColor : theme.outline;
+      if (theme.style === 'cyberpunk') ctx.globalAlpha = Math.max(0.1, theme.emission / 20);
       ctx.lineWidth = 2.5;
       ctx.strokeRect(x, shaftY, w, shaftHeight);
       ctx.restore();
@@ -1336,7 +1469,8 @@
           ctx.fillStyle = '#7ab878'; ctx.fillRect(x + 2, nodeY - 3, w - 4, 1.3);
           ctx.fillStyle = '#0e2f25'; ctx.fillRect(x + 2, nodeY + 1, w - 4, 1.5);
         }
-        ctx.strokeStyle = '#1a4b35'; ctx.lineWidth = 3.2;
+        ctx.globalAlpha = theme.vineOpacity;
+        ctx.strokeStyle = theme.cycleStage === 'NIGHT' ? '#729fbd' : '#1a4b35'; ctx.lineWidth = 3.2;
         ctx.beginPath();
         ctx.moveTo(x + 8, shaftY); ctx.bezierCurveTo(x + 54, shaftY + shaftHeight * 0.28 + Math.sin(globalFrame * 0.03) * 4, x + 8, shaftY + shaftHeight * 0.62, x + 49, shaftY + shaftHeight);
         ctx.stroke();
@@ -1348,6 +1482,7 @@
         }
         const wetSheen = ctx.createLinearGradient(x + 4, 0, x + 19, 0);
         wetSheen.addColorStop(0, 'rgba(225,255,219,0.42)'); wetSheen.addColorStop(1, 'rgba(225,255,219,0)');
+        ctx.globalAlpha = 1;
         ctx.fillStyle = wetSheen; ctx.fillRect(x + 4, shaftY, 15, shaftHeight);
       } else if (theme.style === 'desert') {
         ctx.strokeStyle = '#e7bd71'; ctx.lineWidth = 1;
@@ -1361,10 +1496,11 @@
           ctx.beginPath(); ctx.moveTo(crackX, crackY); ctx.lineTo(crackX + 5, crackY + 7); ctx.lineTo(crackX + 2, crackY + 13); ctx.lineTo(crackX + 8, crackY + 19); ctx.stroke();
         }
         const sunEdge = ctx.createLinearGradient(x, 0, x + 12, 0);
-        sunEdge.addColorStop(0, 'rgba(255,237,174,0.55)'); sunEdge.addColorStop(1, 'rgba(255,237,174,0)');
+        sunEdge.addColorStop(0, `rgba(255,237,174,${0.28 + 0.38 * cycle.cycleBrightness})`); sunEdge.addColorStop(1, 'rgba(255,237,174,0)');
         ctx.fillStyle = sunEdge; ctx.fillRect(x, shaftY, 12, shaftHeight);
       } else if (theme.style === 'forest') {
-        ctx.strokeStyle = '#374436'; ctx.lineWidth = 1.2;
+        ctx.strokeStyle = theme.mushroomGlow > 0.7 ? '#55c8bd' : '#374436'; ctx.lineWidth = 1.2;
+        ctx.shadowColor = '#4de0d2'; ctx.shadowBlur = 5 * theme.mushroomGlow;
         for (let runeY = shaftY + 38; runeY < shaftY + shaftHeight; runeY += 76) {
           const runeX = x + 13 + (Math.floor(runeY / 76) % 2) * 17;
           ctx.beginPath(); ctx.moveTo(runeX, runeY - 8); ctx.lineTo(runeX + 5, runeY); ctx.lineTo(runeX, runeY + 8); ctx.moveTo(runeX + 10, runeY - 5); ctx.lineTo(runeX + 17, runeY + 5); ctx.stroke();
@@ -1375,8 +1511,11 @@
         for (let mushroomY = shaftY + 52; mushroomY < shaftY + shaftHeight; mushroomY += 94) {
           const side = mushroomY % 2 ? x + 5 : x + w - 5;
           ctx.strokeStyle = '#d8d6b6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(side, mushroomY); ctx.lineTo(side, mushroomY - 7); ctx.stroke();
+          ctx.shadowColor = mushroomY % 3 ? '#55e8ff' : '#ffe36e'; ctx.shadowBlur = 15 * theme.mushroomGlow;
+          ctx.globalAlpha = 0.22 + theme.mushroomGlow * 0.78;
           ctx.fillStyle = mushroomY % 3 ? '#61d9e7' : '#f4d86b';
           ctx.beginPath(); ctx.ellipse(side, mushroomY - 8, 5, 3, 0, Math.PI, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1; ctx.shadowBlur = 5 * theme.mushroomGlow;
         }
       } else if (theme.style === 'highway') {
         for (let markY = shaftY + 10; markY < shaftY + shaftHeight; markY += 52) {
@@ -1400,14 +1539,24 @@
       } else if (theme.style === 'cyberpunk') {
         const core = ctx.createLinearGradient(x + 24, 0, x + 38, 0);
         core.addColorStop(0, 'rgba(60,236,255,0)'); core.addColorStop(0.5, 'rgba(60,236,255,0.42)'); core.addColorStop(1, 'rgba(255,57,192,0)');
+        ctx.globalAlpha = 0.08 + 0.42 * (theme.emission / 20);
         ctx.fillStyle = core; ctx.fillRect(x + 22, shaftY, 18, shaftHeight);
-        ctx.strokeStyle = neonColor; ctx.lineWidth = 1.4; ctx.shadowColor = neonColor; ctx.shadowBlur = 7;
+        ctx.strokeStyle = neonColor; ctx.lineWidth = 1.4; ctx.shadowColor = neonColor; ctx.shadowBlur = theme.emission * 0.5;
+        ctx.globalAlpha = Math.max(0.1, theme.emission / 20);
         for (let traceY = shaftY + 18; traceY < shaftY + shaftHeight; traceY += 46) {
           const bendX = x + 16 + (Math.floor(traceY / 46) % 2) * 25;
           ctx.beginPath(); ctx.moveTo(x + 5, traceY); ctx.lineTo(bendX, traceY); ctx.lineTo(bendX + 7, traceY + 9); ctx.lineTo(x + w - 7, traceY + 9); ctx.stroke();
           ctx.fillStyle = '#eaffff'; ctx.beginPath(); ctx.arc(x + w - 8, traceY + 9, 1.7, 0, Math.PI * 2); ctx.fill();
         }
-        ctx.shadowBlur = 0;
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+      }
+      if (theme.pipeShade > 0) {
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.globalAlpha = theme.pipeShade;
+        ctx.fillStyle = theme.pipeTint;
+        ctx.fillRect(x, shaftY, w, shaftHeight);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
       }
       ctx.restore();
 
@@ -1422,13 +1571,22 @@
       ctx.save();
       if (theme.style === 'cyberpunk') {
         ctx.shadowColor = neonColor;
-        ctx.shadowBlur = 17;
+        ctx.shadowBlur = theme.emission;
+        ctx.globalAlpha = Math.max(0.1, theme.emission / 20);
       }
       ctx.fillStyle = lipGrad;
       ctx.beginPath();
       this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
       ctx.fill();
       ctx.restore();
+      if (theme.pipeShade > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.globalAlpha = theme.pipeShade;
+        ctx.fillStyle = theme.pipeTint;
+        ctx.fillRect(lipX, lipY, lipWidth, lipHeight);
+        ctx.restore();
+      }
       if (theme.style === 'highway') {
         ctx.save();
         ctx.beginPath();
@@ -1448,8 +1606,8 @@
         }
         ctx.restore();
         ctx.strokeStyle = '#e5e9e7'; ctx.lineWidth = 1.2; ctx.strokeRect(lipX + 3, lipY + 3, lipWidth - 6, lipHeight - 6);
-        const beaconPulse = 0.45 + 0.55 * Math.sin(globalFrame * 0.22);
-        ctx.save(); ctx.globalAlpha = beaconPulse; ctx.shadowColor = '#ff332e'; ctx.shadowBlur = 9; ctx.fillStyle = '#ff302a';
+        const beaconPulse = (0.45 + 0.55 * Math.sin(globalFrame * 0.22)) * theme.hazardBrightness;
+        ctx.save(); ctx.globalAlpha = beaconPulse; ctx.shadowColor = '#ff332e'; ctx.shadowBlur = 12 * theme.hazardBrightness; ctx.fillStyle = '#ff302a';
         for (const beaconX of [lipX + 7, lipX + lipWidth - 7]) {
           ctx.beginPath(); ctx.arc(beaconX, lipY + lipHeight / 2, 2.6, 0, Math.PI * 2); ctx.fill();
         }
@@ -1459,8 +1617,10 @@
         ctx.fillRect(lipX - 3, lipY + lipHeight - 7, lipWidth + 6, 8);
         ctx.fillStyle = '#e9bd63';
         ctx.fillRect(lipX - 5, lipY + lipHeight - 9, lipWidth + 10, 3);
+        ctx.save(); ctx.shadowColor = '#ffe3a0'; ctx.shadowBlur = theme.emission;
         ctx.strokeStyle = '#f4d98e'; ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(lipX + 5, lipY + 4); ctx.lineTo(lipX + lipWidth - 5, lipY + 4); ctx.stroke();
+        ctx.restore();
         ctx.fillStyle = '#d7b77b';
         for (let sandX = lipX + 4; sandX < lipX + lipWidth - 2; sandX += 13) {
           ctx.beginPath(); ctx.moveTo(sandX, lipY + lipHeight - 7); ctx.lineTo(sandX + 5, lipY + lipHeight - 10); ctx.lineTo(sandX + 11, lipY + lipHeight - 7); ctx.closePath(); ctx.fill();
@@ -1483,7 +1643,7 @@
 
       // Lip Outline
       ctx.save();
-      if (theme.style === 'cyberpunk') { ctx.shadowColor = neonColor; ctx.shadowBlur = 12; }
+      if (theme.style === 'cyberpunk') { ctx.shadowColor = neonColor; ctx.shadowBlur = theme.emission; ctx.globalAlpha = Math.max(0.1, theme.emission / 20); }
       ctx.strokeStyle = theme.style === 'cyberpunk' ? neonColor : theme.outline;
       ctx.lineWidth = 2.5;
       this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
@@ -1493,12 +1653,12 @@
       if (theme.style === 'cyberpunk') {
         const sparkPulse = 0.55 + Math.sin(globalFrame * 0.42 + (isTop ? 0 : 1.7)) * 0.35;
         ctx.save();
-        ctx.globalAlpha = sparkPulse;
+        ctx.globalAlpha = sparkPulse * Math.max(0.1, theme.emission / 20);
         ctx.strokeStyle = neonColor;
         ctx.fillStyle = '#eaffff';
         ctx.lineWidth = 1.6;
         ctx.shadowColor = neonColor;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = theme.emission * 0.5;
         for (const side of [0, 1]) {
           const startX = side ? lipX + lipWidth - 4 : lipX + 4;
           const endX = side ? x + w - 3 : x + 3;
@@ -2840,7 +3000,7 @@
 
     // 1. Dynamic Gradual Day & Night Sky (Sun & Moon Arc)
     const cycle = getCycleState();
-    const theme = getThemeState(deltaSeconds);
+    const theme = syncThemeToCycle(getThemeState(deltaSeconds), cycle);
     drawSky(cycle, theme);
 
     // 2. Dynamic Gradual Seasons (Color Blending)
