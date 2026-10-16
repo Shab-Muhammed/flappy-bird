@@ -125,7 +125,10 @@
     const timer = setTimeout(() => ctrl.abort(), CONFIG.timeoutMs);
     try {
       const res = await fetch(url, { cache: 'no-store', ...options, signal: ctrl.signal });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(`HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
+      }
       return await res.json();
     } finally {
       clearTimeout(timer);

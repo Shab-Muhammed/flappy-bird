@@ -2543,8 +2543,11 @@
       await window.FlappyLeaderboard.submitSuggestion(requestCategory.value, value);
       requestStatus.textContent = 'Thanks! Your request was sent.';
       requestName.value = '';
-    } catch {
-      requestStatus.textContent = 'Could not send your request. Please try again later.';
+    } catch (error) {
+      console.error('Could not send store request:', error);
+      requestStatus.textContent = error && error.name === 'AbortError'
+        ? 'The request timed out. Check your connection and try again.'
+        : 'Could not send your request. Check the Firebase database rules and try again.';
     } finally {
       submitButton.disabled = false;
     }
