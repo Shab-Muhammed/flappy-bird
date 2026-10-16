@@ -633,6 +633,15 @@ button.header-pill:focus-visible {
   color: #6b4c20;
 }
 
+.lb-forgot-hint {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  color: #7a6544;
+}
+
 /* Private multiplayer rooms */
 .room-panel {
   gap: 9px;

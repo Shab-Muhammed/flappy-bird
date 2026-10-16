@@ -101,7 +101,7 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
         "$code": {
           ".read": "auth != null && root.child('rooms').child($code).exists()",
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($code).exists() && (!newData.exists() || data.exists() || (root.child('rooms').child($code).child('phase').val() === 'lobby' && root.child('roomMembers').child($code).numChildren() < 8))",
+            ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($code).exists() && (!newData.exists() || data.exists() || root.child('rooms').child($code).child('phase').val() === 'lobby')",
             ".validate": "newData.hasChildren(['name','ready','joinedAt']) && newData.child('name').val() === root.child('usernameByUid').child($uid).val() && newData.child('ready').isBoolean() && newData.child('joinedAt').isNumber()"
           }
         }
@@ -137,7 +137,7 @@ The live feed writes the authenticated player's account ID, username, and server
 
 ## Private multiplayer rooms
 
-Players sign in, create a room, and share its eight-character code. Rooms support up to eight players, a ready check, a host-started free-for-all round, live scores, and room-only chat. Every round uses the same seeded pipe-gap sequence for all players. There is no public room list, random matchmaking, global chat, or one-to-one chat. The room feature uses the `rooms`, `roomMembers`, `roomStates`, and `roomChat` paths included in the rules above. Publish those complete rules in Firebase Console → Realtime Database → Rules. Members need a signed-in game account; anyone with a room code can attempt to join while the room is in its lobby.
+Players sign in, create a room, and share its eight-character code. The game client limits rooms to eight players, with a ready check, a host-started free-for-all round, live scores, and room-only chat. Realtime Database rules cannot count arbitrary children, so this limit is not enforced against modified clients; use a trusted server such as a Cloud Function if the capacity limit must be security-enforced. Every round uses the same seeded pipe-gap sequence for all players. There is no public room list, random matchmaking, global chat, or one-to-one chat. The room feature uses the `rooms`, `roomMembers`, `roomStates`, and `roomChat` paths included in the rules above. Publish those complete rules in Firebase Console → Realtime Database → Rules. Members need a signed-in game account; anyone with a room code can attempt to join while the room is in its lobby.
 
 The store's suggestion form submits category, suggestion text, and a server timestamp to the `suggestions` collection. The rules above allow new submissions while preventing edits and reads through the public client. Review requests in Firebase Console under Realtime Database data at `suggestions`. Since the form is public and unauthenticated, the validation limits the content but does not prevent spam; use an authenticated server endpoint if you need stronger abuse protection.
 
