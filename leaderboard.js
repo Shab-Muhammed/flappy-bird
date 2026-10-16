@@ -89,7 +89,11 @@
     if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'Username or password is incorrect.';
     if (code === 'auth/weak-password') return 'Use a password with at least 6 characters.';
     if (code === 'auth/too-many-requests') return 'Too many attempts. Try again later.';
-    return 'Could not sign in. Check your connection and try again.';
+    if (code === 'auth/network-request-failed') return 'Could not reach Firebase. Check your internet connection and try again.';
+    if (code === 'auth/operation-not-allowed') return 'Username/password sign-in is disabled. Enable Email/Password in Firebase Authentication settings.';
+    if (code === 'auth/unauthorized-domain') return 'This site is not authorized for sign-in. Add its domain in Firebase Authentication settings.';
+    if (code === 'auth/invalid-api-key' || (typeof code === 'string' && code.includes('api-key-not-valid'))) return 'Firebase rejected the API key. Check the web app config and the key’s API restrictions.';
+    return code ? `Firebase sign-in failed (${code}). Check the Firebase project settings and try again.` : 'Could not sign in. Check your connection and try again.';
   }
 
   function applyUser(user) {
@@ -160,6 +164,7 @@
       accountPassword.value = '';
       if (unsynced > 0) syncScore(0);
     } catch (error) {
+      console.error('Firebase authentication failed:', error && error.code, error && error.message);
       if (error && error.message === 'USERNAME_RESERVATION_FAILED') {
         accountMessage.textContent = 'That username is already reserved. Choose another username or sign in to its account.';
       } else if (error && error.message === 'USERNAME_TAKEN') {
