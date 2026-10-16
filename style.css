@@ -576,6 +576,16 @@ button.header-pill:focus-visible {
   margin-top: 8px;
 }
 
+.death-sound-random-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .store-btn.store-locked {
   filter: grayscale(0.7);
   opacity: 0.8;

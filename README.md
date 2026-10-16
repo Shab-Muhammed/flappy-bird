@@ -41,7 +41,7 @@ Then visit <http://localhost:8000>.
 
 Coins, purchases, and equipped items are saved in the browser's local storage. The store includes bird skins, pipe skins, and death sounds. Catalog entries and prices are defined in `game.js` in the `SKINS`, `PIPE_SKINS`, and `DEATH_SOUNDS` collections.
 
-The `flappy bird skin creator` directory contains a separate tool for preparing custom bird and pipe images. Skins are published by the site owner through `custom-skins.js`; players cannot upload skins from within the game.
+The store uses the built-in bird, pipe, and death sound catalogs defined in `game.js`.
 
 ## Leaderboard configuration
 
@@ -153,10 +153,8 @@ The store's suggestion form submits category, suggestion text, and a server time
 ├── game.js                     Game loop, rendering, store, and controls
 ├── leaderboard.js              Firebase leaderboard and local fallback
 ├── rooms.js                    Private multiplayer rooms and room-only chat
-├── custom-skins.js             Owner-published custom skins
 ├── sounds/
 │   └── death/                  Death sound files and bundled audio data
-├── flappy bird skin creator/   Custom skin preparation tool
 ├── package.json                Project dependency metadata
 └── README.md                   Project documentation
 ```

@@ -162,6 +162,14 @@
     playDie() {
       if (this.muted) return;
       this.init();
+      if (randomDeathSoundEnabled) {
+        const ownedSounds = DEATH_SOUNDS.filter(item => deathSoundOwned.includes(item.id));
+        const selected = ownedSounds[Math.floor(Math.random() * ownedSounds.length)];
+        if (selected && selected.id !== equippedDeathSound) {
+          this.playDeathSoundItem(selected);
+          return;
+        }
+      }
       if (activeDeathSound) {
         if (activeDeathBuffer && this.ctx) {
           this.playDeathBuffer(activeDeathBuffer);
@@ -185,6 +193,40 @@
         return;
       }
       this.playSynthDie();
+    }
+
+    playDeathSoundItem(item) {
+      if (!item.src) {
+        this.playSynthDie();
+        return;
+      }
+      const cachedBuffer = deathSoundBuffers.get(item.id);
+      if (cachedBuffer && this.ctx) {
+        this.playDeathBuffer(cachedBuffer);
+        return;
+      }
+      const dataUri = window.FLAPPY_DEATH_SOUND_DATA && window.FLAPPY_DEATH_SOUND_DATA[item.id];
+      if (dataUri && this.ctx) {
+        const encoded = dataUri.slice(dataUri.indexOf(',') + 1);
+        const binary = atob(encoded);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+        this.ctx.decodeAudioData(bytes.buffer)
+          .then(buffer => {
+            deathSoundBuffers.set(item.id, buffer);
+            this.playDeathBuffer(buffer);
+          })
+          .catch(() => this.playDeathFile(item));
+        return;
+      }
+      this.playDeathFile(item);
+    }
+
+    playDeathFile(item) {
+      if (this.muted) return;
+      const audio = new Audio(new URL(item.src, document.baseURI).href);
+      audio.volume = 0.8;
+      audio.play().catch(() => {});
     }
 
     playDeathBuffer(buffer) {
@@ -247,6 +289,8 @@
   let activeDeathAudio = null;
   let activeDeathBuffer = null;
   let activeDeathBufferPromise = null;
+  let randomDeathSoundEnabled = lsGet('flappy_random_death_sound') === 'true';
+  const deathSoundBuffers = new Map();
 
   const sound = new SoundManager();
   soundBtn.addEventListener('click', (e) => {
@@ -393,55 +437,12 @@
   }
   setActiveDeathSound();
 
-  const isHexColor = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
-  function validPalette(value, length) {
-    return Array.isArray(value) && value.length === length && value.every(isHexColor);
-  }
-  function normalizeCustomSkin(item, kind) {
-    if (!item || typeof item !== 'object' || !/^custom-[a-z0-9-]{1,40}$/.test(item.id || '') ||
-        typeof item.name !== 'string' || !item.name.trim() || item.name.length > 24) return null;
-    if (typeof item.image !== 'string' || !/^data:image\/(?:webp|png|jpeg);base64,/.test(item.image) || item.image.length > 1000000) return null;
-    if (kind === 'bird') {
-      const colors = [item.tail, item.crest, item.outline, item.outlineSoft, item.quill];
-      if (!validPalette(item.body, 4) || !validPalette(item.belly, 3) || !validPalette(item.wing, 4) ||
-          !validPalette(item.beak, 3) || !colors.every(isHexColor)) return null;
-    } else if (!validPalette(item.shaft, 6) || !validPalette(item.lip, 5) || !isHexColor(item.outline)) {
-      return null;
-    }
-    const crop = item.crop && typeof item.crop === 'object' ? item.crop : {};
-    const clamp = (value, min, max, fallback) => Number.isFinite(Number(value))
-      ? Math.max(min, Math.min(max, Number(value))) : fallback;
-    return {
-      ...item,
-      name: item.name.trim(), price: 0, custom: true,
-      fit: item.fit === 'contain' ? 'contain' : 'cover',
-      crop: {
-        zoom: clamp(crop.zoom, 1, 3, 1),
-        x: clamp(crop.x, -1, 1, 0),
-        y: clamp(crop.y, -1, 1, 0)
-      }
-    };
-  }
-  const skinPack = window.FLAPPY_CUSTOM_SKINS || {};
-  const customSkins = {
-    birds: Array.isArray(skinPack.birds) ? skinPack.birds.map(s => normalizeCustomSkin(s, 'bird')).filter(Boolean).slice(0, 24) : [],
-    pipes: Array.isArray(skinPack.pipes) ? skinPack.pipes.map(s => normalizeCustomSkin(s, 'pipe')).filter(Boolean).slice(0, 24) : []
-  };
-  SKINS.push(...customSkins.birds);
-  PIPE_SKINS.push(...customSkins.pipes);
-  const customSkinImages = new Map();
-  [...customSkins.birds, ...customSkins.pipes].forEach(skin => {
-    const image = new Image();
-    image.onload = () => customSkinImages.set(skin.id, image);
-    image.src = skin.image;
-  });
-
   function loadOwned(key, list) {
     let owned = ['classic'];
     try {
       const saved = JSON.parse(lsGet(key) || '[]');
       if (Array.isArray(saved)) {
-        owned = Array.from(new Set(['classic', ...list.filter(s => s.custom).map(s => s.id), ...saved.filter(id => list.some(s => s.id === id))]));
+        owned = Array.from(new Set(['classic', ...saved.filter(id => list.some(s => s.id === id))]));
       }
     } catch (e) { /* keep default */ }
     return owned;
@@ -646,21 +647,24 @@
   let themeTransition = 1;
   let themeTimer = 0;
   let themeBannerTimer = 0;
+  let themeLastTimestamp = null;
   const THEME_SWITCH_SECONDS = 45;
+  const THEME_TRANSITION_SECONDS = 1.2;
+  const THEME_BANNER_SECONDS = 2.5;
 
   function themeColor(value) {
     return parseColor(value);
   }
 
-  function getThemeState() {
-    const from = THEMES[previousThemeIndex];
-    const to = THEMES[themeIndex];
+  function getThemeState(deltaSeconds) {
     if (currentState === STATE.PLAYING) {
-      themeTimer += 1 / 60;
+      themeTimer += deltaSeconds;
       if (themeTimer >= THEME_SWITCH_SECONDS) advanceTheme();
     }
-    themeTransition = Math.min(1, themeTransition + 1 / 48);
-    if (themeBannerTimer > 0) themeBannerTimer--;
+    themeTransition = Math.min(1, themeTransition + deltaSeconds / THEME_TRANSITION_SECONDS);
+    if (themeBannerTimer > 0) themeBannerTimer = Math.max(0, themeBannerTimer - deltaSeconds);
+    const from = THEMES[previousThemeIndex];
+    const to = THEMES[themeIndex];
     const t = easeBlend(themeTransition);
     const blendHex = (a, b) => {
       const ca = themeColor(a), cb = themeColor(b);
@@ -687,13 +691,13 @@
     themeIndex = themeOrder[themeOrderPosition];
     themeTransition = 0;
     themeTimer = 0;
-    themeBannerTimer = 150;
+    themeBannerTimer = THEME_BANNER_SECONDS;
   }
 
   function drawThemeLandmarks(theme) {
     const drift = (globalFrame * gameSpeed * 0.12) % 440;
     ctx.save();
-    ctx.globalAlpha = 0.76;
+    ctx.globalAlpha = 1;
     ctx.fillStyle = theme.far;
     if (theme.style === 'desert') {
       for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
@@ -723,19 +727,19 @@
       }
     }
     if (theme.style === 'city') {
-      ctx.strokeStyle = theme.accent; ctx.globalAlpha = 0.22; ctx.lineWidth = 1;
+      ctx.strokeStyle = '#353052'; ctx.globalAlpha = 1; ctx.lineWidth = 1;
       for (let x = -40; x < V_WIDTH + 40; x += 40) { ctx.beginPath(); ctx.moveTo(V_WIDTH / 2, GROUND_Y - 42); ctx.lineTo(x, GROUND_Y); ctx.stroke(); }
       for (let y = GROUND_Y - 34; y < GROUND_Y; y += 12) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(V_WIDTH, y); ctx.stroke(); }
     }
     if (theme.style === 'kerala') {
-      ctx.globalAlpha = 0.38;
-      ctx.fillStyle = '#59c9c1';
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#3d9f98';
       ctx.fillRect(0, GROUND_Y - 11, V_WIDTH, 9);
-      ctx.fillStyle = '#d9fff0';
+      ctx.fillStyle = '#a5e8d9';
       for (let x = -(globalFrame * 0.55 % 56); x < V_WIDTH; x += 56) ctx.fillRect(x, GROUND_Y - 8, 22, 1);
     }
     if (theme.style === 'road') {
-      ctx.globalAlpha = 0.76;
+      ctx.globalAlpha = 1;
       ctx.fillStyle = '#596366';
       ctx.fillRect(0, GROUND_Y - 87, V_WIDTH, 10);
       ctx.fillStyle = theme.accent;
@@ -752,15 +756,15 @@
     gradient.addColorStop(0, theme.groundTop);
     gradient.addColorStop(0.18, theme.groundBody);
     gradient.addColorStop(1, theme.groundBody);
-    ctx.save(); ctx.globalAlpha = theme.blend;
+    ctx.save();
     ctx.fillStyle = gradient; ctx.fillRect(0, GROUND_Y, V_WIDTH, GROUND_HEIGHT);
     ctx.fillStyle = theme.accent; ctx.fillRect(0, GROUND_Y, V_WIDTH, 3);
     if (road) {
-      ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      ctx.fillStyle = '#d2d8d6';
       for (let x = -(groundScrollOffset * 2 % 78); x < V_WIDTH; x += 78) ctx.fillRect(x, GROUND_Y + 53, 38, 4);
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(0, GROUND_Y + 8, V_WIDTH, 2);
+      ctx.fillStyle = '#41474a'; ctx.fillRect(0, GROUND_Y + 8, V_WIDTH, 2);
     } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.14)';
+      ctx.fillStyle = theme.style === 'kerala' ? '#80634a' : '#586c3f';
       for (let x = -groundScrollOffset - 20; x < V_WIDTH; x += 28) ctx.fillRect(x, GROUND_Y + 22, 13, 2);
     }
     ctx.restore();
@@ -768,7 +772,7 @@
 
   function drawThemeBanner() {
     if (!themeBannerTimer) return;
-    const fade = Math.min(1, themeBannerTimer / 24, (150 - themeBannerTimer) / 18);
+    const fade = Math.min(1, themeBannerTimer / 0.4, (THEME_BANNER_SECONDS - themeBannerTimer) / 0.3);
     const theme = THEMES[themeIndex];
     ctx.save(); ctx.globalAlpha = Math.max(0, fade);
     ctx.fillStyle = 'rgba(12, 18, 28, 0.64)'; roundRect(ctx, 73, 112, V_WIDTH - 146, 40, 20); ctx.fill();
@@ -1428,10 +1432,8 @@
     }
 
     drawPipeSection(x, y, w, h, isTop, cycle, theme) {
-      const ps = activePipeSkin();
       const shaftColors = theme.pipe;
       const lipColors = theme.lip;
-      const skinImage = ps.custom ? customSkinImages.get(ps.id) : null;
       const lipHeight = 28;
       const lipOverlap = 5;
       const lipWidth = w + lipOverlap * 2;
@@ -1451,14 +1453,6 @@
 
       ctx.fillStyle = shaftGrad;
       ctx.fillRect(x, shaftY, w, shaftHeight);
-      if (skinImage && shaftHeight > 0) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(x, shaftY, w, shaftHeight);
-        ctx.clip();
-        drawSkinImage(ctx, skinImage, x, shaftY, w, shaftHeight, ps.fit, ps.crop);
-        ctx.restore();
-      }
 
       // Shaft Outline
       ctx.strokeStyle = theme.outline;
@@ -1479,13 +1473,28 @@
         for (let markY = shaftY + 28; markY < shaftY + shaftHeight; markY += 46) {
           ctx.beginPath(); ctx.ellipse(x + (Math.sin(markY) > 0 ? 42 : 18), markY, 8, 3, -0.5, 0, Math.PI * 2); ctx.stroke();
         }
-      } else if (theme.style === 'road' || theme.style === 'city') {
-        ctx.fillStyle = theme.accent; ctx.globalAlpha = theme.style === 'city' ? 0.8 : 0.72;
-        if (theme.style === 'road') {
-          for (let markY = shaftY + (isTop ? 0 : 14); markY < shaftY + shaftHeight; markY += 28) {
-            ctx.beginPath(); ctx.moveTo(x, markY); ctx.lineTo(x + w * 0.35, markY); ctx.lineTo(x + w * 0.55, markY + 12); ctx.lineTo(x + w * 0.2, markY + 12); ctx.closePath(); ctx.fill();
+      } else if (theme.style === 'road') {
+        for (let markY = shaftY + 10; markY < shaftY + shaftHeight; markY += 52) {
+          const railHeight = Math.min(17, shaftY + shaftHeight - markY);
+          if (railHeight < 4) continue;
+          const railGrad = ctx.createLinearGradient(x, markY, x, markY + railHeight);
+          railGrad.addColorStop(0, '#dce2e1');
+          railGrad.addColorStop(0.24, '#9da8a8');
+          railGrad.addColorStop(0.52, '#687477');
+          railGrad.addColorStop(0.78, '#b9c2c1');
+          railGrad.addColorStop(1, '#778285');
+          ctx.fillStyle = '#343b3e'; ctx.fillRect(x + 2, markY - 2, w - 4, railHeight + 4);
+          ctx.fillStyle = railGrad; ctx.fillRect(x + 4, markY, w - 8, railHeight);
+          ctx.fillStyle = '#edf0ed'; ctx.fillRect(x + 5, markY + 1, w - 10, 2);
+          ctx.fillStyle = '#4f595b'; ctx.fillRect(x + 5, markY + railHeight - 2, w - 10, 2);
+          for (const boltX of [x + 10, x + w - 10]) {
+            ctx.fillStyle = '#4a5355'; ctx.beginPath(); ctx.arc(boltX, markY + railHeight / 2, 2.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#e2e6e3'; ctx.beginPath(); ctx.arc(boltX - 0.6, markY + railHeight / 2 - 0.6, 0.8, 0, Math.PI * 2); ctx.fill();
           }
-        } else ctx.fillRect(x + w - 6, shaftY, 3, shaftHeight);
+        }
+      } else if (theme.style === 'city') {
+        ctx.fillStyle = theme.accent; ctx.globalAlpha = 0.8;
+        ctx.fillRect(x + w - 6, shaftY, 3, shaftHeight);
       } else {
         ctx.fillStyle = 'rgba(255,255,255,0.13)';
         for (let markY = shaftY + 18; markY < shaftY + shaftHeight; markY += 42) ctx.fillRect(x + 10, markY, w - 20, 2);
@@ -1503,14 +1512,25 @@
       ctx.fillStyle = lipGrad;
       ctx.beginPath();
       this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
-      if (skinImage) {
+      ctx.fill();
+      if (theme.style === 'road') {
         ctx.save();
-        this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
+        ctx.beginPath();
+        this.roundRect(ctx, lipX + 2, lipY + 3, lipWidth - 4, lipHeight - 6, 2);
         ctx.clip();
-        drawSkinImage(ctx, skinImage, lipX, lipY, lipWidth, lipHeight, ps.fit, ps.crop);
+        ctx.fillStyle = '#f4c84e';
+        ctx.fillRect(lipX + 2, lipY + 3, lipWidth - 4, lipHeight - 6);
+        ctx.fillStyle = '#30373a';
+        for (let stripeX = lipX - lipHeight; stripeX < lipX + lipWidth; stripeX += 17) {
+          ctx.beginPath();
+          ctx.moveTo(stripeX, lipY + lipHeight - 3);
+          ctx.lineTo(stripeX + 9, lipY + lipHeight - 3);
+          ctx.lineTo(stripeX + 17, lipY + 3);
+          ctx.lineTo(stripeX + 8, lipY + 3);
+          ctx.closePath();
+          ctx.fill();
+        }
         ctx.restore();
-      } else {
-        ctx.fill();
       }
 
       // Lip Outline
@@ -1553,77 +1573,7 @@
     }
   }
 
-  // Draws the bird around the origin (caller positions/rotates). Used by the game and the store.
-  function drawSkinImage(context, image, x, y, width, height, fit = 'cover', crop = {}) {
-    if (!image || !image.complete || !image.naturalWidth || !image.naturalHeight) return false;
-    const scale = fit === 'contain'
-      ? Math.min(width / image.naturalWidth, height / image.naturalHeight)
-      : Math.max(width / image.naturalWidth, height / image.naturalHeight);
-    const zoom = Number.isFinite(crop.zoom) ? Math.max(1, Math.min(3, crop.zoom)) : 1;
-    const drawWidth = image.naturalWidth * scale * zoom;
-    const drawHeight = image.naturalHeight * scale * zoom;
-    const offsetX = Number.isFinite(crop.x) ? Math.max(-1, Math.min(1, crop.x)) : 0;
-    const offsetY = Number.isFinite(crop.y) ? Math.max(-1, Math.min(1, crop.y)) : 0;
-    context.drawImage(image,
-      x + (width - drawWidth) / 2 + offsetX * Math.max(0, drawWidth - width) / 2,
-      y + (height - drawHeight) / 2 + offsetY * Math.max(0, drawHeight - height) / 2,
-      drawWidth, drawHeight);
-    return true;
-  }
-
-  function traceCustomBirdShape(context) {
-    context.beginPath();
-    context.moveTo(-23, -5);
-    context.quadraticCurveTo(-22, -11, -16, -8);
-    context.quadraticCurveTo(-12, -16, -5, -14);
-    context.lineTo(-2, -23);
-    context.quadraticCurveTo(3, -20, 4, -14);
-    context.quadraticCurveTo(13, -15, 17, -7);
-    context.lineTo(26, -3);
-    context.quadraticCurveTo(28, 0, 25, 3);
-    context.lineTo(17, 6);
-    context.quadraticCurveTo(12, 15, 2, 14);
-    context.quadraticCurveTo(-8, 14, -15, 8);
-    context.quadraticCurveTo(-22, 4, -23, -5);
-    context.closePath();
-  }
-
   function drawBirdSprite(g, skin, wingAngle, tailWag) {
-    const skinImage = skin.custom ? customSkinImages.get(skin.id) : null;
-    if (skinImage) {
-      g.save();
-      traceCustomBirdShape(g);
-      g.clip();
-      drawSkinImage(g, skinImage, -27, -23, 54, 46, skin.fit, skin.crop);
-      g.restore();
-
-      traceCustomBirdShape(g);
-      g.strokeStyle = '#26302b';
-      g.lineWidth = 1.8;
-      g.stroke();
-
-      g.beginPath();
-      g.moveTo(-12, 1);
-      g.quadraticCurveTo(-7, 7, 1, 7);
-      g.quadraticCurveTo(6, 6, 9, 2);
-      g.strokeStyle = 'rgba(25, 35, 30, 0.58)';
-      g.lineWidth = 1.2;
-      g.stroke();
-
-      g.fillStyle = '#ffffff';
-      g.strokeStyle = '#26302b';
-      g.lineWidth = 1.3;
-      g.beginPath();
-      g.ellipse(8, -6, 5, 6, 0, 0, Math.PI * 2);
-      g.fill();
-      g.stroke();
-      g.fillStyle = '#20242a';
-      g.beginPath();
-      g.arc(9.5, -6, 2.3, 0, Math.PI * 2);
-      g.fill();
-      return;
-    }
-
     // --- 1. Tail Feathers (3 Layered Classic Feathers) ---
     const wag = Math.sin(tailWag) * 3;
     g.save();
@@ -2530,6 +2480,7 @@
   const requestStatus = document.getElementById('request-status');
   const deathSoundControls = document.getElementById('death-sound-controls');
   const randomDeathSoundButton = document.getElementById('random-death-sound');
+  const randomDeathSoundToggle = document.getElementById('random-death-sound-toggle');
   const storeTabs = {
     bird: document.getElementById('store-tab-bird'),
     pipe: document.getElementById('store-tab-pipe'),
@@ -2538,7 +2489,7 @@
   const STORE_HINTS = {
     bird: 'Earn coins at the end of every run. The higher your score, the more each pipe pays.',
     pipe: 'Earn coins at the end of every run. The higher your score, the more each pipe pays.',
-    sound: 'Choose a death sound. Prices reflect how iconic or dramatic each clip is.'
+    sound: 'Equip a death sound or randomize owned sounds for each run.'
   };
   let storeVisible = false;
   let storeTab = 'bird';
@@ -2563,6 +2514,7 @@
       storeTabs[k].setAttribute('aria-selected', String(k === tab));
     });
     storeMsg.textContent = STORE_HINTS[tab];
+    randomDeathSoundToggle.checked = randomDeathSoundEnabled;
     renderStore();
   }
 
@@ -2690,7 +2642,6 @@
 
   // Small static pipe for the Pipes tab (80x64 preview space)
   function drawPipePreview(g, skin) {
-    const skinImage = skin.custom ? customSkinImages.get(skin.id) : null;
     g.lineWidth = 2.5;
     g.strokeStyle = skin.outline;
 
@@ -2698,12 +2649,6 @@
     [0, 0.18, 0.38, 0.68, 0.9, 1].forEach((o, i) => shaft.addColorStop(o, skin.shaft[i]));
     g.fillStyle = shaft;
     g.fillRect(19, 24, 42, 40);
-    if (skinImage) {
-      g.save();
-      g.beginPath(); g.rect(19, 24, 42, 40); g.clip();
-      drawSkinImage(g, skinImage, 19, 24, 42, 40, skin.fit, skin.crop);
-      g.restore();
-    }
     g.strokeRect(19, 24, 42, 40);
     g.fillStyle = 'rgba(255, 255, 255, 0.38)';
     g.fillRect(19 + 42 * 0.32, 24, 3, 40);
@@ -2712,12 +2657,6 @@
     [0, 0.2, 0.42, 0.72, 1].forEach((o, i) => lip.addColorStop(o, skin.lip[i]));
     g.fillStyle = lip;
     g.fillRect(14, 8, 52, 18);
-    if (skinImage) {
-      g.save();
-      g.beginPath(); g.rect(14, 8, 52, 18); g.clip();
-      drawSkinImage(g, skinImage, 14, 8, 52, 18, skin.fit, skin.crop);
-      g.restore();
-    }
     g.strokeRect(14, 8, 52, 18);
     g.fillStyle = 'rgba(255, 255, 255, 0.45)';
     g.fillRect(14 + 52 * 0.32, 10, 3.5, 14);
@@ -2802,6 +2741,13 @@
   });
   storeClose.addEventListener('click', closeStore);
   randomDeathSoundButton.addEventListener('click', playRandomDeathSoundPreview);
+  randomDeathSoundToggle.addEventListener('change', () => {
+    randomDeathSoundEnabled = randomDeathSoundToggle.checked;
+    lsSet('flappy_random_death_sound', String(randomDeathSoundEnabled));
+    storeMsg.textContent = randomDeathSoundEnabled
+      ? 'Random owned death sounds enabled.'
+      : 'Equipped death sound will play on death.';
+  });
   storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
   document.addEventListener('keydown', (e) => { if (storeVisible && e.key === 'Escape') closeStore(); });
 
@@ -2892,7 +2838,12 @@
     // Leave the keyboard alone while the leaderboard (and its name box) is open
     if (overlayOpen()) return;
 
-    if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+    if (e.shiftKey && e.code === 'KeyT') {
+      e.preventDefault();
+      advanceTheme();
+      sound.playTone(760, 0.1, 'triangle');
+      srAnnouncements.textContent = `Entering ${THEMES[themeIndex].name}.`;
+    } else if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
       e.preventDefault();
       handleAction(e);
     } else if (e.key === 't' || e.key === 'T') {
@@ -2914,7 +2865,11 @@
   });
 
   // --- Main Animation Loop ---
-  function gameLoop() {
+  function gameLoop(timestamp) {
+    const deltaSeconds = themeLastTimestamp === null
+      ? 0
+      : Math.min(0.05, Math.max(0, (timestamp - themeLastTimestamp) / 1000));
+    themeLastTimestamp = timestamp;
     globalFrame++;
 
     let shakeX = 0;
@@ -2930,7 +2885,7 @@
 
     // 1. Dynamic Gradual Day & Night Sky (Sun & Moon Arc)
     const cycle = getCycleState();
-    const theme = getThemeState();
+    const theme = getThemeState(deltaSeconds);
     drawSky(cycle, theme);
 
     // 2. Dynamic Gradual Seasons (Color Blending)
