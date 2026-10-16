@@ -300,7 +300,7 @@
     overlay.classList.remove('hidden');
     updatePlayerStrip();
 
-    if (!playerName && unsynced > 0) showForm('first');
+    if (!playerName) showForm('first');
     else if (formMode !== 'rename') hideForm();
     if (playerName && unsynced > 0) syncScore(0); // retry a save that failed earlier
 
@@ -363,4 +363,8 @@
     }
   };
   window.FlappyLeaderboard = api;
+
+  // Ask first-time visitors for a leaderboard name as soon as the page loads.
+  // Existing visitors with a saved name continue straight into the game.
+  if (!playerName) open();
 })();
