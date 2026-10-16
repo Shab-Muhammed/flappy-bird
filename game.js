@@ -356,7 +356,10 @@
     { id: 'pop-shot', name: 'Pop Shot', src: 'sounds/death/pop-shot.mp3', price: 70 },
     { id: 'vine-boom', name: 'Vine Boom', src: 'sounds/death/vine-boom.mp3', price: 110 },
     { id: 'mystery-beep', name: 'Fortnite Death', src: 'sounds/death/mystery-beep.mp3', price: 20 },
-    { id: 'error', name: 'Error', src: 'sounds/death/error.mp3', price: 30 }
+    { id: 'error', name: 'Error', src: 'sounds/death/error.mp3', price: 30 },
+    { id: 'scuba-scuba', name: 'Scuba Scuba', src: 'sounds/death/scuba-scuba.mp3', price: 55 },
+    { id: 'ada-gommale', name: 'Ada Gommale', src: 'sounds/death/ada-gommale.mp3', price: 55 },
+    { id: 'rizzbot-laugh', name: 'Rizzbot Laugh', src: 'sounds/death/rizzbot-laugh.mp3', price: 55 }
   ];
   const deathSoundOwned = loadOwned('flappy_owned_death_sounds', DEATH_SOUNDS).filter(id => id !== 'classic');
   if (!deathSoundOwned.includes('original')) deathSoundOwned.unshift('original');
