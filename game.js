@@ -842,7 +842,17 @@
     ctx.fillStyle = theme.far;
     for (let x = -440 - farDrift; x < V_WIDTH + 440; x += 440) {
       if (theme.style === 'desert') {
+        ctx.fillStyle = theme.far;
         ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 18); ctx.quadraticCurveTo(x + 120, GROUND_Y - 76, x + 240, GROUND_Y - 19); ctx.quadraticCurveTo(x + 340, GROUND_Y - 60, x + 440, GROUND_Y - 18); ctx.fill();
+        // Distant pyramids sit behind the dunes and move at the slower parallax rate.
+        ctx.fillStyle = '#d9a578';
+        for (const pyramid of [[52, 92, 70], [181, 58, 44], [310, 78, 59]]) {
+          const [px, width, height] = pyramid;
+          ctx.beginPath(); ctx.moveTo(x + px, GROUND_Y - 21); ctx.lineTo(x + px + width / 2, GROUND_Y - 21 - height); ctx.lineTo(x + px + width, GROUND_Y - 21); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#c78e68';
+          ctx.beginPath(); ctx.moveTo(x + px + width / 2, GROUND_Y - 21 - height); ctx.lineTo(x + px + width, GROUND_Y - 21); ctx.lineTo(x + px + width / 2, GROUND_Y - 21); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#d9a578';
+        }
       } else if (theme.style === 'cyberpunk') {
         for (let building = 0; building < 11; building++) {
           const bx = x + building * 43;
@@ -858,14 +868,28 @@
     ctx.fillStyle = theme.near;
     if (theme.style === 'desert') {
       for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+        ctx.fillStyle = theme.near;
         ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 8); ctx.quadraticCurveTo(x + 115, GROUND_Y - 105, x + 240, GROUND_Y - 14); ctx.quadraticCurveTo(x + 340, GROUND_Y - 65, x + 440, GROUND_Y - 8); ctx.fill();
-        ctx.fillRect(x + 276, GROUND_Y - 205, 22, 195); ctx.fillRect(x + 270, GROUND_Y - 205, 34, 8);
-        ctx.beginPath(); ctx.moveTo(x + 328, GROUND_Y - 10); ctx.lineTo(x + 328, GROUND_Y - 112); ctx.lineTo(x + 339, GROUND_Y - 145); ctx.lineTo(x + 350, GROUND_Y - 112); ctx.lineTo(x + 350, GROUND_Y - 10); ctx.fill();
-        ctx.strokeStyle = '#e9bd78'; ctx.lineWidth = 1.3;
-        for (let ridge = 0; ridge < 4; ridge++) {
-          const ridgeY = GROUND_Y - 28 - ridge * 11;
-          ctx.beginPath(); ctx.moveTo(x + 15, ridgeY); ctx.quadraticCurveTo(x + 118, ridgeY - 34, x + 232, ridgeY - 3); ctx.quadraticCurveTo(x + 328, ridgeY - 23, x + 424, ridgeY); ctx.stroke();
-        }
+        // Low desert fortress with crenellated walls, corner towers and an arched gate.
+        ctx.fillStyle = '#8c5546';
+        ctx.fillRect(x + 274, GROUND_Y - 83, 117, 75);
+        ctx.fillRect(x + 267, GROUND_Y - 105, 30, 97);
+        ctx.fillRect(x + 369, GROUND_Y - 99, 29, 91);
+        ctx.fillRect(x + 263, GROUND_Y - 111, 38, 9);
+        ctx.fillRect(x + 365, GROUND_Y - 105, 37, 9);
+        for (let merlon = 0; merlon < 6; merlon++) ctx.fillRect(x + 278 + merlon * 19, GROUND_Y - 91, 10, 9);
+        ctx.fillStyle = '#50343b';
+        ctx.beginPath(); ctx.moveTo(x + 321, GROUND_Y - 8); ctx.lineTo(x + 321, GROUND_Y - 37); ctx.arc(x + 334, GROUND_Y - 37, 13, Math.PI, 0); ctx.lineTo(x + 347, GROUND_Y - 8); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#d49a67';
+        ctx.fillRect(x + 276, GROUND_Y - 78, 4, 18); ctx.fillRect(x + 384, GROUND_Y - 77, 4, 16);
+
+        // Sphinx in profile: seated body, raised paws and a distinctive headdress.
+        ctx.fillStyle = '#c28a59';
+        ctx.beginPath(); ctx.moveTo(x + 106, GROUND_Y - 10); ctx.quadraticCurveTo(x + 116, GROUND_Y - 38, x + 149, GROUND_Y - 40); ctx.lineTo(x + 169, GROUND_Y - 48); ctx.lineTo(x + 184, GROUND_Y - 45); ctx.lineTo(x + 181, GROUND_Y - 35); ctx.lineTo(x + 169, GROUND_Y - 32); ctx.lineTo(x + 164, GROUND_Y - 10); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x + 165, GROUND_Y - 43); ctx.lineTo(x + 165, GROUND_Y - 68); ctx.lineTo(x + 172, GROUND_Y - 82); ctx.lineTo(x + 188, GROUND_Y - 77); ctx.lineTo(x + 193, GROUND_Y - 65); ctx.lineTo(x + 187, GROUND_Y - 53); ctx.lineTo(x + 179, GROUND_Y - 44); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#9f674d';
+        ctx.beginPath(); ctx.moveTo(x + 163, GROUND_Y - 69); ctx.lineTo(x + 171, GROUND_Y - 87); ctx.lineTo(x + 190, GROUND_Y - 81); ctx.lineTo(x + 198, GROUND_Y - 63); ctx.lineTo(x + 190, GROUND_Y - 69); ctx.lineTo(x + 185, GROUND_Y - 77); ctx.lineTo(x + 177, GROUND_Y - 69); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#f7d39a'; ctx.fillRect(x + 185, GROUND_Y - 68, 2.5, 2);
         if (theme.cityGlow > 0.02) {
           const cityX = x + 299;
           const glow = ctx.createRadialGradient(cityX, GROUND_Y - 184, 2, cityX, GROUND_Y - 184, 72);
@@ -1019,20 +1043,6 @@
       ctx.fillStyle = '#53e9f2'; ctx.fillRect(0, GROUND_Y + 4, V_WIDTH, 2);
       ctx.fillStyle = '#f14bad'; ctx.fillRect(0, GROUND_Y + 7, V_WIDTH, 1);
     } else if (theme.style === 'desert') {
-      ctx.strokeStyle = '#d9a75e'; ctx.lineWidth = 1.3;
-      for (let ridge = 0; ridge < 5; ridge++) {
-        const y = GROUND_Y + 20 + ridge * 18;
-        const phase = ridge * 0.72;
-        ctx.beginPath();
-        for (let x = -8; x <= V_WIDTH + 8; x += 8) {
-          const worldX = x + groundScrollOffset;
-          const wave = Math.sin(worldX * Math.PI * 2 / 320 + phase) * 4
-            + Math.sin(worldX * Math.PI * 4 / 320 + phase * 0.6) * 1.2;
-          if (x === -8) ctx.moveTo(x, y + wave);
-          else ctx.lineTo(x, y + wave);
-        }
-        ctx.stroke();
-      }
       ctx.fillStyle = '#f6d18b';
       for (let x = -(groundScrollOffset % 42); x < V_WIDTH; x += 42) ctx.fillRect(x, GROUND_Y + 12 + (x % 9), 2, 2);
     } else if (theme.style === 'kerala') {
