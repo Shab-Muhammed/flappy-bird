@@ -2230,10 +2230,7 @@
   }
 
   function drawOpponentGhosts(deltaSeconds) {
-    const spectatingRoomMatch = currentState === STATE.GAMEOVER
-      && window.FlappyRooms && window.FlappyRooms.isRoundInProgress
-      && window.FlappyRooms.isRoundInProgress();
-    if (!ghostOverlayEnabled && !spectatingRoomMatch) return;
+    if (!ghostOverlayEnabled) return;
     const players = window.FlappyRooms && window.FlappyRooms.getGhostPlayers
       ? window.FlappyRooms.getGhostPlayers()
       : [];
@@ -2269,7 +2266,7 @@
       const y = visual.y;
       if (isAlive) {
         ctx.save();
-        ctx.globalAlpha = 0.4;
+        ctx.globalAlpha = 0.62;
         ctx.translate(x, y);
         ctx.rotate(Math.max(-0.48, Math.min(1.25, Math.atan2(player.velocity, 9))));
         ctx.drawImage(getGhostSprite(activeSkin()), -26, -21);
@@ -2753,30 +2750,6 @@
       ctx.fillText(coinLine, V_WIDTH / 2, 516);
     }
 
-    ctx.restore();
-  }
-
-  function drawSpectatorScreen() {
-    const players = window.FlappyRooms && window.FlappyRooms.getGhostPlayers
-      ? window.FlappyRooms.getGhostPlayers()
-      : [];
-    const aliveCount = players.filter(player => player.alive).length;
-    const box = { x: 34, y: 82, w: V_WIDTH - 68, h: 64 };
-    ctx.save();
-    ctx.fillStyle = 'rgba(13, 30, 38, 0.82)';
-    roundRect(ctx, box.x, box.y, box.w, box.h, 14);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 236, 185, 0.72)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = '900 19px "Fredoka", sans-serif';
-    ctx.fillStyle = '#fff1ad';
-    ctx.fillText('SPECTATING', V_WIDTH / 2, box.y + 23);
-    ctx.font = '600 12px "Fredoka", sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(`${aliveCount} PLAYER${aliveCount === 1 ? '' : 'S'} STILL FLYING`, V_WIDTH / 2, box.y + 46);
     ctx.restore();
   }
 
@@ -3321,9 +3294,7 @@
       : Math.min(0.05, Math.max(0, (timestamp - themeLastTimestamp) / 1000));
     themeLastTimestamp = timestamp;
     globalFrame++;
-    const spectating = currentState === STATE.GAMEOVER
-      && window.FlappyRooms && window.FlappyRooms.isRoundInProgress && window.FlappyRooms.isRoundInProgress();
-    const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING || spectating;
+    const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING;
     const worldDeltaSeconds = worldActive ? deltaSeconds : 0;
     if (worldActive) {
       worldFrame++;
@@ -3377,7 +3348,7 @@
     drawThemeAtmosphere(toAtmosphereTheme, ambientParticles[1], theme.blend);
 
     // 6. Hand-Crafted Green Pipes
-    if (currentState === STATE.PLAYING || spectating) {
+    if (currentState === STATE.PLAYING) {
       // Ease toward the current score target without abrupt speed changes.
       if (currentState === STATE.PLAYING) gameSpeed += (targetSpeed() - gameSpeed) * 0.035;
 
@@ -3393,14 +3364,12 @@
 
         if (!p.passed && p.x + p.w < bird.x) {
           p.passed = true;
-          if (!spectating) {
-            score++;
-            if (CYCLE_MODES[currentCycleModeIndex] === 'AUTO') cycleBoost += 0.014;
-            if (SEASON_MODES[currentSeasonModeIndex] === 'AUTO') seasonBoost += 0.008;
-            createScoreSparkles(bird.x + 10, bird.y);
-            sound.playScore();
-            srAnnouncements.textContent = `Score: ${score}`;
-          }
+          score++;
+          if (CYCLE_MODES[currentCycleModeIndex] === 'AUTO') cycleBoost += 0.014;
+          if (SEASON_MODES[currentSeasonModeIndex] === 'AUTO') seasonBoost += 0.008;
+          createScoreSparkles(bird.x + 10, bird.y);
+          sound.playScore();
+          srAnnouncements.textContent = `Score: ${score}`;
         }
 
         if (p.x + p.w < -30) pipes.splice(i, 1);
@@ -3420,12 +3389,11 @@
     drawThemeLighting(theme);
 
     // 8. Authentic Hand-Crafted Original Flappy Bird
-    if (!spectating) bird.update();
-    else if (roomDeathSnapshot) bird.y = roomDeathSnapshot.y;
+    bird.update();
+    bird.draw();
+    // Draw opponents on top of the local bird so overlapping flight paths
+    // remain visible as translucent ghosts instead of being hidden beneath it.
     drawOpponentGhosts(deltaSeconds);
-    // Once eliminated, the player's bird disappears while they spectate.
-    // Opponents retain the OUT name marker at the frozen death position.
-    if (!spectating) bird.draw();
 
     // 9. Collision Detection
     if (currentState === STATE.PLAYING) {
@@ -3448,7 +3416,6 @@
     // 11. UI Screens
     if (currentState === STATE.READY) drawStartScreen();
     else if (currentState === STATE.PLAYING || currentState === STATE.DYING) drawScoreHUD();
-    else if (currentState === STATE.GAMEOVER && spectating) drawSpectatorScreen();
     else if (currentState === STATE.GAMEOVER) drawGameOverScreen();
     drawThemeBanner();
 
@@ -3483,9 +3450,6 @@
         velocity: frozen ? frozen.velocity : Number(bird.vy.toFixed(2))
       };
     },
-    isRoomPlayerOut() {
-      return currentState === STATE.DYING || currentState === STATE.GAMEOVER;
-    }
   };
 
 })();

@@ -309,7 +309,6 @@
         resetRoom('The room was closed by its host.');
         return;
       }
-      const roundWasPlaying = room.phase === 'playing';
       room = { code, ...meta };
       members = nextMembers || {};
       if (!members[myUid()]) {
@@ -318,13 +317,6 @@
       }
       await armDisconnectCleanup(code);
       renderRoom();
-      // Dead players spectate until the host publishes the final standings,
-      // then return to the room lobby instead of seeing the solo replay screen.
-      if (roundWasPlaying && room.phase !== 'playing'
-        && window.FlappyGame && window.FlappyGame.isRoomPlayerOut
-        && window.FlappyGame.isRoomPlayerOut()) {
-        openPanel();
-      }
       await maybeStartRound();
       await maybeFinishRound();
       if (Date.now() - lastChatLoad > 1800) await loadChat();
@@ -715,11 +707,9 @@
 
   window.FlappyRooms = {
     isInRoom: () => !!room,
-    isRoundInProgress: () => !!room && room.phase === 'playing',
     getGhostPlayers,
     isPanelOpen: () => !roomOverlay.classList.contains('hidden'),
     open: openPanel,
     close: closePanel,
-    showRoomAfterDeath() { if (room) openPanel(); }
   };
 })();

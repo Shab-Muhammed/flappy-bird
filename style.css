@@ -726,9 +726,9 @@ button.header-pill:focus-visible {
   width: 42px;
   height: 42px;
   place-items: center;
-  border: 2px solid rgba(255, 219, 133, 0.8);
-  border-radius: 50%;
-  background: rgba(19, 28, 26, 0.82);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #fff2d2;
   font: 700 30px/1 var(--font-ui);
   cursor: pointer;
@@ -736,9 +736,9 @@ button.header-pill:focus-visible {
 
 .room-close-x:hover,
 .room-close-x:focus-visible {
-  background: #537c2b;
-  outline: 2px solid #fff2d2;
-  outline-offset: 2px;
+  color: #ffe084;
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
 }
 
 .room-panel > h2 {
