@@ -1039,7 +1039,9 @@
           ctx.save();
           ctx.globalAlpha = theme.trafficIntensity * opacity;
           for (let lightIndex = 0; lightIndex < 8; lightIndex++) {
-            const lightX = x + ((lightIndex * 67 - atmosphereTime * (theme.cycleStage === 'NIGHT' ? 54 : 28)) % 430 + 430) % 430;
+            // Traffic lights belong to the bridge layer and share its scroll
+            // position so they cannot drift against the structure.
+            const lightX = x + lightIndex * 67;
             const lightY = GROUND_Y - 28 - (lightIndex % 3) * 5;
             const lightColor = lightIndex % 2 ? '#ff334f' : '#fff5cf';
             ctx.shadowColor = lightColor;
