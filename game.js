@@ -474,7 +474,6 @@
   const GROUND_Y = V_HEIGHT - GROUND_HEIGHT;
 
   let groundScrollOffset = 0;
-  const GROUND_SCROLL_PERIOD = 1092;
 
   // --- 1. Dynamic Day & Night Cycles Engine ---
   const CYCLES = [
@@ -569,7 +568,7 @@
   const THEMES = [
     { name: 'Kerala', icon: '🌴', skyTop: '#087e70', skyMid: '#35b58c', skyBot: '#b4e7a0', far: '#236e60', near: '#124f49', groundTop: '#4eaa52', groundBody: '#694b32', pipe: ['#275b38', '#398b50', '#68b75e', '#3c8246', '#205231', '#163c29'], lip: ['#1d4d31', '#347b43', '#62a94f', '#3f8145', '#1e4a30'], outline: '#123b2c', accent: '#b8df65', style: 'kerala' },
     { name: 'Desert', icon: '🏜️', skyTop: '#f28a62', skyMid: '#f5bc72', skyBot: '#ffe5a4', far: '#b97958', near: '#d89a5d', groundTop: '#eab85d', groundBody: '#ad7044', pipe: ['#98602e', '#c28a3d', '#f0c45b', '#cf923e', '#93602e', '#603d29'], lip: ['#80502d', '#b47637', '#e8b654', '#c1873d', '#754a2c'], outline: '#603b25', accent: '#fff0ad', style: 'desert' },
-    { name: 'Cyberpunk', icon: '🌃', skyTop: '#100d31', skyMid: '#26164d', skyBot: '#47285f', far: '#17142e', near: '#211a3f', groundTop: '#211d3e', groundBody: '#141322', pipe: ['#342057', '#56358b', '#a13fca', '#7136a4', '#3c256e', '#251644'], lip: ['#322052', '#57317d', '#a945cc', '#8139aa', '#3c235d'], outline: '#f34dbb', accent: '#51f4ff', style: 'Cyberpunk' },
+    { name: 'City', icon: '🏙️', skyTop: '#101a2b', skyMid: '#263447', skyBot: '#59616a', far: '#131b28', near: '#252d36', groundTop: '#343b41', groundBody: '#171b20', pipe: ['#202a31', '#42515a', '#9aa8ad', '#56666c', '#303d43', '#172127'], lip: ['#252e33', '#556168', '#aab5b8', '#69767b', '#232b30'], outline: '#10171b', accent: '#ffe082', style: 'City' },
     { name: 'Swamp', icon: '🍄', skyTop: '#173d3a', skyMid: '#285b4c', skyBot: '#9bbf83', far: '#244d3a', near: '#173d2e', groundTop: '#628b4b', groundBody: '#473f30', pipe: ['#46563d', '#62734b', '#89995d', '#63704a', '#414d37', '#303a2d'], lip: ['#3e4d36', '#596b44', '#839259', '#68774a', '#3c4932'], outline: '#283b2b', accent: '#b5d785', style: 'forest' },
     { name: 'Highway', icon: '🛣️', skyTop: '#5589a2', skyMid: '#91b7bd', skyBot: '#d9d2ad', far: '#536b70', near: '#3c5559', groundTop: '#7e8584', groundBody: '#303539', pipe: ['#50595c', '#758084', '#b8c0be', '#8d9999', '#596366', '#41494c'], lip: ['#485154', '#6d797c', '#aab4b5', '#859092', '#4c5557'], outline: '#343b3d', accent: '#ffd34f', style: 'highway' }
   ];
@@ -586,11 +585,11 @@
       SUNSET: { skyTop: '#401d45', skyMid: '#aa3f50', skyBot: '#f0804e', far: '#542843', near: '#763f49', groundTop: '#c66b42', groundBody: '#5e3540', accent: '#ffb34e', pipeTint: '#a74b36', lighting: 'rgba(187, 50, 49, 0.16)', particleEffect: 'gold', particleDensity: 0.58, pipeShade: 0.22, emission: 0, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5, cityGlow: 0.24 },
       NIGHT: { skyTop: '#09152e', skyMid: '#14213d', skyBot: '#222b47', far: '#20253d', near: '#302b49', groundTop: '#65506a', groundBody: '#262238', accent: '#dbb9ff', pipeTint: '#263459', lighting: 'rgba(13, 28, 62, 0.27)', particleEffect: 'stardust', particleDensity: 0.54, pipeShade: 0.48, emission: 8, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5, cityGlow: 0.8 }
     },
-    Cyberpunk: {
-      DAWN: { skyTop: '#242d52', skyMid: '#45456b', skyBot: '#5b7185', far: '#202941', near: '#262946', groundTop: '#36374d', groundBody: '#171927', accent: '#7cabb8', pipeTint: '#313644', lighting: 'rgba(115, 175, 218, 0.08)', particleEffect: 'pixels', particleDensity: 0.28, pipeShade: 0.1, emission: 6, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 },
-      DAY: { skyTop: '#555e68', skyMid: '#737d83', skyBot: '#8d9696', far: '#41464f', near: '#303640', groundTop: '#535661', groundBody: '#20222b', accent: '#8f9296', pipeTint: '#68717b', lighting: 'rgba(145, 167, 183, 0.11)', particleEffect: 'smoke', particleDensity: 0.25, pipeShade: 0, emission: 2, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 },
-      SUNSET: { skyTop: '#351846', skyMid: '#672455', skyBot: '#a54169', far: '#281b3d', near: '#321a42', groundTop: '#3d2453', groundBody: '#151324', accent: '#f046c7', pipeTint: '#8b3169', lighting: 'rgba(221, 49, 157, 0.13)', particleEffect: 'pixels', particleDensity: 0.62, pipeShade: 0.06, emission: 12, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 },
-      NIGHT: { skyTop: '#02040d', skyMid: '#080d20', skyBot: '#121329', far: '#080b19', near: '#101124', groundTop: '#21182f', groundBody: '#090b15', accent: '#38edff', pipeTint: '#131328', lighting: 'rgba(20, 18, 56, 0.08)', particleEffect: 'pixels', particleDensity: 1, pipeShade: 0, emission: 20, vineOpacity: 1, mushroomGlow: 0, hazardBrightness: 0.5 }
+    City: {
+      DAWN: { skyTop: '#64728a', skyMid: '#9b9ab0', skyBot: '#d0c4c7', far: '#414958', near: '#59616b', groundTop: '#55595b', groundBody: '#34373a', accent: '#f3d28b', pipeTint: '#c3c9c9', lighting: 'rgba(190, 190, 220, 0.12)', particleEffect: 'smoke', particleDensity: 0.38, pipeShade: 0.06, emission: 5, hazardBrightness: 0.5, cityGlow: 0.18 },
+      DAY: { skyTop: '#6da4c1', skyMid: '#a6c0c4', skyBot: '#dedbc9', far: '#71818a', near: '#536168', groundTop: '#858b8d', groundBody: '#4a5053', accent: '#e8c557', pipeTint: '#eef0e9', lighting: 'rgba(232, 239, 235, 0.08)', particleEffect: 'dust', particleDensity: 0.32, pipeShade: 0, emission: 0, hazardBrightness: 0.5, cityGlow: 0 },
+      SUNSET: { skyTop: '#302b49', skyMid: '#92596b', skyBot: '#e59a68', far: '#393746', near: '#49434a', groundTop: '#66584d', groundBody: '#29282b', accent: '#ffc36b', pipeTint: '#d59b6a', lighting: 'rgba(246, 159, 99, 0.14)', particleEffect: 'traffic', particleDensity: 0.48, pipeShade: 0.12, emission: 9, hazardBrightness: 0.75, cityGlow: 0.55 },
+      NIGHT: { skyTop: '#070d1c', skyMid: '#111b2b', skyBot: '#222b38', far: '#111821', near: '#1d2429', groundTop: '#343a3e', groundBody: '#111519', accent: '#ffe082', pipeTint: '#17212a', lighting: 'rgba(7, 15, 27, 0.18)', particleEffect: 'traffic', particleDensity: 0.72, pipeShade: 0.28, emission: 20, hazardBrightness: 1, cityGlow: 1 }
     },
     forest: {
       DAWN: { skyTop: '#688b91', skyMid: '#9bb9ad', skyBot: '#ccd8bc', far: '#41685e', near: '#315247', groundTop: '#6a8b58', groundBody: '#45483a', accent: '#c1d6a0', pipeTint: '#c8d2ce', lighting: 'rgba(171, 215, 214, 0.12)', particleEffect: 'mist', particleDensity: 0.55, pipeShade: 0.12, emission: 0, vineOpacity: 1, mushroomGlow: 0.22, hazardBrightness: 0.5, rayStrength: 0.55 },
@@ -703,7 +702,7 @@
   const ambientParticles = [[], []];
 
   function makeAmbientParticle(theme, initial = false) {
-    const groundEffect = theme.particleEffect === 'sand' || theme.particleEffect === 'dust' || theme.particleEffect === 'haze' || theme.particleEffect === 'traffic';
+    const groundEffect = theme.style === 'City' || theme.particleEffect === 'sand' || theme.particleEffect === 'dust' || theme.particleEffect === 'haze' || theme.particleEffect === 'traffic';
     const particle = {
       x: initial ? Math.random() * V_WIDTH : V_WIDTH + Math.random() * 40,
       y: groundEffect ? GROUND_Y - 12 - Math.pow(Math.random(), 2) * 112 : Math.random() * (GROUND_Y - 16),
@@ -714,11 +713,12 @@
     };
     if (theme.particleEffect === 'traffic') particle.y = GROUND_Y - 26 - Math.random() * 88;
     if (theme.particleEffect === 'mist') particle.drift = -8 - Math.random() * 16;
+    if (theme.style === 'City' && theme.particleEffect === 'smoke') particle.drift = -7 - Math.random() * 13;
     if (theme.particleEffect === 'sand') particle.speed += 18 + theme.particleDensity * 38;
     if (theme.particleEffect === 'dust' || theme.particleEffect === 'traffic') particle.speed += 48 + theme.particleDensity * 76;
     if (theme.particleEffect === 'pixels') {
       particle.drift = -10 - Math.random() * 20;
-      if (theme.style === 'Cyberpunk') particle.speed *= 0.42;
+      if (theme.style === 'City') particle.speed *= 0.42;
     }
     if (theme.particleEffect === 'fireflies') particle.speed *= 0.35;
     if (theme.particleEffect === 'traffic') particle.lightColor = Math.random() < 0.52 ? '#ff334f' : '#fff5cf';
@@ -792,14 +792,13 @@
         ctx.fillStyle = pulse > 0.6 ? '#ffffff' : '#9baed8';
         ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 0.65, 0, Math.PI * 2); ctx.fill();
       } else if (theme.particleEffect === 'smoke') {
-        if (theme.style === 'Cyberpunk') {
-          const motePulse = 0.35 + 0.25 * pulse;
-          ctx.globalAlpha *= motePulse;
-          ctx.shadowColor = '#9da9c8'; ctx.shadowBlur = glowBlur(5);
-          ctx.strokeStyle = '#9da9c8'; ctx.lineWidth = 0.7;
-          ctx.strokeRect(particle.x - particle.size, particle.y - particle.size, particle.size * 2, particle.size * 2);
-          ctx.beginPath(); ctx.moveTo(particle.x - particle.size * 2.5, particle.y); ctx.lineTo(particle.x - particle.size, particle.y); ctx.stroke();
-          ctx.fillStyle = '#c8faff'; ctx.fillRect(particle.x, particle.y, 1, 1);
+        if (theme.style === 'City') {
+          // Street steam and dust should read as soft air, never outlined pixels.
+          ctx.globalAlpha *= 0.18 + 0.18 * pulse;
+          ctx.fillStyle = '#c8d0d1';
+          ctx.beginPath();
+          ctx.ellipse(particle.x, particle.y, particle.size * 1.8, particle.size * 1.05, -0.18, 0, Math.PI * 2);
+          ctx.fill();
         } else {
           ctx.fillStyle = 'rgba(174, 191, 201, 0.28)';
           ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 1.7, 0, Math.PI * 2); ctx.fill();
@@ -812,7 +811,7 @@
         ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x + particle.size * 11, particle.y); ctx.stroke();
       } else if (theme.particleEffect === 'pixels') {
         const pixelColor = pulse > 0.5 ? '#00f0ff' : '#ff007f';
-        ctx.globalAlpha *= theme.style === 'Cyberpunk' ? Math.max(0.1, theme.emission / 20) : (theme.emission < 3 ? 0.3 : theme.emission < 8 ? 0.6 : 1);
+        ctx.globalAlpha *= theme.style === 'City' ? Math.max(0.1, theme.emission / 20) : (theme.emission < 3 ? 0.3 : theme.emission < 8 ? 0.6 : 1);
         ctx.shadowColor = pixelColor; ctx.shadowBlur = glowBlur(theme.cycleStage === 'NIGHT' ? 10 : 5);
         ctx.fillStyle = pixelColor;
         ctx.fillRect(particle.x, particle.y, particle.size * (0.8 + pulse * 0.45), particle.size * (0.8 + pulse * 0.45));
@@ -830,26 +829,17 @@
     ctx.save();
     ctx.fillStyle = theme.lighting;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
-    if (theme.style === 'Cyberpunk' && theme.emission > 8) {
-      const bloom = ctx.createLinearGradient(0, 0, V_WIDTH, GROUND_Y);
-      const strength = Math.min(0.14, (theme.emission - 8) * 0.012);
-      bloom.addColorStop(0, `rgba(31, 213, 255, ${strength})`);
-      bloom.addColorStop(0.5, 'rgba(86, 34, 155, 0.025)');
-      bloom.addColorStop(1, `rgba(255, 48, 174, ${strength})`);
-      ctx.fillStyle = bloom;
-      ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
-    }
-    if (theme.style === 'Cyberpunk' && theme.cycleStage === 'NIGHT') {
+    if (theme.style === 'City' && theme.cycleStage === 'NIGHT') {
       ctx.globalCompositeOperation = 'screen';
       ctx.globalAlpha = Math.max(0.35, (theme.emission || 0) / 20);
       for (const glow of [
-        [48, GROUND_Y - 150, '#00eaff', 112],
-        [168, GROUND_Y - 205, '#963bff', 145],
-        [302, GROUND_Y - 165, '#ff168d', 122]
+        [48, GROUND_Y - 150, '#ffe082', 112],
+        [168, GROUND_Y - 205, '#f4e2b0', 145],
+        [302, GROUND_Y - 165, '#ffb36b', 122]
       ]) {
         const [gx, gy, color, radius] = glow;
         const volume = ctx.createRadialGradient(gx, gy, 2, gx, gy, radius);
-        volume.addColorStop(0, color === '#00eaff' ? 'rgba(0,234,255,0.24)' : color === '#ff168d' ? 'rgba(255,22,141,0.2)' : 'rgba(150,59,255,0.2)');
+        volume.addColorStop(0, color === '#ffe082' ? 'rgba(255,224,130,0.16)' : color === '#ffb36b' ? 'rgba(255,179,107,0.14)' : 'rgba(244,226,176,0.12)');
         volume.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = volume; ctx.fillRect(gx - radius, gy - radius, radius * 2, radius * 2);
       }
@@ -857,9 +847,9 @@
     ctx.restore();
   }
 
-  let cyberCarbonPattern = null;
-  function getCyberCarbonPattern() {
-    if (cyberCarbonPattern) return cyberCarbonPattern;
+  let cityFacadeTexture = null;
+  function getCityGlassPattern() {
+    if (cityFacadeTexture) return cityFacadeTexture;
     const tile = document.createElement('canvas');
     tile.width = 12; tile.height = 12;
     const tileCtx = tile.getContext('2d');
@@ -867,45 +857,21 @@
     tileCtx.beginPath(); tileCtx.moveTo(-3, 9); tileCtx.lineTo(3, 3); tileCtx.lineTo(9, 9); tileCtx.lineTo(15, 3); tileCtx.stroke();
     tileCtx.strokeStyle = 'rgba(8, 10, 24, 0.75)'; tileCtx.lineWidth = 0.8;
     tileCtx.beginPath(); tileCtx.moveTo(-3, 11); tileCtx.lineTo(3, 5); tileCtx.lineTo(9, 11); tileCtx.lineTo(15, 5); tileCtx.stroke();
-    cyberCarbonPattern = ctx.createPattern(tile, 'repeat');
-    return cyberCarbonPattern;
+    cityFacadeTexture = ctx.createPattern(tile, 'repeat');
+    return cityFacadeTexture;
   }
 
   function drawThemeLandmarks(theme, opacity = 1) {
-    const drift = (worldFrame * gameSpeed * 0.12) % 440;
+    const drift = groundScrollOffset % 440;
     const farDrift = (worldFrame * gameSpeed * 0.035) % 440;
     ctx.save();
     ctx.globalAlpha = opacity;
-    if (theme.style === 'Cyberpunk') {
-      const haze = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-      if (theme.cycleStage === 'DAWN') {
-        haze.addColorStop(0, 'rgba(70, 113, 161, 0.5)');
-        haze.addColorStop(0.6, 'rgba(119, 104, 153, 0.35)');
-        haze.addColorStop(1, 'rgba(115, 192, 209, 0.12)');
-      } else if (theme.cycleStage === 'DAY') {
-        haze.addColorStop(0, 'rgba(70, 79, 91, 0.62)');
-        haze.addColorStop(0.65, 'rgba(103, 109, 119, 0.44)');
-        haze.addColorStop(1, 'rgba(72, 79, 93, 0.16)');
-      } else if (theme.cycleStage === 'SUNSET') {
-        haze.addColorStop(0, 'rgba(39, 13, 62, 0.46)');
-        haze.addColorStop(0.58, 'rgba(111, 24, 93, 0.34)');
-        haze.addColorStop(1, 'rgba(232, 54, 132, 0.12)');
-      } else {
-        haze.addColorStop(0, 'rgba(1, 2, 10, 0.86)');
-        haze.addColorStop(0.72, 'rgba(4, 5, 18, 0.68)');
-        haze.addColorStop(1, 'rgba(10, 8, 27, 0.28)');
-      }
+    if (theme.style === 'City') {
+      const haze = ctx.createLinearGradient(0, GROUND_Y - 190, 0, GROUND_Y);
+      haze.addColorStop(0, theme.cycleStage === 'NIGHT' ? 'rgba(8, 14, 25, 0)' : 'rgba(220, 220, 218, 0)');
+      haze.addColorStop(0.72, theme.cycleStage === 'NIGHT' ? 'rgba(224, 169, 104, 0.08)' : 'rgba(229, 208, 185, 0.12)');
+      haze.addColorStop(1, theme.cycleStage === 'NIGHT' ? 'rgba(255, 190, 110, 0.2)' : 'rgba(236, 219, 194, 0.24)');
       ctx.fillStyle = haze; ctx.fillRect(0, 0, V_WIDTH, GROUND_Y);
-      ctx.save();
-      ctx.globalAlpha = opacity * 0.24;
-      ctx.strokeStyle = '#5b3e89'; ctx.lineWidth = 0.7;
-      for (let gx = 12; gx < V_WIDTH; gx += 28) {
-        ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, GROUND_Y); ctx.stroke();
-      }
-      for (let gy = 18; gy < GROUND_Y; gy += 28) {
-        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(V_WIDTH, gy); ctx.stroke();
-      }
-      ctx.restore();
     }
       ctx.fillStyle = theme.far;
       for (let x = -440 - farDrift; x < V_WIDTH + 440; x += 440) {
@@ -921,47 +887,26 @@
           ctx.beginPath(); ctx.moveTo(x + px + width / 2, GROUND_Y - 21 - height); ctx.lineTo(x + px + width, GROUND_Y - 21); ctx.lineTo(x + px + width / 2, GROUND_Y - 21); ctx.closePath(); ctx.fill();
           ctx.fillStyle = '#d9a578';
         }
-      } else if (theme.style === 'Cyberpunk') {
-        // Far monolith skyline with restrained window lights and a holographic billboard.
+      } else if (theme.style === 'City') {
+        // Distant, low contrast high-rises establish scale behind the main skyline.
         for (let building = 0; building < 10; building++) {
           const bx = x + building * 47;
           const height = 92 + ((building * 53 + 31) % 138);
           const width = 34 + (building % 3) * 5;
-          ctx.fillStyle = building % 2 ? '#0c1028' : '#10152f';
+          ctx.fillStyle = building % 2 ? '#17212c' : '#202a34';
           ctx.fillRect(bx, GROUND_Y - height, width, height);
-          ctx.fillStyle = '#28204d';
-          ctx.fillRect(bx + 3, GROUND_Y - height, width - 6, 2);
+          ctx.fillStyle = '#303b44'; ctx.fillRect(bx + 3, GROUND_Y - height, width - 6, 3);
+          if (building % 4 === 1) {
+            ctx.beginPath(); ctx.moveTo(bx + 3, GROUND_Y - height); ctx.lineTo(bx + width / 2, GROUND_Y - height - 22); ctx.lineTo(bx + width - 3, GROUND_Y - height); ctx.fill();
+          }
           for (let row = 0; row < Math.floor(height / 18); row++) {
-            const flicker = Math.sin(worldFrame * 0.018 + building * 3.7 + row * 2.1);
-            if (flicker > 0.15) {
-              ctx.globalAlpha = opacity * Math.max(0.1, (theme.emission || 0) / 20) * (0.55 + 0.45 * Math.max(0, flicker));
-              ctx.fillStyle = (building + row) % 3 ? '#37d9ed' : '#ed3cae';
+            if ((building * 7 + row * 3) % 5 < 3) {
+              ctx.globalAlpha = opacity * (0.2 + 0.8 * ((theme.emission || 0) / 20));
+              ctx.fillStyle = (building + row) % 4 ? '#f6df9a' : '#e8edf0';
               ctx.fillRect(bx + 6 + ((row % 2) * 9), GROUND_Y - height + 10 + row * 18, 3, 6);
               ctx.globalAlpha = opacity;
             }
           }
-        }
-        const billboardX = x + 205;
-        const billboardY = GROUND_Y - 190;
-        const holoPulse = (0.82 + Math.sin(worldFrame * 0.035) * 0.18) * Math.max(0.1, (theme.emission || 0) / 20);
-        ctx.fillStyle = '#11142b'; ctx.fillRect(billboardX, billboardY, 72, 35);
-        ctx.globalAlpha = opacity * holoPulse;
-        if (theme.cycleStage === 'DAWN') {
-          const morningMist = ctx.createLinearGradient(0, billboardY - 8, 0, billboardY + 44);
-          morningMist.addColorStop(0, 'rgba(181, 183, 232, 0.05)');
-          morningMist.addColorStop(0.5, 'rgba(191, 198, 238, 0.38)');
-          morningMist.addColorStop(1, 'rgba(191, 198, 238, 0)');
-          ctx.fillStyle = morningMist; ctx.fillRect(billboardX - 8, billboardY - 8, 88, 52);
-        }
-        ctx.strokeStyle = '#37efff'; ctx.lineWidth = 1.4; ctx.shadowColor = '#37efff'; ctx.shadowBlur = 9;
-        ctx.strokeRect(billboardX + 2, billboardY + 2, 68, 31);
-        ctx.fillStyle = 'rgba(44, 211, 245, 0.18)'; ctx.fillRect(billboardX + 4, billboardY + 4, 64, 27);
-        ctx.shadowBlur = 0; ctx.globalAlpha = opacity;
-        ctx.fillStyle = '#ff4ac8'; ctx.fillRect(billboardX + 10, billboardY + 9, 35, 2);
-        ctx.fillStyle = '#b6fbff'; ctx.fillRect(billboardX + 10, billboardY + 16, 50, 2);
-        ctx.fillStyle = '#10152f';
-        for (let support = 0; support < 3; support++) {
-          ctx.fillRect(billboardX + 9 + support * 27, billboardY + 35, 3, 45);
         }
       } else if (theme.style === 'highway') {
         ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 16); ctx.lineTo(x + 95, GROUND_Y - 58); ctx.lineTo(x + 220, GROUND_Y - 20); ctx.lineTo(x + 330, GROUND_Y - 64); ctx.lineTo(x + 440, GROUND_Y - 16); ctx.fill();
@@ -1010,45 +955,43 @@
           ctx.restore();
         }
       }
-    } else if (theme.style === 'Cyberpunk') {
+    } else if (theme.style === 'City') {
       for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
-        const windowGlow = 0.18 + 0.82 * (theme.emission / 20);
-        // Midground towers overlap the far monoliths and carry more vivid window grids.
+        const windowGlow = 0.08 + 0.92 * (theme.emission / 20);
+        // Layered office blocks, glass towers and spired rooftops.
         for (let i = 0; i < 11; i++) {
           const bx = x + i * 43 - 5;
           const h = 76 + ((i * 47 + 23) % 116);
           const bw = 30 + (i % 3) * 4;
-          ctx.fillStyle = i % 2 ? '#18142f' : '#21173b';
+          ctx.fillStyle = i % 2 ? '#202a33' : '#303a42';
           ctx.fillRect(bx, GROUND_Y - h, bw, h);
-          ctx.fillStyle = '#34204d'; ctx.fillRect(bx - 2, GROUND_Y - h, bw + 4, 3);
-          ctx.fillStyle = '#171329'; ctx.fillRect(bx + bw * 0.5 - 1, GROUND_Y - h - 13, 2, 13);
+          ctx.fillStyle = '#657078'; ctx.globalAlpha = opacity * 0.45; ctx.fillRect(bx + 3, GROUND_Y - h + 2, 2, h - 3); ctx.globalAlpha = opacity;
+          ctx.fillStyle = '#3a454b'; ctx.fillRect(bx - 2, GROUND_Y - h, bw + 4, 3);
+          if (i % 3 === 0) { ctx.fillStyle = '#252d33'; ctx.fillRect(bx + bw * 0.5 - 1, GROUND_Y - h - 13, 2, 13); }
           for (let row = 0; row < Math.floor((h - 10) / 14); row++) {
-            const flicker = Math.sin(worldFrame * 0.035 + i * 5.7 + row * 3.1);
-            if (flicker > -0.15) {
-              ctx.globalAlpha = windowGlow * opacity * (0.55 + Math.max(0, flicker) * 0.45);
-              ctx.fillStyle = flicker > 0.6 ? '#70f5ff' : (row % 3 ? '#e45bc8' : '#8f68ff');
+            if ((i * 7 + row * 3) % 5 < 3) {
+              ctx.globalAlpha = windowGlow * opacity;
+              ctx.fillStyle = (i + row) % 5 ? '#f3d98d' : '#e8edf0';
               ctx.fillRect(bx + 6 + (row % 2) * 11, GROUND_Y - h + 9 + row * 14, 4, 6);
               ctx.globalAlpha = opacity;
             }
           }
         }
-        // Elevated skybridge gantry connecting the midground towers.
+        // Restrained rooftop utility bridge and steel supports add depth.
         const bridgeY = GROUND_Y - 116;
-        ctx.fillStyle = '#111329'; ctx.fillRect(x + 18, bridgeY, 402, 10);
-        ctx.fillStyle = '#38eaff'; ctx.fillRect(x + 18, bridgeY, 402, 2);
-        ctx.fillStyle = '#ed3fae'; ctx.fillRect(x + 18, bridgeY + 9, 402, 2);
+        ctx.fillStyle = '#343d43'; ctx.fillRect(x + 18, bridgeY, 402, 6);
+        ctx.fillStyle = '#69747a'; ctx.fillRect(x + 18, bridgeY, 402, 1);
         for (let support = 0; support < 9; support++) {
           const sx = x + 32 + support * 48;
-          ctx.fillStyle = '#21183b'; ctx.fillRect(sx, bridgeY + 11, 4, GROUND_Y - bridgeY - 18);
-          ctx.fillStyle = '#37d9ed'; ctx.fillRect(sx, bridgeY + 14, 1, 28);
+          ctx.fillStyle = '#30393f'; ctx.fillRect(sx, bridgeY + 6, 3, GROUND_Y - bridgeY - 13);
         }
         const streetlightPower = Math.max(0.1, (theme.emission || 0) / 20);
         for (const lampX of [x + 58, x + 174, x + 300, x + 406]) {
           ctx.strokeStyle = '#62627a'; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.moveTo(lampX, GROUND_Y - 8); ctx.lineTo(lampX, GROUND_Y - 58); ctx.lineTo(lampX + 10, GROUND_Y - 64); ctx.stroke();
           ctx.save(); ctx.globalAlpha = opacity * streetlightPower;
-          ctx.shadowColor = '#ff4ac8'; ctx.shadowBlur = 12;
-          ctx.fillStyle = '#ffd7ff'; ctx.beginPath(); ctx.arc(lampX + 10, GROUND_Y - 64, 2.4, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowColor = '#ffe082'; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 12 : 3;
+          ctx.fillStyle = '#fff1c0'; ctx.beginPath(); ctx.arc(lampX + 10, GROUND_Y - 64, 2.4, 0, Math.PI * 2); ctx.fill();
           ctx.restore();
         }
         ctx.fillStyle = '#171329';
@@ -1120,8 +1063,10 @@
         if (theme.style === 'kerala') {
           for (let palmX = x + 95; palmX < x + 400; palmX += 145) { ctx.strokeStyle = theme.near; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(palmX, GROUND_Y - 12); ctx.quadraticCurveTo(palmX - 8, GROUND_Y - 70, palmX + 5, GROUND_Y - 126); ctx.stroke(); ctx.fillStyle = theme.near; for (let a = -2; a <= 2; a++) { ctx.beginPath(); ctx.ellipse(palmX + a * 15, GROUND_Y - 128 + Math.abs(a) * 8, 22, 5, a * 0.28, 0, Math.PI * 2); ctx.fill(); } }
           ctx.fillStyle = '#4b2f23';
-          ctx.beginPath(); ctx.moveTo(x + 172, GROUND_Y - 25); ctx.quadraticCurveTo(x + 226, GROUND_Y - 7, x + 280, GROUND_Y - 25); ctx.lineTo(x + 266, GROUND_Y - 12); ctx.lineTo(x + 185, GROUND_Y - 12); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = '#b98a55'; ctx.fillRect(x + 209, GROUND_Y - 40, 35, 17); ctx.fillRect(x + 217, GROUND_Y - 49, 18, 9);
+          // Keep the houseboat hull seated on the river line, with the cabin
+          // resting directly on its deck instead of hovering above the bank.
+          ctx.beginPath(); ctx.moveTo(x + 172, GROUND_Y - 24); ctx.lineTo(x + 280, GROUND_Y - 24); ctx.lineTo(x + 266, GROUND_Y - 10); ctx.quadraticCurveTo(x + 226, GROUND_Y - 4, x + 185, GROUND_Y - 10); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#b98a55'; ctx.fillRect(x + 209, GROUND_Y - 39, 35, 15); ctx.fillRect(x + 217, GROUND_Y - 48, 18, 9);
           ctx.fillStyle = theme.near;
         } else {
           ctx.fillStyle = theme.near; ctx.beginPath(); ctx.arc(x + 260, GROUND_Y - 62, 20, Math.PI, 0); ctx.fillRect(x + 240, GROUND_Y - 62, 40, 50); ctx.fill();
@@ -1129,11 +1074,6 @@
           ctx.fillStyle = '#98a884'; ctx.strokeStyle = '#354e3c'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x + 131, GROUND_Y - 101, 44, Math.PI, 0); ctx.lineTo(x + 175, GROUND_Y - 89); ctx.lineTo(x + 87, GROUND_Y - 89); ctx.closePath(); ctx.fill(); ctx.stroke();
         }
       }
-    }
-    if (theme.style === 'Cyberpunk') {
-      ctx.strokeStyle = '#353052'; ctx.globalAlpha = opacity; ctx.lineWidth = 1;
-      for (let x = -40; x < V_WIDTH + 40; x += 40) { ctx.beginPath(); ctx.moveTo(V_WIDTH / 2, GROUND_Y - 42); ctx.lineTo(x, GROUND_Y); ctx.stroke(); }
-      for (let y = GROUND_Y - 34; y < GROUND_Y; y += 12) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(V_WIDTH, y); ctx.stroke(); }
     }
     if (theme.style === 'kerala') {
       ctx.globalAlpha = opacity;
@@ -1172,30 +1112,45 @@
       ctx.fillStyle = '#41474a'; ctx.fillRect(0, GROUND_Y + 8, V_WIDTH, 2);
       ctx.fillStyle = '#626c70';
       for (let x = -(groundScrollOffset % 64); x < V_WIDTH; x += 64) ctx.fillRect(x, GROUND_Y + 16, 28, 2);
-    } else if (theme.style === 'Cyberpunk') {
-      ctx.strokeStyle = '#3d3471'; ctx.lineWidth = 1.4;
-      for (let x = -(groundScrollOffset * 2 % 58); x < V_WIDTH + 58; x += 58) {
-        ctx.beginPath(); ctx.moveTo(V_WIDTH / 2 + (x - V_WIDTH / 2) * 0.18, GROUND_Y); ctx.lineTo(x, V_HEIGHT); ctx.stroke();
+    } else if (theme.style === 'City') {
+      // Asphalt lanes recede toward the horizon; lane paint and reflected
+      // traffic move with the same near-city parallax as the landscape.
+      ctx.strokeStyle = 'rgba(174, 185, 187, 0.18)'; ctx.lineWidth = 1;
+      for (let x = -(groundScrollOffset % 88); x < V_WIDTH + 88; x += 88) {
+        ctx.beginPath(); ctx.moveTo(V_WIDTH / 2 + (x - V_WIDTH / 2) * 0.16, GROUND_Y + 5); ctx.lineTo(x, V_HEIGHT); ctx.stroke();
       }
-      for (let y = GROUND_Y + 14; y < V_HEIGHT; y += 17) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(V_WIDTH, y); ctx.stroke();
-      }
-      // Neon circuit lanes and light pulses move along the horizontal floor tracks.
-      ctx.save();
-      ctx.shadowColor = '#19ddff'; ctx.shadowBlur = 7;
-      for (let row = 1; row < 10; row++) {
-        const y = GROUND_Y + 14 + row * 17;
-        const pulseX = ((worldFrame * (1.8 + row * 0.12) + row * 47) % (V_WIDTH + 54)) - 27;
-        const phaseGlow = 0.45 + 0.55 * ((theme.emission || 0) / 20);
-        ctx.globalAlpha = opacity * phaseGlow * (0.55 + 0.35 * Math.sin(worldFrame * 0.08 + row));
-        ctx.strokeStyle = row % 3 === 0 || theme.cycleStage === 'SUNSET' ? '#fa39b7' : '#19ddff';
-        ctx.lineWidth = row % 3 === 0 ? 1.4 : 1;
-        ctx.beginPath(); ctx.moveTo(pulseX - 20, y); ctx.lineTo(pulseX + 20, y); ctx.stroke();
+      ctx.save(); ctx.shadowColor = '#ffe082'; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 12 : 3;
+      ctx.fillStyle = '#d6ae45';
+      for (let x = -(groundScrollOffset % 112); x < V_WIDTH + 112; x += 112) {
+        const perspectiveX = V_WIDTH / 2 + (x - V_WIDTH / 2) * 0.42;
+        ctx.fillRect(perspectiveX, GROUND_Y + 15, 2, 8);
+        ctx.fillRect(x, GROUND_Y + 56, 4, 18);
       }
       ctx.restore();
-      ctx.fillStyle = '#53e9f2'; ctx.fillRect(0, GROUND_Y + 4, V_WIDTH, 2);
-      ctx.fillStyle = '#f14bad'; ctx.fillRect(0, GROUND_Y + 7, V_WIDTH, 1);
+      const trafficPower = theme.cycleStage === 'NIGHT' ? 0.72 : theme.cycleStage === 'SUNSET' ? 0.42 : 0.13;
+      ctx.save(); ctx.globalAlpha = opacity * trafficPower;
+      for (let i = 0; i < 5; i++) {
+        const streakX = ((i * 83 - groundScrollOffset * 1.2) % (V_WIDTH + 100) + V_WIDTH + 100) % (V_WIDTH + 100) - 50;
+        ctx.strokeStyle = i % 2 ? '#f5eee1' : '#c74d4b'; ctx.lineWidth = i % 2 ? 1.5 : 2;
+        ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 12 : 4;
+        ctx.beginPath(); ctx.moveTo(streakX, GROUND_Y + 33 + i * 12); ctx.lineTo(streakX + 26, GROUND_Y + 33 + i * 12); ctx.stroke();
+      }
+      ctx.restore();
     } else if (theme.style === 'desert') {
+      // Fine, wind-carved sand bands. Keep the pattern locked to the nearby
+      // scenery drift so it never races the background or jumps at a wrap.
+      ctx.strokeStyle = theme.accent;
+      ctx.lineWidth = 1.25;
+      ctx.globalAlpha = opacity * 0.42;
+      for (let x = -(groundScrollOffset % 96); x < V_WIDTH + 96; x += 96) {
+        ctx.beginPath();
+        ctx.moveTo(x, GROUND_Y + 28);
+        ctx.quadraticCurveTo(x + 22, GROUND_Y + 23, x + 48, GROUND_Y + 28);
+        ctx.quadraticCurveTo(x + 70, GROUND_Y + 33, x + 96, GROUND_Y + 28);
+        ctx.stroke();
+        ctx.fillRect(x + 18, GROUND_Y + 67, 3, 1);
+        ctx.fillRect(x + 66, GROUND_Y + 82, 2, 1);
+      }
     } else if (theme.style === 'kerala') {
       ctx.fillStyle = '#2c6b4a';
       for (let x = -(groundScrollOffset % 44); x < V_WIDTH; x += 44) {
@@ -1644,7 +1599,7 @@
 
       // --- 1. Pipe Shaft Cylindrical 3D Texture ---
       const shaftGrad = ctx.createLinearGradient(x, 0, x + w, 0);
-      if (theme.style === 'Cyberpunk') {
+      if (theme.style === 'City') {
         shaftGrad.addColorStop(0, '#100e22');
         shaftGrad.addColorStop(0.12, '#211634');
         shaftGrad.addColorStop(0.28, '#302044');
@@ -1661,16 +1616,16 @@
         shaftGrad.addColorStop(1, shaftColors[5]);
       }
 
-      const neonColor = isTop ? '#00f0ff' : '#ff007f';
-      const cyberPulse = 0.68 + 0.32 * (0.5 + 0.5 * Math.sin(worldFrame * 0.085 + x * 0.025));
+      const cityLightColor = isTop ? '#00f0ff' : '#ff007f';
+      const cityPulse = 0.68 + 0.32 * (0.5 + 0.5 * Math.sin(worldFrame * 0.085 + x * 0.025));
       ctx.save();
       ctx.fillStyle = shaftGrad;
       ctx.fillRect(x, shaftY, w, shaftHeight);
-      if (theme.style === 'Cyberpunk') {
+      if (theme.style === 'City') {
         ctx.save();
         ctx.beginPath(); ctx.rect(x, shaftY, w, shaftHeight); ctx.clip();
-        ctx.globalAlpha = 0.58 + 0.12 * cyberPulse;
-        ctx.fillStyle = getCyberCarbonPattern(); ctx.fillRect(x, shaftY, w, shaftHeight);
+        ctx.globalAlpha = 0.58 + 0.12 * cityPulse;
+        ctx.fillStyle = getCityGlassPattern(); ctx.fillRect(x, shaftY, w, shaftHeight);
         const reflection = ctx.createLinearGradient(x + 9, 0, x + 26, 0);
         reflection.addColorStop(0, 'rgba(200, 250, 255, 0)');
         reflection.addColorStop(0.42, 'rgba(200, 250, 255, 0.2)');
@@ -1690,23 +1645,23 @@
 
       // Shaft Outline
       ctx.save();
-      if (theme.style === 'Cyberpunk') {
-        ctx.shadowColor = neonColor;
-        ctx.shadowBlur = 22 * cyberPulse;
+      if (theme.style === 'City') {
+        ctx.shadowColor = cityLightColor;
+        ctx.shadowBlur = 22 * cityPulse;
       }
-      ctx.strokeStyle = theme.style === 'Cyberpunk' ? neonColor : theme.outline;
-      if (theme.style === 'Cyberpunk') ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * cyberPulse;
-      ctx.lineWidth = theme.style === 'Cyberpunk' ? 3 : 2.5;
+      ctx.strokeStyle = theme.style === 'City' ? cityLightColor : theme.outline;
+      if (theme.style === 'City') ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * cityPulse;
+      ctx.lineWidth = theme.style === 'City' ? 3 : 2.5;
       ctx.strokeRect(x, shaftY, w, shaftHeight);
-      if (theme.style === 'Cyberpunk') {
+      if (theme.style === 'City') {
         ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#eaffff'; ctx.lineWidth = 0.9; ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * 0.75 * cyberPulse;
+        ctx.strokeStyle = '#eaffff'; ctx.lineWidth = 0.9; ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * 0.75 * cityPulse;
         ctx.strokeRect(x + 2.5, shaftY + 1, w - 5, shaftHeight - 2);
       }
       ctx.restore();
 
       // Glossy Vertical Specular Stripe
-      if (theme.style !== 'Cyberpunk') {
+      if (theme.style !== 'City') {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
         ctx.fillRect(x + w * 0.32, shaftY, 3, shaftHeight);
       }
@@ -1788,12 +1743,12 @@
             ctx.fillStyle = '#e2e6e3'; ctx.beginPath(); ctx.arc(boltX - 0.6, markY + railHeight / 2 - 0.6, 0.8, 0, Math.PI * 2); ctx.fill();
           }
         }
-      } else if (theme.style === 'Cyberpunk') {
+      } else if (theme.style === 'City') {
         const core = ctx.createLinearGradient(x + 24, 0, x + 38, 0);
         core.addColorStop(0, 'rgba(60,236,255,0)'); core.addColorStop(0.5, 'rgba(60,236,255,0.42)'); core.addColorStop(1, 'rgba(255,57,192,0)');
-        ctx.globalAlpha = (0.08 + 0.42 * (theme.emission / 20)) * cyberPulse;
+        ctx.globalAlpha = (0.08 + 0.42 * (theme.emission / 20)) * cityPulse;
         ctx.fillStyle = core; ctx.fillRect(x + 22, shaftY, 18, shaftHeight);
-        ctx.strokeStyle = neonColor; ctx.lineWidth = 1.4; ctx.shadowColor = neonColor; ctx.shadowBlur = 10 * cyberPulse;
+        ctx.strokeStyle = cityLightColor; ctx.lineWidth = 1.4; ctx.shadowColor = cityLightColor; ctx.shadowBlur = 10 * cityPulse;
         ctx.globalAlpha = Math.max(0.1, theme.emission / 20);
         for (let traceY = shaftY + 18; traceY < shaftY + shaftHeight; traceY += 46) {
           const bendX = x + 16 + (Math.floor(traceY / 46) % 2) * 25;
@@ -1826,8 +1781,8 @@
       lipGrad.addColorStop(1, lipColors[4]);
 
       ctx.save();
-      if (theme.style === 'Cyberpunk') {
-        ctx.shadowColor = neonColor;
+      if (theme.style === 'City') {
+        ctx.shadowColor = cityLightColor;
         ctx.shadowBlur = 0;
       }
       ctx.fillStyle = lipGrad;
@@ -1843,7 +1798,7 @@
         ctx.fillRect(lipX, lipY, lipWidth, lipHeight);
         ctx.restore();
       }
-      if (theme.style === 'Cyberpunk') {
+      if (theme.style === 'City') {
         const chrome = ctx.createLinearGradient(0, lipY + 3, 0, lipY + lipHeight - 3);
         chrome.addColorStop(0, '#34445b'); chrome.addColorStop(0.25, '#c5d5e2');
         chrome.addColorStop(0.48, '#657b91'); chrome.addColorStop(0.72, '#d9e8ec'); chrome.addColorStop(1, '#35435c');
@@ -1911,28 +1866,28 @@
 
       // Lip Outline
       ctx.save();
-      if (theme.style === 'Cyberpunk') { ctx.shadowColor = neonColor; ctx.shadowBlur = 22 * cyberPulse; ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * cyberPulse; }
-      ctx.strokeStyle = theme.style === 'Cyberpunk' ? neonColor : theme.outline;
-      ctx.lineWidth = theme.style === 'Cyberpunk' ? 3 : 2.5;
+      if (theme.style === 'City') { ctx.shadowColor = cityLightColor; ctx.shadowBlur = 22 * cityPulse; ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * cityPulse; }
+      ctx.strokeStyle = theme.style === 'City' ? cityLightColor : theme.outline;
+      ctx.lineWidth = theme.style === 'City' ? 3 : 2.5;
       this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3);
       ctx.stroke();
-      if (theme.style === 'Cyberpunk') {
-        ctx.shadowBlur = 0; ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * 0.82 * cyberPulse;
+      if (theme.style === 'City') {
+        ctx.shadowBlur = 0; ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * 0.82 * cityPulse;
         ctx.strokeStyle = '#efffff'; ctx.lineWidth = 0.9;
         this.roundRect(ctx, lipX + 3, lipY + 3, lipWidth - 6, lipHeight - 6, 2);
         ctx.stroke();
       }
       ctx.restore();
 
-      if (theme.style === 'Cyberpunk') {
+      if (theme.style === 'City') {
         const sparkPulse = 0.55 + Math.sin(worldFrame * 0.42 + (isTop ? 0 : 1.7)) * 0.35;
         const arcBurst = Math.sin(worldFrame * 0.11 + x * 0.04 + (isTop ? 0 : 2)) > 0.45 ? 1 : 0.18;
         ctx.save();
         ctx.globalAlpha = sparkPulse * arcBurst * Math.max(0.1, theme.emission / 20);
-        ctx.strokeStyle = neonColor;
+        ctx.strokeStyle = cityLightColor;
         ctx.fillStyle = '#eaffff';
         ctx.lineWidth = 1.6;
-        ctx.shadowColor = neonColor;
+        ctx.shadowColor = cityLightColor;
         ctx.shadowBlur = 12 * sparkPulse;
         for (const side of [0, 1]) {
           const startX = side ? lipX + lipWidth - 4 : lipX + 4;
@@ -1984,29 +1939,47 @@
       ctx.fillStyle = cavernGrad;
       ctx.fillRect(lipX + 2, isTop ? lipY + lipHeight - 6 : lipY, lipWidth - 4, 6);
 
-      // A wide illuminated footing makes the Cyberpunk pipe visibly anchor to the grid.
-      if (theme.style === 'Cyberpunk' && !isTop) {
-        const footWidth = w + 52;
-        const footX = x - (footWidth - w) / 2;
-        const footY = GROUND_Y - 22;
-        ctx.save();
-        ctx.fillStyle = '#111323';
-        ctx.beginPath(); ctx.moveTo(footX + 7, footY); ctx.lineTo(footX + footWidth - 7, footY); ctx.lineTo(footX + footWidth, footY + 17); ctx.lineTo(footX, footY + 17); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#34344f'; ctx.fillRect(footX + 5, footY + 3, footWidth - 10, 4);
-        ctx.fillStyle = '#54317c'; ctx.fillRect(x - 7, footY - 4, w + 14, 9);
-        ctx.globalAlpha = Math.max(0.1, theme.emission / 20) * cyberPulse;
-        ctx.strokeStyle = '#ff007f'; ctx.lineWidth = 2;
-        ctx.shadowColor = '#ff007f'; ctx.shadowBlur = 16 * cyberPulse;
-        ctx.beginPath(); ctx.moveTo(footX + 3, footY + 16); ctx.lineTo(footX + footWidth - 3, footY + 16); ctx.stroke();
-        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(footX + 8, footY); ctx.lineTo(x - 5, footY); ctx.moveTo(x + w + 5, footY); ctx.lineTo(footX + footWidth - 8, footY); ctx.stroke();
-        ctx.shadowBlur = 0; ctx.globalAlpha = 1; ctx.fillStyle = '#c9d1db';
-        for (const rivetX of [footX + 10, footX + footWidth - 10]) {
-          ctx.beginPath(); ctx.arc(rivetX, footY + 8, 2.3, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#555c73'; ctx.fillRect(rivetX - 0.8, footY + 7.5, 1.6, 1);
-          ctx.fillStyle = '#c9d1db';
+      if (theme.style === 'City') {
+        // Repaint the former neon treatment as a steel-and-glass urban pillar.
+        ctx.save(); ctx.beginPath(); ctx.rect(x, shaftY, w, shaftHeight); ctx.clip();
+        const steel = ctx.createLinearGradient(x, 0, x + w, 0);
+        steel.addColorStop(0, '#11191e'); steel.addColorStop(0.16, '#46545a');
+        steel.addColorStop(0.23, '#202b31'); steel.addColorStop(0.72, '#172127');
+        steel.addColorStop(0.88, '#59666a'); steel.addColorStop(1, '#10171b');
+        ctx.fillStyle = steel; ctx.fillRect(x, shaftY, w, shaftHeight);
+        ctx.fillStyle = 'rgba(224, 239, 243, 0.22)'; ctx.fillRect(x + 7, shaftY, 3, shaftHeight);
+        ctx.fillStyle = 'rgba(7, 15, 20, 0.55)'; ctx.fillRect(x + 13, shaftY, 2, shaftHeight);
+        const night = theme.cycleStage === 'NIGHT';
+        for (let rowY = shaftY + 10; rowY < shaftY + shaftHeight - 4; rowY += 18) {
+          ctx.fillStyle = '#0b1217'; ctx.fillRect(x + 19, rowY, w - 24, 12);
+          ctx.fillStyle = night && Math.floor(rowY / 18) % 3 !== 0 ? '#e7c978' : '#34454d';
+          ctx.fillRect(x + 21, rowY + 2, 8, 8);
+          ctx.fillStyle = night ? 'rgba(255, 226, 157, 0.45)' : 'rgba(216, 235, 239, 0.24)';
+          ctx.fillRect(x + 22, rowY + 2, 2, 8);
+          ctx.fillStyle = '#080d10'; ctx.fillRect(x + 18, rowY + 13, w - 22, 2);
         }
         ctx.restore();
+        ctx.strokeStyle = '#0b1115'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, shaftY, w - 2, shaftHeight);
+
+        ctx.save(); this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3); ctx.clip();
+        const capMetal = ctx.createLinearGradient(lipX, 0, lipX + lipWidth, 0);
+        capMetal.addColorStop(0, '#252f34'); capMetal.addColorStop(0.22, '#859194');
+        capMetal.addColorStop(0.5, '#364249'); capMetal.addColorStop(0.82, '#9ba5a5'); capMetal.addColorStop(1, '#222b30');
+        ctx.fillStyle = capMetal; ctx.fillRect(lipX, lipY, lipWidth, lipHeight);
+        ctx.fillStyle = '#e6bd43'; ctx.fillRect(lipX + 2, lipY + 5, lipWidth - 4, 7);
+        ctx.fillStyle = '#22282a';
+        for (let stripeX = lipX - 8; stripeX < lipX + lipWidth; stripeX += 16) {
+          ctx.beginPath(); ctx.moveTo(stripeX, lipY + 12); ctx.lineTo(stripeX + 8, lipY + 12); ctx.lineTo(stripeX + 14, lipY + 5); ctx.lineTo(stripeX + 6, lipY + 5); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        ctx.strokeStyle = '#131b20'; ctx.lineWidth = 2; this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3); ctx.stroke();
+        if (isTop) {
+          const beacon = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(worldFrame * 0.12));
+          ctx.save(); ctx.globalAlpha = beacon; ctx.fillStyle = '#e84138'; ctx.shadowColor = '#ff665d'; ctx.shadowBlur = night ? 12 : 3;
+          ctx.beginPath(); ctx.arc(lipX + lipWidth - 8, lipY + 3, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        ctx.save(); ctx.shadowColor = '#ffe082'; ctx.shadowBlur = night ? 12 : 2;
+        ctx.fillStyle = 'rgba(244, 248, 247, 0.68)'; ctx.fillRect(x + 4, shaftY, 2, shaftHeight); ctx.restore();
       }
     }
 
@@ -2368,11 +2341,15 @@
       ctx.globalAlpha = Math.max(0, sp.alpha);
       ctx.translate(sp.x, sp.y);
       ctx.scale(sp.scale, sp.scale);
-      ctx.font = '900 24px "Fredoka", sans-serif';
+      ctx.font = '700 24px "Fredoka", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(25, 35, 42, 0.58)';
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = 'rgba(12, 22, 28, 0.22)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetY = 2;
       ctx.strokeText(sp.text, 0, 0);
       ctx.fillStyle = sp.color || '#ffffff';
       ctx.fillText(sp.text, 0, 0);
@@ -2460,13 +2437,13 @@
     srAnnouncements.textContent = `Game Over. Final score: ${score}. Best: ${highScore}.`;
   }
 
-  // --- Retro Arcade Score HUD & UI ---
+  // --- Clean, high-contrast score HUD ---
   function drawScoreHUD() {
     if (currentState !== STATE.PLAYING && currentState !== STATE.DYING) return;
 
     drawCoinCounter();
     ctx.save();
-    ctx.font = '900 48px "Fredoka", sans-serif';
+    ctx.font = '700 48px "Fredoka", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 
@@ -2474,15 +2451,15 @@
     const x = V_WIDTH / 2;
     const y = 56;
 
-    ctx.fillStyle = '#000000';
-    ctx.fillText(text, x + 2, y + 4);
-
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(20, 32, 38, 0.68)';
+    ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
     ctx.strokeText(text, x, y);
 
-    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(12, 26, 34, 0.24)';
+    ctx.shadowBlur = 7;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#fffdf5';
     ctx.fillText(text, x, y);
     ctx.restore();
   }
@@ -2651,19 +2628,19 @@
 
     ctx.textAlign = 'right';
 
-    ctx.font = '700 12px "Press Start 2P", monospace';
-    ctx.fillStyle = '#b85800';
+    ctx.font = '700 13px "Fredoka", sans-serif';
+    ctx.fillStyle = '#87551f';
     ctx.fillText('SCORE', cardX + cardW - 22, cardY + 46);
 
-    ctx.font = '800 28px "Fredoka", sans-serif';
+    ctx.font = '700 28px "Fredoka", sans-serif';
     ctx.fillStyle = '#2a1a08';
     ctx.fillText(score.toString(), cardX + cardW - 22, cardY + 82);
 
-    ctx.font = '700 12px "Press Start 2P", monospace';
-    ctx.fillStyle = '#b85800';
+    ctx.font = '700 13px "Fredoka", sans-serif';
+    ctx.fillStyle = '#87551f';
     ctx.fillText('BEST', cardX + cardW - 22, cardY + 124);
 
-    ctx.font = '800 28px "Fredoka", sans-serif';
+    ctx.font = '700 28px "Fredoka", sans-serif';
     ctx.fillStyle = '#2a1a08';
     ctx.fillText(highScore.toString(), cardX + cardW - 22, cardY + 160);
 
@@ -3296,7 +3273,10 @@
     const worldDeltaSeconds = worldActive ? deltaSeconds : 0;
     if (worldActive) {
       worldFrame++;
-      groundScrollOffset = (groundScrollOffset + gameSpeed) % GROUND_SCROLL_PERIOD;
+      // Integrate the near-layer speed instead of rebuilding its position from
+      // frame count. This keeps the ground and background in sync without
+      // introducing a positional jump as gameSpeed changes.
+      groundScrollOffset += gameSpeed * 0.12;
     }
 
     let shakeX = 0;
