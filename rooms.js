@@ -309,6 +309,7 @@
         resetRoom('The room was closed by its host.');
         return;
       }
+      const roundWasPlaying = room.phase === 'playing';
       room = { code, ...meta };
       members = nextMembers || {};
       if (!members[myUid()]) {
@@ -317,6 +318,13 @@
       }
       await armDisconnectCleanup(code);
       renderRoom();
+      // Dead players spectate until the host publishes the final standings,
+      // then return to the room lobby instead of seeing the solo replay screen.
+      if (roundWasPlaying && room.phase !== 'playing'
+        && window.FlappyGame && window.FlappyGame.isRoomPlayerOut
+        && window.FlappyGame.isRoomPlayerOut()) {
+        openPanel();
+      }
       await maybeStartRound();
       await maybeFinishRound();
       if (Date.now() - lastChatLoad > 1800) await loadChat();
@@ -377,10 +385,10 @@
     const lastManStandingToggle = $('last-man-standing-toggle');
     lastManStandingToggle.checked = room.lastManStanding !== false;
     lastManStandingToggle.disabled = !isHost || isPlaying;
-    $('room-ready-btn').classList.toggle('hidden', isPlaying);
+    $('room-ready-btn').classList.toggle('hidden', isPlaying || isHost);
     $('room-start-btn').classList.toggle('hidden', !isHost || isPlaying);
     $('room-ready-btn').textContent = me && me.ready ? 'Not ready' : 'I’m ready';
-    const allReady = roster.length >= 2 && roster.every(([, player]) => player.ready);
+    const allReady = roster.length >= 2 && roster.every(([uid, player]) => uid === room.hostUid || player.ready);
     $('room-start-btn').disabled = !allReady;
     $('room-start-btn').title = allReady ? 'Start this room match' : 'At least two players must be ready';
     const hasPlayed = Object.values(states).some(state => Number(state.roundAt) > 0);
@@ -419,8 +427,11 @@
   async function startMatch() {
     if (!room || room.hostUid !== myUid() || busy) return;
     const roster = Object.values(members);
-    if (roster.length < 2 || !roster.every(member => member.ready)) {
-      setStatus('Wait until everyone is ready.');
+    const everyoneElseReady = Object.entries(members)
+      .filter(([uid]) => uid !== myUid())
+      .every(([, member]) => member.ready);
+    if (roster.length < 2 || !everyoneElseReady) {
+      setStatus('Wait until all other players are ready.');
       return;
     }
     busy = true;

@@ -6,6 +6,7 @@
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#4ec0ca">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -152,6 +153,7 @@
 
     <div id="room-overlay" class="lb-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="room-title">
       <div class="lb-panel room-panel">
+        <button id="room-close-btn" class="room-close-x" type="button" aria-label="Close room">×</button>
         <h2 id="room-title">PRIVATE ROOM</h2>
         <p id="room-status" class="lb-status" aria-live="polite">Create a room and share its code with friends.</p>
         <div id="room-join-controls" class="room-controls">
@@ -163,16 +165,21 @@
         </div>
         <div id="room-session" class="room-session hidden">
           <div class="room-code-row"><span>ROOM CODE</span><strong id="room-code"></strong><button id="room-copy-btn" class="lb-link" type="button">Copy</button></div>
-          <label class="ghost-overlay-toggle" for="opponent-ghost-toggle">
-            <input id="opponent-ghost-toggle" type="checkbox">
-            <span class="ghost-toggle-switch" aria-hidden="true"></span>
-            <span class="ghost-toggle-copy"><b>Opponent Ghost Overlay</b><small>Show opponents during the match</small></span>
-          </label>
-          <label class="ghost-overlay-toggle" for="last-man-standing-toggle">
-            <input id="last-man-standing-toggle" type="checkbox">
-            <span class="ghost-toggle-switch" aria-hidden="true"></span>
-            <span class="ghost-toggle-copy"><b>Last bird standing</b><small>Host setting · end when one player remains</small></span>
-          </label>
+          <details class="room-game-settings">
+            <summary>⚙ Game settings</summary>
+            <div class="room-game-settings-options">
+              <label class="ghost-overlay-toggle" for="opponent-ghost-toggle">
+                <input id="opponent-ghost-toggle" type="checkbox">
+                <span class="ghost-toggle-switch" aria-hidden="true"></span>
+                <span class="ghost-toggle-copy"><b>Opponent Ghost Overlay</b><small>Show opponents during the match</small></span>
+              </label>
+              <label class="ghost-overlay-toggle" for="last-man-standing-toggle">
+                <input id="last-man-standing-toggle" type="checkbox">
+                <span class="ghost-toggle-switch" aria-hidden="true"></span>
+                <span class="ghost-toggle-copy"><b>Last bird standing</b><small>Host setting · end when one player remains</small></span>
+              </label>
+            </div>
+          </details>
           <section class="room-leaderboard" aria-label="Room leaderboard">
             <div class="room-leaderboard-title"><h3>ROOM LEADERBOARD</h3><span><b id="room-player-count">0</b> players</span></div>
             <div class="room-leaderboard-columns" aria-hidden="true"><span>RANK</span><span>PLAYER</span><span>SCORE</span><span>STATUS</span></div>
@@ -193,7 +200,6 @@
             </form>
           </section>
         </div>
-        <button id="room-close-btn" class="lb-btn lb-btn-secondary" type="button">Close</button>
       </div>
     </div>
 

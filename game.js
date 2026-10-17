@@ -2230,7 +2230,10 @@
   }
 
   function drawOpponentGhosts(deltaSeconds) {
-    if (!ghostOverlayEnabled) return;
+    const spectatingRoomMatch = currentState === STATE.GAMEOVER
+      && window.FlappyRooms && window.FlappyRooms.isRoundInProgress
+      && window.FlappyRooms.isRoundInProgress();
+    if (!ghostOverlayEnabled && !spectatingRoomMatch) return;
     const players = window.FlappyRooms && window.FlappyRooms.getGhostPlayers
       ? window.FlappyRooms.getGhostPlayers()
       : [];
@@ -3420,12 +3423,9 @@
     if (!spectating) bird.update();
     else if (roomDeathSnapshot) bird.y = roomDeathSnapshot.y;
     drawOpponentGhosts(deltaSeconds);
-    if (spectating) {
-      ctx.save();
-      ctx.globalAlpha = 0.16;
-      bird.draw();
-      ctx.restore();
-    } else bird.draw();
+    // Once eliminated, the player's bird disappears while they spectate.
+    // Opponents retain the OUT name marker at the frozen death position.
+    if (!spectating) bird.draw();
 
     // 9. Collision Detection
     if (currentState === STATE.PLAYING) {
@@ -3482,6 +3482,9 @@
         y: frozen ? frozen.y : Math.round(bird.y),
         velocity: frozen ? frozen.velocity : Number(bird.vy.toFixed(2))
       };
+    },
+    isRoomPlayerOut() {
+      return currentState === STATE.DYING || currentState === STATE.GAMEOVER;
     }
   };
 

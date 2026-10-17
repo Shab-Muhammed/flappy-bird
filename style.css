@@ -702,17 +702,43 @@ button.header-pill:focus-visible {
 }
 
 .room-panel {
+  position: relative;
   width: 100%;
   max-width: none;
   max-height: none;
   height: 100%;
   gap: 14px;
   padding: clamp(18px, 4vw, 34px);
+  padding-bottom: max(clamp(18px, 4vw, 34px), env(safe-area-inset-bottom));
   background: transparent;
   color: #30200e;
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+.room-close-x {
+  position: absolute;
+  z-index: 2;
+  top: clamp(12px, 3vw, 24px);
+  right: clamp(12px, 3vw, 24px);
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 2px solid rgba(255, 219, 133, 0.8);
+  border-radius: 50%;
+  background: rgba(19, 28, 26, 0.82);
+  color: #fff2d2;
+  font: 700 30px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.room-close-x:hover,
+.room-close-x:focus-visible {
+  background: #537c2b;
+  outline: 2px solid #fff2d2;
+  outline-offset: 2px;
 }
 
 .room-panel > h2 {
@@ -895,13 +921,47 @@ button.header-pill:focus-visible {
 .room-session {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.room-game-settings {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 224, 155, 0.42);
+  border-radius: 13px;
+  background: rgba(255, 248, 225, 0.1);
+}
+
+.room-game-settings > summary {
+  padding: 9px 13px;
+  color: #fff2d2;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.room-game-settings-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 24px;
+  padding: 5px 12px 12px;
+}
+
+.room-game-settings .ghost-toggle-copy {
+  color: #fff2d2;
+}
+
+.room-game-settings .ghost-toggle-copy small {
+  color: #e4d4ad;
 }
 
 .room-leaderboard {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: 170px;
+  min-height: 220px;
   overflow: hidden;
   border: 2px solid rgba(255, 227, 170, 0.78);
   border-radius: 18px;
@@ -1042,7 +1102,8 @@ button.header-pill:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-height: 170px;
+  min-height: 190px;
+  flex: 0 0 auto;
   padding: 12px;
   border: 2px solid rgba(255, 224, 155, 0.45);
   border-radius: 17px;
@@ -1064,6 +1125,8 @@ button.header-pill:focus-visible {
   flex: 1;
   min-height: 72px;
   max-height: 150px;
+  margin: 0;
+  padding: 0;
   overflow-y: auto;
   list-style: none;
   user-select: text;
@@ -1103,7 +1166,9 @@ button.header-pill:focus-visible {
 
 .room-chat-form {
   display: flex;
+  flex: 0 0 auto;
   gap: 6px;
+  margin-top: 6px;
 }
 
 .room-chat-form input {
@@ -1113,12 +1178,6 @@ button.header-pill:focus-visible {
 
 .room-chat-form .lb-btn {
   min-width: 78px;
-}
-
-#room-close-btn {
-  align-self: center;
-  min-width: min(100%, 280px);
-  opacity: 0.92;
 }
 
 /* Store tabs */
