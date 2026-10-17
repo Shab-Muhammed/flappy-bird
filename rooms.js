@@ -175,7 +175,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               hostUid: myUid(), phase: 'lobby', createdAt: { '.sv': 'timestamp' }, startAt: 0, seed: 0,
-              lastManStanding: false
+              lastManStanding: true
             })
           });
           created = true;
@@ -368,7 +368,7 @@
     const isHost = room.hostUid === myUid();
     const isPlaying = room.phase === 'playing';
     const lastManStandingToggle = $('last-man-standing-toggle');
-    lastManStandingToggle.checked = room.lastManStanding === true;
+    lastManStandingToggle.checked = room.lastManStanding !== false;
     lastManStandingToggle.disabled = !isHost || isPlaying;
     $('room-ready-btn').classList.toggle('hidden', isPlaying);
     $('room-start-btn').classList.toggle('hidden', !isHost || isPlaying);
@@ -479,7 +479,7 @@
       const state = states[uid];
       return state && Number(state.roundAt) === Number(room.startAt) && state.alive && now - Number(state.updatedAt) <= 15000;
     }).length;
-    if (room.lastManStanding === true ? aliveCount > 1 : !allDone) return;
+    if (room.lastManStanding !== false ? aliveCount > 1 : !allDone) return;
     isHostTransitioning = true;
     try {
       const standings = uids.map(uid => {

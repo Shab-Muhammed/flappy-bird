@@ -2239,29 +2239,46 @@
       activeIds.add(player.id);
       let visual = ghostVisuals.get(player.id);
       if (!visual || visual.roundAt !== player.roundAt) {
-        visual = { y: player.y, targetY: player.y, roundAt: player.roundAt };
+        visual = {
+          y: player.y,
+          targetY: player.y,
+          roundAt: player.roundAt,
+          dead: !player.alive,
+          deathY: player.y,
+          deathVelocity: player.velocity
+        };
         ghostVisuals.set(player.id, visual);
       }
-      visual.targetY = Math.max(12, Math.min(GROUND_Y - 12, player.y));
-      if (player.alive) visual.y += (visual.targetY - visual.y) * Math.min(1, deltaSeconds * 14);
-      else visual.y = visual.targetY;
+      if (!visual.dead && !player.alive) {
+        visual.dead = true;
+        visual.deathY = Math.max(12, Math.min(GROUND_Y - 12, player.y));
+        visual.deathVelocity = player.velocity;
+      }
+      if (!visual.dead) {
+        visual.targetY = Math.max(12, Math.min(GROUND_Y - 12, player.y));
+        visual.y += (visual.targetY - visual.y) * Math.min(1, deltaSeconds * 14);
+      } else {
+        visual.y = visual.deathY;
+      }
+      const isAlive = !visual.dead && player.alive;
 
       const x = bird.x;
       const y = visual.y;
       ctx.save();
-      ctx.globalAlpha = player.alive ? 0.4 : 0.2;
+      ctx.globalAlpha = isAlive ? 0.4 : 0.2;
       ctx.translate(x, y);
-      ctx.rotate(Math.max(-0.48, Math.min(1.25, Math.atan2(player.velocity, 9))));
+      const velocity = visual.dead ? visual.deathVelocity : player.velocity;
+      ctx.rotate(Math.max(-0.48, Math.min(1.25, Math.atan2(velocity, 9))));
       ctx.drawImage(getGhostSprite(activeSkin()), -26, -21);
       ctx.restore();
 
-      const label = player.alive ? `${player.name} · ${player.score}` : `${player.name} · OUT`;
+      const label = isAlive ? `${player.name} · ${player.score}` : `${player.name} · OUT`;
       ctx.save();
       ctx.font = '700 9px Fredoka, sans-serif';
       const labelWidth = Math.min(116, Math.max(62, ctx.measureText(label).width + 16));
       const labelX = Math.max(labelWidth / 2 + 3, Math.min(V_WIDTH - labelWidth / 2 - 3, x));
       const labelY = Math.max(12, y - 30);
-      ctx.fillStyle = player.alive ? 'rgba(16, 31, 39, 0.76)' : 'rgba(70, 37, 37, 0.76)';
+      ctx.fillStyle = isAlive ? 'rgba(16, 31, 39, 0.76)' : 'rgba(70, 37, 37, 0.76)';
       roundRect(ctx, labelX - labelWidth / 2, labelY - 9, labelWidth, 18, 7);
       ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.94)';
