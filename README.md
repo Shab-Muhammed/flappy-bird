@@ -6,7 +6,7 @@ A browser-based Flappy Bird recreation built with HTML, CSS, and the Canvas 2D A
 
 - Canvas-based gameplay with keyboard, mouse, and touch controls.
 - Animated bird, pipes, ground, and layered scenery.
-- Automatic and manual time-of-day and seasonal changes.
+- Automatic time-of-day and seasonal changes.
 - Difficulty that increases as the player's score rises.
 - Coins, persistent unlocks, bird and pipe cosmetics, and selectable death sounds.
 - Daily score challenge and persistent score badges.
@@ -29,7 +29,6 @@ Then visit <http://localhost:8000>.
 | Action | Control |
 | --- | --- |
 | Flap | Tap or click the game, or press `Space`, `ArrowUp`, or `W` |
-| Change time of day | Press `T` or use the header control |
 | Open the store | Press `B` from the menu |
 | Open the leaderboard | Press `L` or select the best-score control |
 | Open private rooms | Select `Private Rooms` in the leaderboard; the house button reopens your room |

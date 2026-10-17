@@ -27,12 +27,8 @@
   const soundIconOn = document.getElementById('sound-icon-on');
   const soundIconOff = document.getElementById('sound-icon-off');
   const srAnnouncements = document.getElementById('sr-announcements');
-
-  const cycleBadge = document.getElementById('cycle-badge');
   const cycleIcon = document.getElementById('cycle-icon');
   const cycleText = document.getElementById('cycle-text');
-
-  const seasonBadge = document.getElementById('season-badge');
   const seasonIcon = document.getElementById('season-icon');
   const seasonText = document.getElementById('season-text');
 
@@ -2842,45 +2838,6 @@
     context.closePath();
   }
 
-  // --- Input Handlers, Day/Night & Season Controls ---
-  function toggleCycle() {
-    currentCycleModeIndex = (currentCycleModeIndex + 1) % CYCLE_MODES.length;
-    const mode = CYCLE_MODES[currentCycleModeIndex];
-    if (mode === 'AUTO') {
-      sound.playTone(560, 0.08, 'triangle');
-      srAnnouncements.textContent = 'Day/Night Cycle: Auto';
-    } else {
-      sound.playTone(680, 0.08, 'sine');
-      srAnnouncements.textContent = `Time of Day set to: ${mode}`;
-    }
-  }
-
-  function toggleSeason() {
-    currentSeasonModeIndex = (currentSeasonModeIndex + 1) % SEASON_MODES.length;
-    const mode = SEASON_MODES[currentSeasonModeIndex];
-    if (mode === 'AUTO') {
-      sound.playTone(520, 0.08, 'triangle');
-      srAnnouncements.textContent = 'Season Cycle: Auto';
-    } else {
-      sound.playTone(620, 0.08, 'sine');
-      srAnnouncements.textContent = `Season set to: ${mode}`;
-    }
-  }
-
-  if (cycleBadge) {
-    cycleBadge.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleCycle();
-    });
-  }
-
-  if (seasonBadge) {
-    seasonBadge.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleSeason();
-    });
-  }
-
   function handleAction(event) {
     if (event) {
       if (event.target && event.target.closest('#ui-header')) {
@@ -3296,12 +3253,6 @@
     } else if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
       e.preventDefault();
       handleAction(e);
-    } else if (e.key === 't' || e.key === 'T') {
-      e.preventDefault();
-      toggleCycle();
-    } else if (e.key === 's' || e.key === 'S') {
-      e.preventDefault();
-      toggleSeason();
     } else if (e.key === 'l' || e.key === 'L') {
       e.preventDefault();
       if (window.FlappyLeaderboard) window.FlappyLeaderboard.open();

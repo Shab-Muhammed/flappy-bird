@@ -98,15 +98,19 @@
 
   async function request(url, options = {}) {
     const user = currentUser();
-    let requestURL = url;
-    if (user) {
-      const token = await user.getIdToken();
-      requestURL += `${requestURL.includes('?') ? '&' : '?'}auth=${encodeURIComponent(token)}`;
-    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 7000);
     try {
-      const response = await fetch(requestURL, { cache: 'no-store', ...options, signal: controller.signal });
+      const send = async forceRefresh => {
+        let requestURL = url;
+        if (user) {
+          const token = await user.getIdToken(forceRefresh);
+          requestURL += `${requestURL.includes('?') ? '&' : '?'}auth=${encodeURIComponent(token)}`;
+        }
+        return fetch(requestURL, { cache: 'no-store', ...options, signal: controller.signal });
+      };
+      let response = await send(false);
+      if (response.status === 401 && user) response = await send(true);
       if (!response.ok) {
         const responseBody = await response.text();
         let detail = responseBody;
@@ -115,7 +119,9 @@
           detail = parsed && parsed.error ? parsed.error : responseBody;
         } catch (error) { /* Keep the plain response text. */ }
         detail = String(detail || response.statusText || 'Unknown Firebase error').trim().slice(0, 180);
-        throw new Error(`Room request failed (${response.status}): ${detail}`);
+        const method = String(options.method || 'GET').toUpperCase();
+        const path = new URL(url, window.location.href).pathname;
+        throw new Error(`Room request failed (${response.status}) [${method} ${path}]: ${detail}`);
       }
       return await response.json();
     } finally {

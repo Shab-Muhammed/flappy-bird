@@ -207,40 +207,6 @@ button.header-pill:active {
   font-weight: 700;
 }
 
-/* Time of Day Pill */
-.cycle-pill {
-  border-color: #553b1b;
-}
-
-#cycle-icon {
-  font-size: 12px;
-}
-
-.pill-time {
-  font-family: var(--font-arcade);
-  font-size: 8px;
-  color: #332010;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-}
-
-/* Season Pill */
-.season-pill {
-  border-color: #553b1b;
-}
-
-#season-icon {
-  font-size: 12px;
-}
-
-.pill-season {
-  font-family: var(--font-arcade);
-  font-size: 8px;
-  color: #332010;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-}
-
 .best-pill {
   padding: 5px 8px;
 }
