@@ -991,9 +991,6 @@
   }
 
   function drawThemeGround(theme, opacity = 1, includeBase = true) {
-    if (includeBase && (currentState === STATE.PLAYING || currentState === STATE.READY)) {
-      groundScrollOffset = (groundScrollOffset + gameSpeed) % GROUND_SCROLL_PERIOD;
-    }
     ctx.save();
     if (includeBase) {
       const gradient = ctx.createLinearGradient(0, GROUND_Y, 0, V_HEIGHT);
@@ -1025,7 +1022,16 @@
       ctx.strokeStyle = '#d9a75e'; ctx.lineWidth = 1.3;
       for (let ridge = 0; ridge < 5; ridge++) {
         const y = GROUND_Y + 20 + ridge * 18;
-        ctx.beginPath(); ctx.moveTo(-(groundScrollOffset % 96), y); ctx.quadraticCurveTo(74, y - 7, 148, y); ctx.quadraticCurveTo(228, y + 8, 306, y - 1); ctx.stroke();
+        const phase = ridge * 0.72;
+        ctx.beginPath();
+        for (let x = -8; x <= V_WIDTH + 8; x += 8) {
+          const worldX = x + groundScrollOffset;
+          const wave = Math.sin(worldX * Math.PI * 2 / 320 + phase) * 4
+            + Math.sin(worldX * Math.PI * 4 / 320 + phase * 0.6) * 1.2;
+          if (x === -8) ctx.moveTo(x, y + wave);
+          else ctx.lineTo(x, y + wave);
+        }
+        ctx.stroke();
       }
       ctx.fillStyle = '#f6d18b';
       for (let x = -(groundScrollOffset % 42); x < V_WIDTH; x += 42) ctx.fillRect(x, GROUND_Y + 12 + (x % 9), 2, 2);
@@ -3036,7 +3042,10 @@
     globalFrame++;
     const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING;
     const worldDeltaSeconds = worldActive ? deltaSeconds : 0;
-    if (worldActive) worldFrame++;
+    if (worldActive) {
+      worldFrame++;
+      groundScrollOffset = (groundScrollOffset + gameSpeed) % GROUND_SCROLL_PERIOD;
+    }
 
     let shakeX = 0;
     let shakeY = 0;
