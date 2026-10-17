@@ -474,6 +474,7 @@
   const GROUND_Y = V_HEIGHT - GROUND_HEIGHT;
 
   let groundScrollOffset = 0;
+  let farScrollOffset = 0;
 
   // --- 1. Dynamic Day & Night Cycles Engine ---
   const CYCLES = [
@@ -863,7 +864,7 @@
 
   function drawThemeLandmarks(theme, opacity = 1) {
     const drift = groundScrollOffset % 440;
-    const farDrift = (worldFrame * gameSpeed * 0.035) % 440;
+    const farDrift = farScrollOffset % 440;
     ctx.save();
     ctx.globalAlpha = opacity;
     if (theme.style === 'City') {
@@ -3256,10 +3257,12 @@
     const worldDeltaSeconds = worldActive ? deltaSeconds : 0;
     if (worldActive) {
       worldFrame++;
-      // Integrate the near-layer speed instead of rebuilding its position from
-      // frame count. This keeps the ground and background in sync without
-      // introducing a positional jump as gameSpeed changes.
-      groundScrollOffset += gameSpeed * 0.12;
+      // Integrate both parallax layers using elapsed time. Deriving drift from
+      // frame count and the instantaneous speed made it jump whenever speed
+      // changed, and made scrolling depend on the device's refresh rate.
+      const worldPixels = gameSpeed * deltaSeconds * 60;
+      groundScrollOffset += worldPixels * 0.12;
+      farScrollOffset += worldPixels * 0.035;
     }
 
     let shakeX = 0;
