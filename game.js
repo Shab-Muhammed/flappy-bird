@@ -2264,13 +2264,14 @@
 
       const x = bird.x;
       const y = visual.y;
-      ctx.save();
-      ctx.globalAlpha = isAlive ? 0.4 : 0.2;
-      ctx.translate(x, y);
-      const velocity = visual.dead ? visual.deathVelocity : player.velocity;
-      ctx.rotate(Math.max(-0.48, Math.min(1.25, Math.atan2(velocity, 9))));
-      ctx.drawImage(getGhostSprite(activeSkin()), -26, -21);
-      ctx.restore();
+      if (isAlive) {
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.translate(x, y);
+        ctx.rotate(Math.max(-0.48, Math.min(1.25, Math.atan2(player.velocity, 9))));
+        ctx.drawImage(getGhostSprite(activeSkin()), -26, -21);
+        ctx.restore();
+      }
 
       const label = isAlive ? `${player.name} · ${player.score}` : `${player.name} · OUT`;
       ctx.save();
@@ -2749,6 +2750,30 @@
       ctx.fillText(coinLine, V_WIDTH / 2, 516);
     }
 
+    ctx.restore();
+  }
+
+  function drawSpectatorScreen() {
+    const players = window.FlappyRooms && window.FlappyRooms.getGhostPlayers
+      ? window.FlappyRooms.getGhostPlayers()
+      : [];
+    const aliveCount = players.filter(player => player.alive).length;
+    const box = { x: 34, y: 82, w: V_WIDTH - 68, h: 64 };
+    ctx.save();
+    ctx.fillStyle = 'rgba(13, 30, 38, 0.82)';
+    roundRect(ctx, box.x, box.y, box.w, box.h, 14);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 236, 185, 0.72)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 19px "Fredoka", sans-serif';
+    ctx.fillStyle = '#fff1ad';
+    ctx.fillText('SPECTATING', V_WIDTH / 2, box.y + 23);
+    ctx.font = '600 12px "Fredoka", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${aliveCount} PLAYER${aliveCount === 1 ? '' : 'S'} STILL FLYING`, V_WIDTH / 2, box.y + 46);
     ctx.restore();
   }
 
@@ -3293,7 +3318,9 @@
       : Math.min(0.05, Math.max(0, (timestamp - themeLastTimestamp) / 1000));
     themeLastTimestamp = timestamp;
     globalFrame++;
-    const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING;
+    const spectating = currentState === STATE.GAMEOVER
+      && window.FlappyRooms && window.FlappyRooms.isRoundInProgress && window.FlappyRooms.isRoundInProgress();
+    const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING || spectating;
     const worldDeltaSeconds = worldActive ? deltaSeconds : 0;
     if (worldActive) {
       worldFrame++;
@@ -3347,9 +3374,9 @@
     drawThemeAtmosphere(toAtmosphereTheme, ambientParticles[1], theme.blend);
 
     // 6. Hand-Crafted Green Pipes
-    if (currentState === STATE.PLAYING) {
+    if (currentState === STATE.PLAYING || spectating) {
       // Ease toward the current score target without abrupt speed changes.
-      gameSpeed += (targetSpeed() - gameSpeed) * 0.035;
+      if (currentState === STATE.PLAYING) gameSpeed += (targetSpeed() - gameSpeed) * 0.035;
 
       pipeTimer += gameSpeed;
       if (pipeTimer >= PIPE_SPACING) {
@@ -3363,12 +3390,14 @@
 
         if (!p.passed && p.x + p.w < bird.x) {
           p.passed = true;
-          score++;
-          if (CYCLE_MODES[currentCycleModeIndex] === 'AUTO') cycleBoost += 0.014;
-          if (SEASON_MODES[currentSeasonModeIndex] === 'AUTO') seasonBoost += 0.008;
-          createScoreSparkles(bird.x + 10, bird.y);
-          sound.playScore();
-          srAnnouncements.textContent = `Score: ${score}`;
+          if (!spectating) {
+            score++;
+            if (CYCLE_MODES[currentCycleModeIndex] === 'AUTO') cycleBoost += 0.014;
+            if (SEASON_MODES[currentSeasonModeIndex] === 'AUTO') seasonBoost += 0.008;
+            createScoreSparkles(bird.x + 10, bird.y);
+            sound.playScore();
+            srAnnouncements.textContent = `Score: ${score}`;
+          }
         }
 
         if (p.x + p.w < -30) pipes.splice(i, 1);
@@ -3388,9 +3417,15 @@
     drawThemeLighting(theme);
 
     // 8. Authentic Hand-Crafted Original Flappy Bird
-    bird.update();
+    if (!spectating) bird.update();
+    else if (roomDeathSnapshot) bird.y = roomDeathSnapshot.y;
     drawOpponentGhosts(deltaSeconds);
-    bird.draw();
+    if (spectating) {
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      bird.draw();
+      ctx.restore();
+    } else bird.draw();
 
     // 9. Collision Detection
     if (currentState === STATE.PLAYING) {
@@ -3401,9 +3436,6 @@
         bird.vy = 0;
         currentState = STATE.GAMEOVER;
         onRunEnded();
-        if (window.FlappyRooms && window.FlappyRooms.isInRoom()) {
-          window.FlappyRooms.showRoomAfterDeath();
-        }
       }
     } else if (currentState === STATE.GAMEOVER) {
       gameOverTimer++;
@@ -3416,6 +3448,7 @@
     // 11. UI Screens
     if (currentState === STATE.READY) drawStartScreen();
     else if (currentState === STATE.PLAYING || currentState === STATE.DYING) drawScoreHUD();
+    else if (currentState === STATE.GAMEOVER && spectating) drawSpectatorScreen();
     else if (currentState === STATE.GAMEOVER) drawGameOverScreen();
     drawThemeBanner();
 

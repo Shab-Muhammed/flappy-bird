@@ -6,6 +6,12 @@
   const $ = id => document.getElementById(id);
   const auth = window.FlappyFirebaseAuth;
   const database = firebase.database ? firebase.database() : null;
+  let serverTimeOffset = 0;
+  if (database) {
+    database.ref('.info/serverTimeOffset').on('value', snapshot => {
+      serverTimeOffset = Number(snapshot.val()) || 0;
+    });
+  }
   const baseURL = firebase.app().options.databaseURL.replace(/\/+$/, '');
   const roomOverlay = $('room-overlay');
   const statusEl = $('room-status');
@@ -40,6 +46,7 @@
   function setStatus(message) { statusEl.textContent = message; }
   function currentUser() { return auth && auth.currentUser; }
   function myUid() { const user = currentUser(); return user ? user.uid : ''; }
+  function serverNow() { return Date.now() + serverTimeOffset; }
   function currentName() {
     const email = String((currentUser() || {}).email || '');
     return email.toLowerCase().endsWith(USERNAME_DOMAIN.toLowerCase())
@@ -341,9 +348,9 @@
     roster.forEach(([uid, member], rank) => {
       const state = states[uid] || {};
       const li = document.createElement('li');
-      const offline = state.updatedAt && Date.now() - Number(state.updatedAt) > 12000;
+      const offline = state.updatedAt && serverNow() - Number(state.updatedAt) > 12000;
       const alive = room.phase === 'playing' && state.roundAt === room.startAt && state.alive && !offline;
-      const waitingForRound = room.phase === 'playing' && (room.startAt > Date.now() || Number(state.roundAt) !== Number(room.startAt));
+      const waitingForRound = room.phase === 'playing' && (Number(room.startAt) > serverNow() || Number(state.roundAt) !== Number(room.startAt));
       const activity = room.phase === 'lobby'
         ? (member.ready ? '· ready' : '· waiting')
         : (waitingForRound ? '· ready' : alive ? '· flying' : offline ? '· offline' : '· out');
@@ -382,7 +389,7 @@
       ? `${Array.isArray(lastResult.winnerUids) && lastResult.winnerUids.includes(myUid()) ? '🏆 Victory!' : 'Round over.'} ${lastResult.message}`
       : '';
     $('room-result').textContent = isPlaying
-      ? (room.startAt > Date.now() ? `Match starts in ${Math.max(1, Math.ceil((room.startAt - Date.now()) / 1000))}…` : 'Match in progress — scores update live.')
+      ? (room.startAt > serverNow() ? `Match starts in ${Math.max(1, Math.ceil((room.startAt - serverNow()) / 1000))}…` : 'Match in progress — scores update live.')
       : (previousResult || (roster.length < 2
         ? 'Share the code to invite up to 7 friends.'
         : allReady
@@ -418,7 +425,7 @@
     }
     busy = true;
     try {
-      const startAt = Date.now() + 5000;
+      const startAt = serverNow() + 5000;
       const updated = { ...room, phase: 'playing', startAt, seed: randomSeed() };
       delete updated.lastResult;
       delete updated.code;
@@ -434,7 +441,8 @@
   async function maybeStartRound() {
     const startAt = Number(room && room.startAt) || 0;
     if (!room || room.phase !== 'playing' || !startAt || startAt === lastStartAt) return;
-    if (Date.now() < startAt) {
+    const delay = startAt - serverNow();
+    if (delay > 0) {
       if (scheduledStartAt !== startAt) {
         if (startTimer) clearTimeout(startTimer);
         scheduledStartAt = startAt;
@@ -442,7 +450,7 @@
           startTimer = 0;
           scheduledStartAt = 0;
           maybeStartRound();
-        }, Math.max(0, startAt - Date.now() + 5));
+        }, delay + 5);
       }
       return;
     }
@@ -462,9 +470,9 @@
   }
 
   async function maybeFinishRound() {
-    if (!room || room.hostUid !== myUid() || room.phase !== 'playing' || isHostTransitioning || Date.now() < room.startAt + 3000) return;
+    if (!room || room.hostUid !== myUid() || room.phase !== 'playing' || isHostTransitioning || serverNow() < Number(room.startAt) + 3000) return;
     const uids = Object.keys(members);
-    const now = Date.now();
+    const now = serverNow();
     const timedOutMissingPlayers = now - Number(room.startAt) > 15000;
     const roundStatesReady = uids.length > 0 && uids.every(uid => {
       const state = states[uid];
@@ -562,7 +570,7 @@
     if (!room || room.phase !== 'playing') return [];
     return Object.entries(states)
       .filter(([uid, state]) => state && uid !== myUid() && Number(state.roundAt) === Number(room.startAt)
-        && Date.now() - Number(state.updatedAt || 0) < 12000)
+        && serverNow() - Number(state.updatedAt || 0) < 12000)
       .map(([uid, state]) => ({
         id: uid,
         name: String((members[uid] && members[uid].name) || state.playerName || 'Opponent').slice(0, 24),
@@ -696,6 +704,7 @@
 
   window.FlappyRooms = {
     isInRoom: () => !!room,
+    isRoundInProgress: () => !!room && room.phase === 'playing',
     getGhostPlayers,
     isPanelOpen: () => !roomOverlay.classList.contains('hidden'),
     open: openPanel,
