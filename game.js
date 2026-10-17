@@ -977,14 +977,7 @@
             }
           }
         }
-        // Restrained rooftop utility bridge and steel supports add depth.
-        const bridgeY = GROUND_Y - 116;
-        ctx.fillStyle = '#343d43'; ctx.fillRect(x + 18, bridgeY, 402, 6);
-        ctx.fillStyle = '#69747a'; ctx.fillRect(x + 18, bridgeY, 402, 1);
-        for (let support = 0; support < 9; support++) {
-          const sx = x + 32 + support * 48;
-          ctx.fillStyle = '#30393f'; ctx.fillRect(sx, bridgeY + 6, 3, GROUND_Y - bridgeY - 13);
-        }
+        // Keep the skyline open; streetlights sit in front of the buildings.
         const streetlightPower = Math.max(0.1, (theme.emission || 0) / 20);
         for (const lampX of [x + 58, x + 174, x + 300, x + 406]) {
           ctx.strokeStyle = '#62627a'; ctx.lineWidth = 2;
@@ -1113,27 +1106,16 @@
       ctx.fillStyle = '#626c70';
       for (let x = -(groundScrollOffset % 64); x < V_WIDTH; x += 64) ctx.fillRect(x, GROUND_Y + 16, 28, 2);
     } else if (theme.style === 'City') {
-      // Asphalt lanes recede toward the horizon; lane paint and reflected
-      // traffic move with the same near-city parallax as the landscape.
-      ctx.strokeStyle = 'rgba(174, 185, 187, 0.18)'; ctx.lineWidth = 1;
-      for (let x = -(groundScrollOffset % 88); x < V_WIDTH + 88; x += 88) {
-        ctx.beginPath(); ctx.moveTo(V_WIDTH / 2 + (x - V_WIDTH / 2) * 0.16, GROUND_Y + 5); ctx.lineTo(x, V_HEIGHT); ctx.stroke();
-      }
-      ctx.save(); ctx.shadowColor = '#ffe082'; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 12 : 3;
-      ctx.fillStyle = '#d6ae45';
-      for (let x = -(groundScrollOffset % 112); x < V_WIDTH + 112; x += 112) {
-        const perspectiveX = V_WIDTH / 2 + (x - V_WIDTH / 2) * 0.42;
-        ctx.fillRect(perspectiveX, GROUND_Y + 15, 2, 8);
-        ctx.fillRect(x, GROUND_Y + 56, 4, 18);
-      }
-      ctx.restore();
-      const trafficPower = theme.cycleStage === 'NIGHT' ? 0.72 : theme.cycleStage === 'SUNSET' ? 0.42 : 0.13;
-      ctx.save(); ctx.globalAlpha = opacity * trafficPower;
-      for (let i = 0; i < 5; i++) {
-        const streakX = ((i * 83 - groundScrollOffset * 1.2) % (V_WIDTH + 100) + V_WIDTH + 100) % (V_WIDTH + 100) - 50;
-        ctx.strokeStyle = i % 2 ? '#f5eee1' : '#c74d4b'; ctx.lineWidth = i % 2 ? 1.5 : 2;
-        ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 12 : 4;
-        ctx.beginPath(); ctx.moveTo(streakX, GROUND_Y + 33 + i * 12); ctx.lineTo(streakX + 26, GROUND_Y + 33 + i * 12); ctx.stroke();
+      // This is a side-on street, so use a single clear dashed center line
+      // instead of perspective rays and floating light streaks.
+      ctx.fillStyle = 'rgba(220, 226, 223, 0.16)';
+      ctx.fillRect(0, GROUND_Y + 12, V_WIDTH, 1);
+      ctx.save();
+      ctx.shadowColor = '#ffe082';
+      ctx.shadowBlur = theme.cycleStage === 'NIGHT' ? 8 : 1;
+      ctx.fillStyle = '#d4ad4b';
+      for (let x = -(groundScrollOffset % 76); x < V_WIDTH + 76; x += 76) {
+        ctx.fillRect(x, GROUND_Y + 56, 34, 3);
       }
       ctx.restore();
     } else if (theme.style === 'desert') {
@@ -2449,7 +2431,7 @@
 
     const text = score.toString();
     const x = V_WIDTH / 2;
-    const y = 56;
+    const y = 76;
 
     ctx.strokeStyle = 'rgba(20, 32, 38, 0.68)';
     ctx.lineWidth = 2;
