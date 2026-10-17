@@ -33,8 +33,6 @@
   let lastChatLoad = 0;
   let lastChatKey = '';
   let lastStartAt = 0;
-  let lastObservedPhase = '';
-  let acceptNextStart = false;
   let isHostTransitioning = false;
   let disconnectCleanupRefs = [];
   let disconnectCleanupSignature = '';
@@ -232,8 +230,6 @@
     states = await request(scopedURL('roomStates', code)) || {};
     await armDisconnectCleanup(code);
     try { sessionStorage.setItem('flappy_private_room', code); } catch (error) { /* session storage is optional */ }
-    acceptNextStart = meta.phase === 'lobby';
-    lastObservedPhase = meta.phase;
     lastStartAt = Number(meta.startAt) || 0;
     lastChatLoad = 0;
     lastChatKey = '';
@@ -307,10 +303,6 @@
         return;
       }
       room = { code, ...meta };
-      // Clients that did not host the previous round need to re-arm when the
-      // host moves the room back to the lobby, otherwise they ignore rematches.
-      if (lastObservedPhase === 'playing' && room.phase === 'lobby') acceptNextStart = true;
-      lastObservedPhase = room.phase;
       members = nextMembers || {};
       if (!members[myUid()]) {
         resetRoom('You are no longer in this room.');
@@ -433,7 +425,6 @@
       await request(roomURL(room.code), {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated)
       });
-      acceptNextStart = true;
       setStatus('Starting together in 5 seconds…');
       await syncRoom();
     } catch (error) { setStatus('Could not start the match. Check room rules.'); }
@@ -441,25 +432,24 @@
   }
 
   async function maybeStartRound() {
-    if (room.phase !== 'playing' || !room.startAt || room.startAt === lastStartAt) return;
-    if (!acceptNextStart) return;
-    if (Date.now() < room.startAt) {
-      if (scheduledStartAt !== Number(room.startAt)) {
+    const startAt = Number(room && room.startAt) || 0;
+    if (!room || room.phase !== 'playing' || !startAt || startAt === lastStartAt) return;
+    if (Date.now() < startAt) {
+      if (scheduledStartAt !== startAt) {
         if (startTimer) clearTimeout(startTimer);
-        scheduledStartAt = Number(room.startAt);
+        scheduledStartAt = startAt;
         startTimer = setTimeout(() => {
           startTimer = 0;
           scheduledStartAt = 0;
           maybeStartRound();
-        }, Math.max(0, Number(room.startAt) - Date.now() + 5));
+        }, Math.max(0, startAt - Date.now() + 5));
       }
       return;
     }
     if (startTimer) clearTimeout(startTimer);
     startTimer = 0;
     scheduledStartAt = 0;
-    lastStartAt = room.startAt;
-    acceptNextStart = false;
+    lastStartAt = startAt;
     const game = window.FlappyGame;
     if (game) game.startRoomRound(Number(room.seed) || 1);
     const me = members[myUid()];
@@ -519,7 +509,6 @@
       await request(roomURL(room.code), {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated)
       });
-      acceptNextStart = true;
       setStatus('Round finished. Get ready for the next match.');
     } catch (error) { /* the next room sync retries */ }
     finally { isHostTransitioning = false; }
@@ -663,11 +652,9 @@
     members = {};
     states = {};
     lastStartAt = 0;
-    lastObservedPhase = '';
     if (startTimer) clearTimeout(startTimer);
     startTimer = 0;
     scheduledStartAt = 0;
-    acceptNextStart = false;
     try { sessionStorage.removeItem('flappy_private_room'); } catch (error) { /* session storage is optional */ }
     joinControls.classList.remove('hidden');
     sessionPanel.classList.add('hidden');

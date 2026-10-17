@@ -2211,6 +2211,7 @@
   const bird = new Bird();
   const ghostVisuals = new Map();
   const ghostSpriteCache = new WeakMap();
+  let roomDeathSnapshot = null;
   let ghostOverlayEnabled = lsGet('flappy_ghost_overlay') !== 'false';
 
   function getGhostSprite(skin) {
@@ -2242,7 +2243,8 @@
         ghostVisuals.set(player.id, visual);
       }
       visual.targetY = Math.max(12, Math.min(GROUND_Y - 12, player.y));
-      visual.y += (visual.targetY - visual.y) * Math.min(1, deltaSeconds * 14);
+      if (player.alive) visual.y += (visual.targetY - visual.y) * Math.min(1, deltaSeconds * 14);
+      else visual.y = visual.targetY;
 
       const x = bird.x;
       const y = visual.y;
@@ -2464,6 +2466,7 @@
   function triggerGameOver() {
     if (currentState === STATE.DYING || currentState === STATE.GAMEOVER) return;
 
+    roomDeathSnapshot = { y: Math.round(bird.y), velocity: Number(bird.vy.toFixed(2)) };
     currentState = STATE.DYING;
     screenShakeTimer = 12;
     flashWhiteAlpha = 0.85;
@@ -3170,6 +3173,7 @@
     score = 0;
     pipeTimer = 0;
     roomPipeSeed = 0;
+    roomDeathSnapshot = null;
     bird.reset();
     currentState = STATE.READY;
     srAnnouncements.textContent = 'Game reset. Ready to fly.';
@@ -3420,7 +3424,14 @@
       srAnnouncements.textContent = 'Private room match started. Tap to fly!';
     },
     roomSnapshot() {
-      return { score, alive: currentState === STATE.PLAYING, y: Math.round(bird.y), velocity: Number(bird.vy.toFixed(2)) };
+      const dead = currentState === STATE.DYING || currentState === STATE.GAMEOVER;
+      const frozen = dead && roomDeathSnapshot;
+      return {
+        score,
+        alive: !dead && currentState === STATE.PLAYING,
+        y: frozen ? frozen.y : Math.round(bird.y),
+        velocity: frozen ? frozen.velocity : Number(bird.vy.toFixed(2))
+      };
     }
   };
 
