@@ -805,11 +805,6 @@
           ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size * 1.7, 0, Math.PI * 2); ctx.fill();
           ctx.strokeStyle = 'rgba(160, 182, 202, 0.18)'; ctx.beginPath(); ctx.moveTo(particle.x - 4, particle.y + 4); ctx.lineTo(particle.x + 5, particle.y + 4); ctx.stroke();
         }
-      } else if (theme.particleEffect === 'traffic') {
-        ctx.globalAlpha *= theme.style === 'highway' && theme.cycleStage === 'NIGHT' ? 0.9 : 0.42;
-        ctx.shadowColor = particle.lightColor; ctx.shadowBlur = glowBlur(theme.cycleStage === 'NIGHT' ? 8 : 3);
-        ctx.strokeStyle = particle.lightColor; ctx.lineWidth = theme.cycleStage === 'NIGHT' ? 2 : 1;
-        ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x + particle.size * 11, particle.y); ctx.stroke();
       } else if (theme.particleEffect === 'pixels') {
         const pixelColor = pulse > 0.5 ? '#00f0ff' : '#ff007f';
         ctx.globalAlpha *= theme.style === 'City' ? Math.max(0.1, theme.emission / 20) : (theme.emission < 3 ? 0.3 : theme.emission < 8 ? 0.6 : 1);
@@ -2218,6 +2213,54 @@
   }
 
   const bird = new Bird();
+  const ghostVisuals = new Map();
+  let ghostOverlayEnabled = lsGet('flappy_ghost_overlay') !== 'false';
+
+  function drawOpponentGhosts(deltaSeconds) {
+    if (!ghostOverlayEnabled) return;
+    const players = window.FlappyRooms && window.FlappyRooms.getGhostPlayers
+      ? window.FlappyRooms.getGhostPlayers()
+      : [];
+    const activeIds = new Set();
+    players.forEach(player => {
+      activeIds.add(player.id);
+      let visual = ghostVisuals.get(player.id);
+      if (!visual || visual.roundAt !== player.roundAt) {
+        visual = { y: player.y, targetY: player.y, roundAt: player.roundAt };
+        ghostVisuals.set(player.id, visual);
+      }
+      visual.targetY = Math.max(12, Math.min(GROUND_Y - 12, player.y));
+      visual.y += (visual.targetY - visual.y) * Math.min(1, deltaSeconds * 14);
+
+      const x = bird.x;
+      const y = visual.y;
+      ctx.save();
+      ctx.globalAlpha = player.alive ? 0.4 : 0.2;
+      ctx.filter = 'grayscale(1) brightness(1.55)';
+      ctx.translate(x, y);
+      ctx.rotate(Math.max(-0.48, Math.min(1.25, Math.atan2(player.velocity, 9))));
+      drawBirdSprite(ctx, activeSkin(), globalFrame * 0.16, 0);
+      ctx.restore();
+
+      const label = player.alive ? `${player.name} · ${player.score}` : `${player.name} · OUT`;
+      ctx.save();
+      ctx.font = '700 9px Fredoka, sans-serif';
+      const labelWidth = Math.min(116, Math.max(62, ctx.measureText(label).width + 16));
+      const labelX = Math.max(labelWidth / 2 + 3, Math.min(V_WIDTH - labelWidth / 2 - 3, x));
+      const labelY = Math.max(12, y - 30);
+      ctx.fillStyle = player.alive ? 'rgba(16, 31, 39, 0.76)' : 'rgba(70, 37, 37, 0.76)';
+      roundRect(ctx, labelX - labelWidth / 2, labelY - 9, labelWidth, 18, 7);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.94)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, labelX, labelY, labelWidth - 8);
+      ctx.restore();
+    });
+    for (const id of ghostVisuals.keys()) {
+      if (!activeIds.has(id)) ghostVisuals.delete(id);
+    }
+  }
 
   // --- Particles & Score FX ---
   const particles = [];
@@ -2895,6 +2938,14 @@
   const requestStatus = document.getElementById('request-status');
   const deathSoundControls = document.getElementById('death-sound-controls');
   const randomDeathSoundToggle = document.getElementById('random-death-sound-toggle');
+  const opponentGhostToggle = document.getElementById('opponent-ghost-toggle');
+  if (opponentGhostToggle) {
+    opponentGhostToggle.checked = ghostOverlayEnabled;
+    opponentGhostToggle.addEventListener('change', () => {
+      ghostOverlayEnabled = opponentGhostToggle.checked;
+      lsSet('flappy_ghost_overlay', String(ghostOverlayEnabled));
+    });
+  }
   const storeTabs = {
     bird: document.getElementById('store-tab-bird'),
     sound: document.getElementById('store-tab-sound')
@@ -3351,6 +3402,7 @@
 
     // 8. Authentic Hand-Crafted Original Flappy Bird
     bird.update();
+    drawOpponentGhosts(deltaSeconds);
     bird.draw();
 
     // 9. Collision Detection
@@ -3402,7 +3454,7 @@
       srAnnouncements.textContent = 'Private room match started. Tap to fly!';
     },
     roomSnapshot() {
-      return { score, alive: currentState === STATE.PLAYING, y: Math.round(bird.y) };
+      return { score, alive: currentState === STATE.PLAYING, y: Math.round(bird.y), velocity: Number(bird.vy.toFixed(2)) };
     }
   };
 

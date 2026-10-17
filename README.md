@@ -11,7 +11,7 @@ A browser-based Flappy Bird recreation built with HTML, CSS, and the Canvas 2D A
 - Coins, persistent unlocks, bird and pipe cosmetics, and selectable death sounds.
 - Daily score challenge and persistent score badges.
 - Optional top-ten leaderboard with local storage fallback.
-- Private, code-only multiplayer rooms for up to eight signed-in players, with synced pipe layouts, live scores, and room chat.
+- Private, code-only multiplayer rooms for up to eight signed-in players, with synced pipe layouts, live scores, room chat, and optional interpolated opponent ghosts.
 - A separate creator tool for preparing owner-published bird and pipe skins.
 
 ## Run locally
@@ -113,7 +113,7 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
           ".write": "auth != null && (auth.uid === root.child('rooms').child($code).child('hostUid').val() || !root.child('rooms').child($code).exists())",
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($code).exists() && root.child('roomMembers').child($code).child($uid).exists()",
-            ".validate": "newData.hasChildren(['score','alive','y','roundAt','updatedAt']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 10000 && newData.child('alive').isBoolean() && newData.child('y').isNumber() && newData.child('roundAt').isNumber() && newData.child('updatedAt').isNumber()"
+            ".validate": "newData.hasChildren(['score','alive','y','roundAt','updatedAt']) && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 10000 && newData.child('alive').isBoolean() && newData.child('y').isNumber() && newData.child('roundAt').isNumber() && newData.child('updatedAt').isNumber() && (!newData.child('velocity').exists() || newData.child('velocity').isNumber()) && (!newData.child('playerId').exists() || newData.child('playerId').val() === $uid) && (!newData.child('playerName').exists() || newData.child('playerName').isString())"
           }
         }
       },

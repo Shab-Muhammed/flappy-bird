@@ -22,6 +22,10 @@
   let members = {};
   let states = {};
   let timer = 0;
+  let stateTimer = 0;
+  let leaderboardRenderTimer = 0;
+  let roomStateRef = null;
+  let publishingState = false;
   let startTimer = 0;
   let scheduledStartAt = 0;
   let busy = false;
@@ -233,16 +237,51 @@
 
   function startPolling() {
     stopPolling();
+    watchRoomStates(room.code);
     syncRoom();
     timer = setInterval(syncRoom, 1000);
+    // Publish 10 Hz snapshots; the canvas interpolates between live updates.
+    stateTimer = setInterval(publishMyState, 100);
   }
 
   function stopPolling() {
     if (timer) clearInterval(timer);
+    if (stateTimer) clearInterval(stateTimer);
+    if (roomStateRef) roomStateRef.off();
+    roomStateRef = null;
+    if (leaderboardRenderTimer) clearTimeout(leaderboardRenderTimer);
+    leaderboardRenderTimer = 0;
     if (startTimer) clearTimeout(startTimer);
     timer = 0;
+    stateTimer = 0;
     startTimer = 0;
     scheduledStartAt = 0;
+  }
+
+  function watchRoomStates(code) {
+    if (roomStateRef) roomStateRef.off();
+    roomStateRef = database.ref(`roomStates/${code}`);
+    const refreshState = snapshot => {
+      if (!room || room.code !== code) return;
+      states[snapshot.key] = snapshot.val();
+      if (!leaderboardRenderTimer) {
+        leaderboardRenderTimer = setTimeout(() => {
+          leaderboardRenderTimer = 0;
+          if (room && room.code === code) renderRoom();
+        }, 250);
+      }
+    };
+    roomStateRef.on('child_added', refreshState);
+    roomStateRef.on('child_changed', refreshState);
+    roomStateRef.on('child_removed', snapshot => {
+      delete states[snapshot.key];
+      if (!leaderboardRenderTimer) {
+        leaderboardRenderTimer = setTimeout(() => {
+          leaderboardRenderTimer = 0;
+          if (room && room.code === code) renderRoom();
+        }, 250);
+      }
+    });
   }
 
   async function syncRoom() {
@@ -250,10 +289,9 @@
     syncing = true;
     try {
       const code = room.code;
-      const [meta, nextMembers, nextStates] = await Promise.all([
+      const [meta, nextMembers] = await Promise.all([
         request(roomURL(code)),
-        request(scopedURL('roomMembers', code)),
-        request(scopedURL('roomStates', code))
+        request(scopedURL('roomMembers', code))
       ]);
       if (!meta) {
         resetRoom('The room was closed by its host.');
@@ -261,14 +299,12 @@
       }
       room = { code, ...meta };
       members = nextMembers || {};
-      states = nextStates || {};
       if (!members[myUid()]) {
         resetRoom('You are no longer in this room.');
         return;
       }
       await armDisconnectCleanup(code);
       renderRoom();
-      await publishMyState();
       await maybeStartRound();
       await maybeFinishRound();
       if (Date.now() - lastChatLoad > 1800) await loadChat();
@@ -433,19 +469,43 @@
   }
 
   async function publishMyState() {
-    if (!room || room.phase !== 'playing' || !window.FlappyGame) return;
+    if (!room || room.phase !== 'playing' || !window.FlappyGame || !roomStateRef || publishingState) return;
     const snapshot = window.FlappyGame.roomSnapshot();
-    const url = scopedURL('roomStates', room.code, `/${myUid()}`);
-    await request(url, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    publishingState = true;
+    try {
+      await roomStateRef.child(myUid()).set({
         score: snapshot.score,
         alive: snapshot.alive,
         y: snapshot.y,
+        velocity: snapshot.velocity,
+        playerId: myUid(),
+        playerName: currentName(),
         roundAt: room.startAt,
-        updatedAt: { '.sv': 'timestamp' }
-      })
-    });
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      });
+    } catch (error) {
+      // The next tick retries while the room remains active.
+    } finally {
+      publishingState = false;
+    }
+  }
+
+  function getGhostPlayers() {
+    if (!room || room.phase !== 'playing') return [];
+    return Object.entries(states)
+      .filter(([uid, state]) => state && uid !== myUid() && Number(state.roundAt) === Number(room.startAt)
+        && Date.now() - Number(state.updatedAt || 0) < 12000)
+      .map(([uid, state]) => ({
+        id: uid,
+        name: String((members[uid] && members[uid].name) || state.playerName || 'Opponent').slice(0, 24),
+        y: Number(state.y),
+        velocity: Number(state.velocity) || 0,
+        score: Number(state.score) || 0,
+        alive: state.alive !== false,
+        updatedAt: Number(state.updatedAt) || 0,
+        roundAt: Number(state.roundAt)
+      }))
+      .filter(player => Number.isFinite(player.y));
   }
 
   async function loadChat() {
@@ -568,6 +628,7 @@
 
   window.FlappyRooms = {
     isInRoom: () => !!room,
+    getGhostPlayers,
     isPanelOpen: () => !roomOverlay.classList.contains('hidden'),
     open: openPanel,
     close: closePanel,
