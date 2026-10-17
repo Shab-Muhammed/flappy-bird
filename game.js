@@ -2214,7 +2214,23 @@
 
   const bird = new Bird();
   const ghostVisuals = new Map();
+  const ghostSpriteCache = new WeakMap();
   let ghostOverlayEnabled = lsGet('flappy_ghost_overlay') !== 'false';
+
+  function getGhostSprite(skin) {
+    let sprite = ghostSpriteCache.get(skin);
+    if (sprite) return sprite;
+    sprite = document.createElement('canvas');
+    sprite.width = 52;
+    sprite.height = 42;
+    const spriteContext = sprite.getContext('2d');
+    spriteContext.translate(26, 21);
+    spriteContext.filter = 'grayscale(1) brightness(1.55)';
+    drawBirdSprite(spriteContext, skin, 0, 0);
+    spriteContext.filter = 'none';
+    ghostSpriteCache.set(skin, sprite);
+    return sprite;
+  }
 
   function drawOpponentGhosts(deltaSeconds) {
     if (!ghostOverlayEnabled) return;
@@ -2236,10 +2252,9 @@
       const y = visual.y;
       ctx.save();
       ctx.globalAlpha = player.alive ? 0.4 : 0.2;
-      ctx.filter = 'grayscale(1) brightness(1.55)';
       ctx.translate(x, y);
       ctx.rotate(Math.max(-0.48, Math.min(1.25, Math.atan2(player.velocity, 9))));
-      drawBirdSprite(ctx, activeSkin(), globalFrame * 0.16, 0);
+      ctx.drawImage(getGhostSprite(activeSkin()), -26, -21);
       ctx.restore();
 
       const label = player.alive ? `${player.name} · ${player.score}` : `${player.name} · OUT`;

@@ -33,6 +33,7 @@
   let lastChatLoad = 0;
   let lastChatKey = '';
   let lastStartAt = 0;
+  let lastObservedPhase = '';
   let acceptNextStart = false;
   let isHostTransitioning = false;
   let disconnectCleanupRefs = [];
@@ -169,7 +170,8 @@
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              hostUid: myUid(), phase: 'lobby', createdAt: { '.sv': 'timestamp' }, startAt: 0, seed: 0
+              hostUid: myUid(), phase: 'lobby', createdAt: { '.sv': 'timestamp' }, startAt: 0, seed: 0,
+              lastManStanding: false
             })
           });
           created = true;
@@ -225,6 +227,7 @@
     await armDisconnectCleanup(code);
     try { sessionStorage.setItem('flappy_private_room', code); } catch (error) { /* session storage is optional */ }
     acceptNextStart = meta.phase === 'lobby';
+    lastObservedPhase = meta.phase;
     lastStartAt = Number(meta.startAt) || 0;
     lastChatLoad = 0;
     lastChatKey = '';
@@ -267,7 +270,7 @@
       if (!leaderboardRenderTimer) {
         leaderboardRenderTimer = setTimeout(() => {
           leaderboardRenderTimer = 0;
-          if (room && room.code === code) renderRoom();
+          if (room && room.code === code && !roomOverlay.classList.contains('hidden')) renderRoom();
         }, 250);
       }
     };
@@ -278,7 +281,7 @@
       if (!leaderboardRenderTimer) {
         leaderboardRenderTimer = setTimeout(() => {
           leaderboardRenderTimer = 0;
-          if (room && room.code === code) renderRoom();
+          if (room && room.code === code && !roomOverlay.classList.contains('hidden')) renderRoom();
         }, 250);
       }
     });
@@ -298,6 +301,10 @@
         return;
       }
       room = { code, ...meta };
+      // Clients that did not host the previous round need to re-arm when the
+      // host moves the room back to the lobby, otherwise they ignore rematches.
+      if (lastObservedPhase === 'playing' && room.phase === 'lobby') acceptNextStart = true;
+      lastObservedPhase = room.phase;
       members = nextMembers || {};
       if (!members[myUid()]) {
         resetRoom('You are no longer in this room.');
@@ -317,6 +324,9 @@
 
   function renderRoom() {
     if (!room) return;
+    // State snapshots arrive ten times per second. Keep the closed room panel
+    // out of the game's hot rendering path; openPanel() renders fresh data.
+    if (roomOverlay.classList.contains('hidden')) return;
     joinControls.classList.add('hidden');
     sessionPanel.classList.remove('hidden');
     $('room-code').textContent = room.code;
@@ -359,6 +369,9 @@
     const me = members[myUid()];
     const isHost = room.hostUid === myUid();
     const isPlaying = room.phase === 'playing';
+    const lastManStandingToggle = $('last-man-standing-toggle');
+    lastManStandingToggle.checked = room.lastManStanding === true;
+    lastManStandingToggle.disabled = !isHost || isPlaying;
     $('room-ready-btn').classList.toggle('hidden', isPlaying);
     $('room-start-btn').classList.toggle('hidden', !isHost || isPlaying);
     $('room-ready-btn').textContent = me && me.ready ? 'Not ready' : 'I’m ready';
@@ -366,15 +379,19 @@
     $('room-start-btn').disabled = !allReady;
     $('room-start-btn').title = allReady ? 'Start this room match' : 'At least two players must be ready';
     const hasPlayed = Object.values(states).some(state => Number(state.roundAt) > 0);
+    const lastResult = room.lastResult;
+    const previousResult = lastResult && lastResult.message
+      ? `${Array.isArray(lastResult.winnerUids) && lastResult.winnerUids.includes(myUid()) ? '🏆 Victory!' : 'Round over.'} ${lastResult.message}`
+      : '';
     $('room-result').textContent = isPlaying
       ? (room.startAt > Date.now() ? `Match starts in ${Math.max(1, Math.ceil((room.startAt - Date.now()) / 1000))}…` : 'Match in progress — scores update live.')
-      : (roster.length < 2
+      : (previousResult || (roster.length < 2
         ? 'Share the code to invite up to 7 friends.'
         : allReady
           ? 'Everyone is ready. The host can start another match.'
           : hasPlayed
             ? 'Round complete — ready up whenever you want to play again.'
-            : 'Everyone must mark ready before the host starts.');
+            : 'Everyone must mark ready before the host starts.'));
     if (roomOverlay.classList.contains('hidden')) return;
     if (isPlaying) setStatus('Private room match');
     else setStatus('Private room lobby');
@@ -405,6 +422,7 @@
     try {
       const startAt = Date.now() + 5000;
       const updated = { ...room, phase: 'playing', startAt, seed: randomSeed() };
+      delete updated.lastResult;
       delete updated.code;
       await request(roomURL(room.code), {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated)
@@ -450,14 +468,47 @@
   async function maybeFinishRound() {
     if (!room || room.hostUid !== myUid() || room.phase !== 'playing' || isHostTransitioning || Date.now() < room.startAt + 3000) return;
     const uids = Object.keys(members);
-    const allDone = uids.length > 0 && uids.every(uid => {
+    const now = Date.now();
+    const timedOutMissingPlayers = now - Number(room.startAt) > 15000;
+    const roundStatesReady = uids.length > 0 && uids.every(uid => {
       const state = states[uid];
-      return state && Number(state.roundAt) === Number(room.startAt) && (!state.alive || Date.now() - Number(state.updatedAt) > 15000);
+      return (state && Number(state.roundAt) === Number(room.startAt)) || timedOutMissingPlayers;
     });
-    if (!allDone) return;
+    if (!roundStatesReady) return;
+    const allDone = uids.every(uid => {
+      const state = states[uid];
+      return !state || Number(state.roundAt) !== Number(room.startAt) || !state.alive || now - Number(state.updatedAt) > 15000;
+    });
+    const aliveCount = uids.filter(uid => {
+      const state = states[uid];
+      return state && Number(state.roundAt) === Number(room.startAt) && state.alive && now - Number(state.updatedAt) <= 15000;
+    }).length;
+    if (room.lastManStanding === true ? aliveCount > 1 : !allDone) return;
     isHostTransitioning = true;
     try {
-      const updated = { ...room, phase: 'lobby', startAt: 0, seed: 0 };
+      const standings = uids.map(uid => {
+        const member = members[uid] || {};
+        const state = states[uid];
+        return {
+          uid,
+          name: String(member.name || 'Player').slice(0, 24),
+          score: state && Number(state.roundAt) === Number(room.startAt) ? Number(state.score) || 0 : 0
+        };
+      }).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+      const topScore = standings[0] ? standings[0].score : 0;
+      const winners = standings.filter(player => player.score === topScore);
+      const winnerNames = winners.map(player => player.name);
+      const winnerLabel = winnerNames.length > 1 ? `Tie: ${winnerNames.join(', ')}` : `Winner: ${winnerNames[0] || 'No winner'}`;
+      const updated = {
+        ...room,
+        phase: 'lobby', startAt: 0, seed: 0,
+        lastResult: {
+          message: `${winnerLabel} · ${topScore} points`,
+          winnerUids: winners.map(player => player.uid),
+          standings,
+          completedAt: firebase.database.ServerValue.TIMESTAMP
+        }
+      };
       delete updated.code;
       await request(roomURL(room.code), {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated)
@@ -466,6 +517,28 @@
       setStatus('Round finished. Get ready for the next match.');
     } catch (error) { /* the next room sync retries */ }
     finally { isHostTransitioning = false; }
+  }
+
+  async function updateLastManStanding() {
+    if (!room || room.hostUid !== myUid() || room.phase !== 'lobby' || busy) return;
+    const toggle = $('last-man-standing-toggle');
+    busy = true;
+    toggle.disabled = true;
+    try {
+      const updated = { ...room, lastManStanding: toggle.checked };
+      delete updated.code;
+      await request(roomURL(room.code), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated)
+      });
+      room = { ...room, lastManStanding: toggle.checked };
+      renderRoom();
+    } catch (error) {
+      toggle.checked = room.lastManStanding === true;
+      setStatus('Could not update the match rule. Check room rules.');
+    } finally {
+      busy = false;
+      toggle.disabled = room.hostUid !== myUid() || room.phase !== 'lobby';
+    }
   }
 
   async function publishMyState() {
@@ -584,6 +657,7 @@
     members = {};
     states = {};
     lastStartAt = 0;
+    lastObservedPhase = '';
     if (startTimer) clearTimeout(startTimer);
     startTimer = 0;
     scheduledStartAt = 0;
@@ -599,6 +673,7 @@
   $('room-join-btn').addEventListener('click', joinRoom);
   $('room-code-input').addEventListener('keydown', event => { if (event.key === 'Enter') joinRoom(); });
   $('room-ready-btn').addEventListener('click', toggleReady);
+  $('last-man-standing-toggle').addEventListener('change', updateLastManStanding);
   $('room-start-btn').addEventListener('click', startMatch);
   $('room-leave-btn').addEventListener('click', leaveRoom);
   $('room-close-btn').addEventListener('click', closePanel);

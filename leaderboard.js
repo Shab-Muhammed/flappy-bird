@@ -154,7 +154,6 @@
     accountBusy = true;
     accountMessage.textContent = createAccount ? 'Creating account…' : 'Signing in…';
     try {
-      if (createAccount) await assertUsernameAvailable(username);
       const result = createAccount
         ? await auth.createUserWithEmailAndPassword(usernameEmail(username), password)
         : await auth.signInWithEmailAndPassword(usernameEmail(username), password);
@@ -168,7 +167,7 @@
       if (error && error.message === 'USERNAME_RESERVATION_FAILED') {
         accountMessage.textContent = 'That username is already reserved. Choose another username or sign in to its account.';
       } else if (error && error.message === 'USERNAME_TAKEN') {
-        accountMessage.textContent = 'That username is already on the leaderboard. Choose another one.';
+        accountMessage.textContent = 'That username is already taken. Choose another one or sign in to its account.';
       } else {
         accountMessage.textContent = authErrorMessage(error);
       }
@@ -182,13 +181,15 @@
     const claimURL = `${baseURL}/usernames/${key}.json`;
     let claim = await request(claimURL);
     if (claim !== user.uid) {
-      if (claim !== null) throw new Error('USERNAME_RESERVATION_FAILED');
-      await assertUsernameAvailable(username, user.uid);
+      if (claim !== null) throw new Error('USERNAME_TAKEN');
       try {
         await request(claimURL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(user.uid) });
       } catch (e) {
         claim = await request(claimURL);
-        if (claim !== user.uid) throw e;
+        if (claim !== user.uid) {
+          if (claim !== null) throw new Error('USERNAME_TAKEN');
+          throw e;
+        }
       }
     }
     const reverseURL = `${baseURL}/usernameByUid/${user.uid}.json`;
@@ -202,15 +203,6 @@
         if (savedName !== key) throw e;
       }
     }
-  }
-
-  async function assertUsernameAvailable(username, uid = '') {
-    const rows = await request(`${baseURL}/${CONFIG.collection}.json`);
-    const wanted = usernameKey(username);
-    const alreadyUsed = rows && Object.entries(rows).some(([id, row]) =>
-      id !== uid && id !== legacyPlayerId && usernameKey(row && row.name) === wanted
-    );
-    if (alreadyUsed) throw new Error('USERNAME_TAKEN');
   }
 
   async function migrateLegacyScore(user, username) {
