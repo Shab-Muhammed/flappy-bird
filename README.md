@@ -63,14 +63,14 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
       "usernames": {
         ".read": true,
         "$name": {
-          ".write": "auth != null && !data.exists() && newData.val() === auth.uid && !root.child('usernameByUid').child(auth.uid).exists()",
+          ".write": "auth != null && newData.val() === auth.uid && auth.token.email === ($name + '@users.flappy-bird-ae650.firebaseapp.com')",
           ".validate": "$name.matches(/^[a-z0-9_]{3,12}$/) && newData.isString()"
         }
       },
       "usernameByUid": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
-          ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('usernames').child(newData.val()).val() === auth.uid",
+          ".write": "auth != null && auth.uid === $uid && auth.token.email === (newData.val() + '@users.flappy-bird-ae650.firebaseapp.com')",
           ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9_]{3,12}$/)"
         }
       },

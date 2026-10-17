@@ -166,6 +166,8 @@
       console.error('Firebase authentication failed:', error && error.code, error && error.message);
       if (error && error.message === 'USERNAME_RESERVATION_FAILED') {
         accountMessage.textContent = 'That username is already reserved. Choose another username or sign in to its account.';
+      } else if (error && error.message === 'USERNAME_REPAIR_REQUIRED') {
+        accountMessage.textContent = 'Your password is correct, but Firebase denied repair of this username reservation. An administrator must publish the updated database rules from README.md, then you can sign in again.';
       } else if (error && error.message === 'USERNAME_TAKEN') {
         accountMessage.textContent = createAccount
           ? 'That username is already taken. Choose another one or sign in to its account.'
@@ -180,32 +182,17 @@
 
   async function reserveUsername(user, username) {
     const key = usernameKey(username);
+    if (String(user.email || '').toLowerCase() !== usernameEmail(key)) throw new Error('USERNAME_RESERVATION_FAILED');
     const claimURL = `${baseURL}/usernames/${key}.json`;
     const reverseURL = `${baseURL}/usernameByUid/${user.uid}.json`;
     let savedName = await request(reverseURL);
-    if (savedName !== null && savedName !== key) throw new Error('USERNAME_RESERVATION_FAILED');
-
     let claim = await request(claimURL);
     if (claim !== user.uid) {
-      // Firebase Auth already verified this username's email/password. A
-      // matching reverse record is enough to trust this account if the forward
-      // reservation is stale; leaderboard rows never decide username ownership.
-      if (claim !== null) {
-        if (savedName === key) return;
-        throw new Error('USERNAME_TAKEN');
-      }
-      // Existing reverse records are the account's canonical username. The
-      // current database rule only allows creating a forward claim before this
-      // reverse record exists, so don't block a valid returning account here.
-      if (savedName === key) return;
       try {
         await request(claimURL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(user.uid) });
       } catch (e) {
         claim = await request(claimURL);
-        if (claim !== user.uid) {
-          if (claim !== null) throw new Error('USERNAME_TAKEN');
-          throw e;
-        }
+        if (claim !== user.uid) throw claim === null ? e : new Error('USERNAME_REPAIR_REQUIRED');
       }
     }
     if (savedName !== key) {
@@ -213,7 +200,7 @@
         await request(reverseURL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(key) });
       } catch (e) {
         savedName = await request(reverseURL);
-        if (savedName !== key) throw e;
+        if (savedName !== key) throw new Error('USERNAME_REPAIR_REQUIRED');
       }
     }
   }
@@ -655,6 +642,9 @@
         if (e && e.message === 'USERNAME_RESERVATION_FAILED') {
           await auth.signOut();
           setNote('That username is reserved by a different account.');
+        } else if (e && e.message === 'USERNAME_REPAIR_REQUIRED') {
+          accountReady = false;
+          showAccountForm('Your password is correct, but Firebase denied repair of this username reservation. An administrator must publish the updated database rules from README.md, then you can sign in again.');
         } else {
           accountReady = false;
           showAccountForm('Could not verify your username. Check that the Firebase database rules are published.');
