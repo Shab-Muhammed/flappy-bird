@@ -1043,8 +1043,6 @@
       ctx.fillStyle = '#53e9f2'; ctx.fillRect(0, GROUND_Y + 4, V_WIDTH, 2);
       ctx.fillStyle = '#f14bad'; ctx.fillRect(0, GROUND_Y + 7, V_WIDTH, 1);
     } else if (theme.style === 'desert') {
-      ctx.fillStyle = '#f6d18b';
-      for (let x = -(groundScrollOffset % 42); x < V_WIDTH; x += 42) ctx.fillRect(x, GROUND_Y + 12 + (x % 9), 2, 2);
     } else if (theme.style === 'kerala') {
       ctx.fillStyle = '#2c6b4a';
       for (let x = -(groundScrollOffset % 44); x < V_WIDTH; x += 44) {
