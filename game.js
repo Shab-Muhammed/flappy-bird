@@ -1101,7 +1101,8 @@
     ctx.globalAlpha = opacity;
     if (theme.style === 'highway') {
       ctx.fillStyle = '#d2d8d6';
-      for (let x = -(groundScrollOffset * 2 % 78); x < V_WIDTH; x += 78) ctx.fillRect(x, GROUND_Y + 53, 38, 4);
+      // Road paint follows the same near-layer offset as the highway bridge.
+      for (let x = -(groundScrollOffset % 78); x < V_WIDTH; x += 78) ctx.fillRect(x, GROUND_Y + 53, 38, 4);
       ctx.fillStyle = '#41474a'; ctx.fillRect(0, GROUND_Y + 8, V_WIDTH, 2);
       ctx.fillStyle = '#626c70';
       for (let x = -(groundScrollOffset % 64); x < V_WIDTH; x += 64) ctx.fillRect(x, GROUND_Y + 16, 28, 2);
