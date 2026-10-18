@@ -303,7 +303,7 @@
     return rows.sort((a, b) => b.score - a.score || (a.ts || 0) - (b.ts || 0));
   }
 
-  let boardMode = 'all'; // 'all' | 'week'
+  let boardMode = 'week'; // 'all' | 'week'; weekly is the primary board
 
   function weekStart(now = Date.now()) {
     const d = new Date(now);
