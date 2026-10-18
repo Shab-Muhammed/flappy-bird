@@ -48,7 +48,20 @@
   const playerList = $('room-player-list');
   const chatList = $('room-chat-list');
   const MAX_PLAYERS = 8;
-  const ROOM_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  // Room codes are two silly words, e.g. SOGGY-WAFFLE. Letters and one hyphen only,
+  // so they are always valid Realtime Database keys.
+  const CODE_ADJECTIVES = [
+    'SOGGY', 'WOBBLY', 'GRUMPY', 'SPICY', 'FLUFFY', 'SNEAKY', 'CHONKY', 'SALTY', 'CRISPY', 'JIGGLY',
+    'BOUNCY', 'DIZZY', 'GOOFY', 'SLEEPY', 'SQUISHY', 'FUZZY', 'SILLY', 'WACKY', 'LUMPY', 'CRANKY',
+    'GIGGLY', 'MUSHY', 'SPOOKY', 'CHEEKY', 'DORKY', 'SASSY', 'CLUMSY', 'BURPY', 'PICKLED', 'TOASTY',
+    'SQUEAKY', 'ZESTY', 'PANICKY', 'HONKING', 'WIGGLY', 'BOOGIE', 'SNORTY', 'CRUMBLY', 'DAFT', 'LOOPY'
+  ];
+  const CODE_NOUNS = [
+    'WAFFLE', 'PICKLE', 'NOODLE', 'TACO', 'POTATO', 'BANANA', 'MUFFIN', 'PANCAKE', 'BISCUIT', 'NUGGET',
+    'PRETZEL', 'PUDDING', 'WALRUS', 'LLAMA', 'GOOSE', 'PENGUIN', 'HAMSTER', 'OTTER', 'MOOSE', 'NARWHAL',
+    'PLATYPUS', 'CHICKEN', 'TURNIP', 'RADISH', 'COOKIE', 'MEATBALL', 'BAGEL', 'DONUT', 'CUPCAKE', 'SPROUT',
+    'WOMBAT', 'PIGEON', 'TOASTER', 'SOCK', 'KAZOO', 'TROMBONE', 'GIRAFFE', 'BURRITO', 'MANGO', 'CROISSANT'
+  ];
   const USERNAME_DOMAIN = '@users.flappy-bird-ae650.firebaseapp.com';
 
   let room = null;
@@ -166,10 +179,25 @@
     }
   }
 
+  function randomIndex(length) {
+    const value = new Uint32Array(1);
+    crypto.getRandomValues(value);
+    return value[0] % length;
+  }
+
   function randomCode() {
-    const bytes = new Uint8Array(8);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes, value => ROOM_ALPHABET[value % ROOM_ALPHABET.length]).join('');
+    return `${CODE_ADJECTIVES[randomIndex(CODE_ADJECTIVES.length)]}-${CODE_NOUNS[randomIndex(CODE_NOUNS.length)]}`;
+  }
+
+  // Accepts "soggy-waffle", "soggy waffle" or "soggywaffle". Returns '' when it is not a valid code.
+  function normalizeCode(raw) {
+    const letters = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '');
+    for (const adjective of CODE_ADJECTIVES) {
+      if (letters.startsWith(adjective) && CODE_NOUNS.includes(letters.slice(adjective.length))) {
+        return `${adjective}-${letters.slice(adjective.length)}`;
+      }
+    }
+    return '';
   }
 
   function randomSeed() {
@@ -238,9 +266,9 @@
   }
 
   async function joinRoom() {
-    const code = String(codeInput.value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (code.length !== 8) {
-      setStatus('Enter the 8-character room code.');
+    const code = normalizeCode(codeInput.value);
+    if (!code) {
+      setStatus('Enter the room code, like SOGGY-WAFFLE.');
       return;
     }
     if (busy || !currentUser()) return openPanel();

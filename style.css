@@ -844,8 +844,9 @@ button.header-pill:focus-visible {
 .room-code-row strong {
   flex: 1;
   font-family: var(--font-arcade);
-  font-size: clamp(14px, 2.3vw, 19px);
-  letter-spacing: 3px;
+  font-size: clamp(10px, 2.3vw, 15px);
+  letter-spacing: 1px;
+  overflow-wrap: anywhere;
   color: #b85800;
 }
 
