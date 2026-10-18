@@ -145,7 +145,10 @@
             <button id="lb-login-btn" class="lb-btn" type="button">Sign in</button>
             <button id="lb-register-btn" class="lb-btn lb-btn-secondary" type="button">Create account</button>
           </div>
-          <p class="lb-forgot-hint">Password slipped away? Contact the game admin to get back in.</p>
+          <div class="lb-row lb-reset-row">
+            <button id="lb-reset-request-btn" class="lb-btn lb-btn-secondary" type="button">Request password reset</button>
+          </div>
+          <p id="lb-reset-request-message" class="lb-hint lb-reset-message" aria-live="polite">Forgot your password? Send a request to the game admin.</p>
         </div>
         <div id="lb-player" class="lb-player hidden">
           <span>Playing as <b id="lb-player-name"></b></span>

@@ -95,12 +95,19 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
         }
       },
       "suggestions": {
-        ".read": false,
+        ".read": "auth != null && auth.uid === 'ADMIN_UID_HERE'",
         "$id": {
-          ".write": "!data.exists()",
+          ".write": "!data.exists() || (auth != null && auth.uid === 'ADMIN_UID_HERE')",
           ".validate": "newData.hasChildren(['category','suggestion','ts']) && newData.child('category').isString() && (newData.child('category').val() === 'General' || newData.child('category').val() === 'Skin' || newData.child('category').val() === 'Audio') && newData.child('suggestion').isString() && newData.child('suggestion').val().length >= 1 && newData.child('suggestion').val().length <= 120 && newData.child('ts').isNumber()"
         }
        },
+      "resetRequests": {
+        ".read": "auth != null && auth.uid === 'ADMIN_UID_HERE'",
+        "$id": {
+          ".write": "(!data.exists() && newData.child('status').val() === 'open') || (auth != null && auth.uid === 'ADMIN_UID_HERE')",
+          ".validate": "newData.hasChildren(['username','ts','status']) && newData.child('username').isString() && newData.child('username').val().matches(/^[a-z0-9_]{3,12}$/) && newData.child('ts').isNumber() && (newData.child('status').val() === 'open' || newData.child('status').val() === 'handled')"
+        }
+      },
       "rooms": {
         "$code": {
           ".read": "auth != null",
@@ -155,7 +162,9 @@ The live feed writes the authenticated player's account ID, username, and server
 
 Players sign in, create a room, and share its two-word code (for example `SOGGY-WAFFLE`). The game client limits rooms to eight players, with a ready check, host-started free-for-all matches, a full-screen ranked in-room score table, and room-only chat. After each round, players return to the room and can ready up for another match; rooms have no match limit. When a host leaves or disconnects, hosting transfers to the member with the earliest `joinedAt` timestamp. A room and its `roomMembers`, `roomStates`, and `roomChat` data are deleted when its last member leaves or disconnects. Realtime Database rules cannot count arbitrary children, so the player limit is not enforced against modified clients; use a trusted server such as a Cloud Function if the capacity limit must be security-enforced. Every round uses the same seeded pipe-gap sequence for all players. There is no public room list, random matchmaking, global chat, or one-to-one chat. The room feature uses the `rooms`, `roomMembers`, `roomStates`, and `roomChat` paths included in the rules above. Publish those complete rules in Firebase Console → Realtime Database → Rules. Members need a signed-in game account; anyone with a room code can attempt to join while the room is in its lobby.
 
-The store's suggestion form accepts General, Skin, and Audio suggestions and submits the category, suggestion text, and a server timestamp to the `suggestions` collection. The rules above allow new submissions while preventing edits and reads through the public client. Review requests in Firebase Console under Realtime Database data at `suggestions`. Since the form is public and unauthenticated, the validation limits the content but does not prevent spam; use an authenticated server endpoint if you need stronger abuse protection.
+The store's suggestion form accepts General, Skin, and Audio suggestions and submits the category, suggestion text, and a server timestamp to `suggestions`. The player login form also has a **Request password reset** button; it submits the player's username and timestamp to `resetRequests`. Both inboxes are visible in the separate admin website at `/admin/` after signing in with an admin account.
+
+To enable the admin console, create or choose an administrator account in Firebase Authentication using the same username-based email format (`<username>@users.flappy-bird-ae650.firebaseapp.com`), then copy that account's UID from Authentication → Users. Replace **every** `ADMIN_UID_HERE` string in the rules above with that UID, and publish the full rules in Realtime Database → Rules. Do not leave the placeholder in the published rules. This UID check is what protects the inbox; signing in alone does not grant admin access. Deploy the project with the `admin/` folder so the console is available at `/admin/`. Reset requests do not change passwords automatically: verify the player's identity and reset their Firebase Authentication password from the Firebase console, then mark the request handled in the dashboard. The public request form is rate-unlimited, so use a trusted server endpoint if stronger spam protection is needed.
 
 ## Project structure
 
@@ -165,6 +174,7 @@ The store's suggestion form accepts General, Skin, and Audio suggestions and sub
 ├── style.css                   Layout and responsive styling
 ├── game.js                     Game loop, rendering, store, and controls
 ├── leaderboard.js              Firebase leaderboard and local fallback
+├── admin/                       Separate Firebase-backed admin inbox at /admin/
 ├── rooms.js                    Private multiplayer rooms and room-only chat
 ├── sounds/
 │   └── death/                  Death sound files and bundled audio data

@@ -55,6 +55,7 @@
   const accountName = $('lb-account-name');
   const accountPassword = $('lb-password');
   const accountMessage = $('lb-auth-message');
+  const resetRequestMessage = $('lb-reset-request-message');
   const USERNAME_DOMAIN = '@users.flappy-bird-ae650.firebaseapp.com';
   let accountReady = false;
   let accountBusy = false;
@@ -633,6 +634,26 @@
   ui.tabWeek.addEventListener('click', () => setBoardMode('week'));
   $('lb-login-btn').addEventListener('click', () => authenticate(false));
   $('lb-register-btn').addEventListener('click', () => authenticate(true));
+  $('lb-reset-request-btn').addEventListener('click', async () => {
+    const username = String(accountName.value || '').trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,12}$/.test(username)) {
+      resetRequestMessage.textContent = 'Enter your 3–12 character username above first.';
+      return;
+    }
+    const button = $('lb-reset-request-btn');
+    button.disabled = true;
+    resetRequestMessage.textContent = 'Sending request…';
+    try {
+      await api.requestPasswordReset(username);
+      resetRequestMessage.textContent = 'Request sent. The admin will review it soon.';
+    } catch (error) {
+      resetRequestMessage.textContent = error && /Permission denied|HTTP 401|HTTP 403/i.test(error.message)
+        ? 'Could not send the request. The Firebase resetRequests rule needs to be published.'
+        : 'Could not send your request. Check your connection and try again.';
+    } finally {
+      button.disabled = false;
+    }
+  });
   $('lb-signout').addEventListener('click', async () => {
     await stopPresence();
     if (auth) await auth.signOut();
@@ -675,6 +696,16 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category, suggestion: text, ts: { '.sv': 'timestamp' } })
+      });
+    },
+    async requestPasswordReset(username) {
+      if (!isOnline) throw new Error('Password reset requests are not configured.');
+      const normalized = String(username || '').trim().toLowerCase();
+      if (!/^[a-z0-9_]{3,12}$/.test(normalized)) throw new Error('Enter a valid username.');
+      return request(`${baseURL}/resetRequests.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: normalized, ts: { '.sv': 'timestamp' }, status: 'open' })
       });
     },
     // Called when a run ends with a score above zero
