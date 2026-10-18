@@ -5,12 +5,39 @@
 
   const $ = id => document.getElementById(id);
   const auth = window.FlappyFirebaseAuth;
-  const database = firebase.database ? firebase.database() : null;
+  // The Realtime Database SDK is only needed for rooms, so it loads the first time a room is entered.
+  const DATABASE_SDK_URL = 'https://www.gstatic.com/firebasejs/12.19.0/firebase-database-compat.js';
+  let database = firebase.database ? firebase.database() : null;
   let serverTimeOffset = 0;
-  if (database) {
-    database.ref('.info/serverTimeOffset').on('value', snapshot => {
-      serverTimeOffset = Number(snapshot.val()) || 0;
-    });
+  let serverTimeWatched = false;
+  let databaseLoading = null;
+
+  function ensureDatabase() {
+    const ready = () => {
+      if (!database) database = firebase.database();
+      if (!serverTimeWatched) {
+        serverTimeWatched = true;
+        database.ref('.info/serverTimeOffset').on('value', snapshot => {
+          serverTimeOffset = Number(snapshot.val()) || 0;
+        });
+      }
+      return database;
+    };
+    if (firebase.database) return Promise.resolve(ready());
+    if (!databaseLoading) {
+      databaseLoading = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = DATABASE_SDK_URL;
+        script.onload = () => resolve(ready());
+        script.onerror = () => {
+          databaseLoading = null;
+          script.remove();
+          reject(new Error('Could not load the rooms service. Check your connection and try again.'));
+        };
+        document.head.appendChild(script);
+      });
+    }
+    return databaseLoading;
   }
   const baseURL = firebase.app().options.databaseURL.replace(/\/+$/, '');
   const roomOverlay = $('room-overlay');
@@ -42,6 +69,11 @@
   let isHostTransitioning = false;
   let disconnectCleanupRefs = [];
   let disconnectCleanupSignature = '';
+  let roomListeners = [];
+  let lastPublished = null;
+  let lastPublishAt = 0;
+  let roomChangeRunning = false;
+  let roomChangePending = false;
 
   function setStatus(message) { statusEl.textContent = message; }
   function currentUser() { return auth && auth.currentUser; }
@@ -220,6 +252,7 @@
   }
 
   async function enterRoom(code, createdByMe) {
+    await ensureDatabase();
     const meta = await request(roomURL(code));
     if (!meta) throw new Error('Room not found. Check the code.');
     const memberURL = scopedURL('roomMembers', code);
@@ -249,11 +282,21 @@
 
   function startPolling() {
     stopPolling();
-    watchRoomStates(room.code);
-    syncRoom();
-    timer = setInterval(syncRoom, 1000);
-    // Publish 10 Hz snapshots; the canvas interpolates between live updates.
-    stateTimer = setInterval(publishMyState, 100);
+    const code = room.code;
+    watchRoomStates(code);
+    watchRoomMeta(code);
+    // Room, member and chat data now arrive through listeners. This timer is local only
+    // (countdowns, round start/finish checks) and makes no network requests.
+    timer = setInterval(tickRoom, 1000);
+    // 5 Hz while the bird is moving; unchanged state only sends an occasional heartbeat.
+    stateTimer = setInterval(publishMyState, 200);
+  }
+
+  function tickRoom() {
+    if (!room) return;
+    renderRoom();
+    maybeStartRound().catch(() => {});
+    maybeFinishRound().catch(() => {});
   }
 
   function stopPolling() {
@@ -261,6 +304,8 @@
     if (stateTimer) clearInterval(stateTimer);
     if (roomStateRef) roomStateRef.off();
     roomStateRef = null;
+    roomListeners.forEach(ref => { try { ref.off(); } catch (error) { /* already detached */ } });
+    roomListeners = [];
     if (leaderboardRenderTimer) clearTimeout(leaderboardRenderTimer);
     leaderboardRenderTimer = 0;
     if (startTimer) clearTimeout(startTimer);
@@ -268,6 +313,37 @@
     stateTimer = 0;
     startTimer = 0;
     scheduledStartAt = 0;
+    lastPublished = null;
+  }
+
+  function watchRoomMeta(code) {
+    const metaRef = database.ref(`rooms/${code}`);
+    const memberRef = database.ref(`roomMembers/${code}`);
+    const chatQuery = database.ref(`roomChat/${code}`).orderByChild('ts').limitToLast(40);
+    const onListenError = () => setStatus('Room connection interrupted. Reconnecting…');
+    metaRef.on('value', snapshot => {
+      if (!room || room.code !== code) return;
+      const meta = snapshot.val();
+      if (!meta) {
+        resetRoom('The room was closed by its host.');
+        return;
+      }
+      room = { code, ...meta };
+      onRoomChanged();
+    }, onListenError);
+    memberRef.on('value', snapshot => {
+      if (!room || room.code !== code) return;
+      members = snapshot.val() || {};
+      if (!members[myUid()]) {
+        resetRoom('You are no longer in this room.');
+        return;
+      }
+      onRoomChanged();
+    }, onListenError);
+    chatQuery.on('value', snapshot => {
+      if (room && room.code === code) renderChat(snapshot.val());
+    }, onListenError);
+    roomListeners = [metaRef, memberRef, chatQuery];
   }
 
   function watchRoomStates(code) {
@@ -296,36 +372,30 @@
     });
   }
 
-  async function syncRoom() {
-    if (!room || syncing || !currentUser()) return;
-    syncing = true;
+  // Runs whenever the room or its member list changes (pushed by the listeners above).
+  async function onRoomChanged() {
+    if (roomChangeRunning) {
+      roomChangePending = true;
+      return;
+    }
+    roomChangeRunning = true;
     try {
-      const code = room.code;
-      const [meta, nextMembers] = await Promise.all([
-        request(roomURL(code)),
-        request(scopedURL('roomMembers', code))
-      ]);
-      if (!meta) {
-        resetRoom('The room was closed by its host.');
-        return;
-      }
-      room = { code, ...meta };
-      members = nextMembers || {};
-      if (!members[myUid()]) {
-        resetRoom('You are no longer in this room.');
-        return;
-      }
-      await armDisconnectCleanup(code);
-      renderRoom();
-      await maybeStartRound();
-      await maybeFinishRound();
-      if (Date.now() - lastChatLoad > 1800) await loadChat();
+      do {
+        roomChangePending = false;
+        if (!room || !currentUser()) break;
+        await armDisconnectCleanup(room.code);
+        renderRoom();
+        await maybeStartRound();
+        await maybeFinishRound();
+      } while (roomChangePending);
     } catch (error) {
       setStatus('Room connection interrupted. Reconnecting…');
     } finally {
-      syncing = false;
+      roomChangeRunning = false;
     }
   }
+
+  async function syncRoom() { await onRoomChanged(); }
 
   function renderRoom() {
     if (!room) return;
@@ -549,7 +619,13 @@
 
   async function publishMyState() {
     if (!room || room.phase !== 'playing' || !window.FlappyGame || !roomStateRef || publishingState) return;
+    const roundAt = room.startAt;
     const snapshot = window.FlappyGame.roomSnapshot();
+    const last = lastPublished;
+    const unchanged = last && last.roundAt === roundAt && last.score === snapshot.score
+      && last.alive === snapshot.alive && last.y === snapshot.y && last.velocity === snapshot.velocity;
+    // Dead or idle players only send a heartbeat (staleness cut-off elsewhere is 12 s).
+    if (unchanged && Date.now() - lastPublishAt < 4000) return;
     publishingState = true;
     try {
       await roomStateRef.child(myUid()).set({
@@ -559,9 +635,11 @@
         velocity: snapshot.velocity,
         playerId: myUid(),
         playerName: currentName(),
-        roundAt: room.startAt,
+        roundAt,
         updatedAt: firebase.database.ServerValue.TIMESTAMP
       });
+      lastPublished = { ...snapshot, roundAt };
+      lastPublishAt = Date.now();
     } catch (error) {
       // The next tick retries while the room remains active.
     } finally {
@@ -582,16 +660,13 @@
         score: Number(state.score) || 0,
         alive: state.alive !== false,
         updatedAt: Number(state.updatedAt) || 0,
+        age: Math.max(0, (serverNow() - (Number(state.updatedAt) || 0)) / 1000),
         roundAt: Number(state.roundAt)
       }))
       .filter(player => Number.isFinite(player.y));
   }
 
-  async function loadChat() {
-    if (!room) return;
-    lastChatLoad = Date.now();
-    const query = '?orderBy=%22ts%22&limitToLast=40';
-    const messages = await request(scopedURL('roomChat', room.code) + query);
+  function renderChat(messages) {
     const rows = messages ? Object.entries(messages).sort((a, b) => Number(a[1].ts) - Number(b[1].ts)) : [];
     const signature = rows.map(([key]) => key).join('|');
     if (signature === lastChatKey) return;
@@ -622,7 +697,6 @@
         body: JSON.stringify({ uid: myUid(), name: currentName(), text, ts: { '.sv': 'timestamp' } })
       });
       input.value = '';
-      await loadChat();
     } catch (error) { setStatus('Could not send room message. Check room chat rules.'); }
     finally { busy = false; $('room-chat-send').disabled = false; }
   }

@@ -21,7 +21,7 @@
 
   // --- Canvas Setup & High-DPI Scaling ---
   const canvas = document.getElementById('game-canvas');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d'); // swapped to an offscreen canvas while building caches
   const bestScoreBadge = document.getElementById('best-score-badge');
   const soundBtn = document.getElementById('sound-btn');
   const soundIconOn = document.getElementById('sound-icon-on');
@@ -38,9 +38,11 @@
   const glowScale = coarsePointer ? 0.48 : 0.72;
   const glowBlur = amount => amount * glowScale;
   let scale = 1;
+  let renderDpr = 1;
 
   function resizeCanvas() {
     const dpr = Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.5 : 2);
+    renderDpr = dpr;
     canvas.width = V_WIDTH * dpr;
     canvas.height = V_HEIGHT * dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -203,21 +205,11 @@
         this.playDeathBuffer(cachedBuffer);
         return;
       }
-      const dataUri = window.FLAPPY_DEATH_SOUND_DATA && window.FLAPPY_DEATH_SOUND_DATA[item.id];
-      if (dataUri && this.ctx) {
-        const encoded = dataUri.slice(dataUri.indexOf(',') + 1);
-        const binary = atob(encoded);
-        const bytes = new Uint8Array(binary.length);
-        for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
-        this.ctx.decodeAudioData(bytes.buffer)
-          .then(buffer => {
-            deathSoundBuffers.set(item.id, buffer);
-            this.playDeathBuffer(buffer);
-          })
-          .catch(() => this.playDeathFile(item));
-        return;
-      }
-      this.playDeathFile(item);
+      loadDeathSoundBuffer(item).then(buffer => {
+        if (this.muted) return;
+        if (buffer) this.playDeathBuffer(buffer);
+        else this.playDeathFile(item);
+      });
     }
 
     playDeathFile(item) {
@@ -386,33 +378,66 @@
   if (!deathSoundOwned.includes('original')) deathSoundOwned.unshift('original');
   const savedDeathSound = lsGet('flappy_equipped_death_sound');
   let equippedDeathSound = deathSoundOwned.includes(savedDeathSound) ? savedDeathSound : 'original';
+  // Death sounds are fetched on demand (only the equipped one, plus owned ones
+  // when "randomize" is on) instead of shipping every sound inside a JS bundle.
+  const deathSoundLoading = new Map();
+  function loadDeathSoundBuffer(item) {
+    if (!item || !item.src) return Promise.resolve(null);
+    if (deathSoundBuffers.has(item.id)) return Promise.resolve(deathSoundBuffers.get(item.id));
+    if (deathSoundLoading.has(item.id)) return deathSoundLoading.get(item.id);
+    sound.init();
+    if (!sound.ctx) return Promise.resolve(null);
+    const promise = (async () => {
+      try {
+        let bytes;
+        const dataUri = window.FLAPPY_DEATH_SOUND_DATA && window.FLAPPY_DEATH_SOUND_DATA[item.id];
+        if (dataUri) {
+          const binary = atob(dataUri.slice(dataUri.indexOf(',') + 1));
+          bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          bytes = bytes.buffer;
+        } else {
+          const response = await fetch(new URL(item.src, document.baseURI).href);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          bytes = await response.arrayBuffer();
+        }
+        const buffer = await sound.ctx.decodeAudioData(bytes);
+        deathSoundBuffers.set(item.id, buffer);
+        return buffer;
+      } catch (e) {
+        return null;
+      } finally {
+        deathSoundLoading.delete(item.id);
+      }
+    })();
+    deathSoundLoading.set(item.id, promise);
+    return promise;
+  }
+
+  function preloadOwnedDeathSounds() {
+    if (!randomDeathSoundEnabled) return;
+    DEATH_SOUNDS.filter(item => item.src && deathSoundOwned.includes(item.id)).forEach(loadDeathSoundBuffer);
+  }
+
   function setActiveDeathSound() {
     const selected = DEATH_SOUNDS.find(item => item.id === equippedDeathSound) || DEATH_SOUNDS[0];
     activeDeathSound = selected.src || null;
-    activeDeathBuffer = null;
+    activeDeathBuffer = deathSoundBuffers.get(selected.id) || null;
     activeDeathBufferPromise = null;
-    activeDeathAudio = activeDeathSound ? new Audio(new URL(activeDeathSound, document.baseURI).href) : null;
-    if (activeDeathAudio) {
-      activeDeathAudio.preload = 'auto';
-      activeDeathAudio.volume = 0.8;
-      activeDeathAudio.load();
-      const dataUri = window.FLAPPY_DEATH_SOUND_DATA && window.FLAPPY_DEATH_SOUND_DATA[selected.id];
-      sound.init();
-      if (sound.ctx && dataUri) {
-        const encoded = dataUri.slice(dataUri.indexOf(',') + 1);
-        const binary = atob(encoded);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        activeDeathBufferPromise = sound.ctx.decodeAudioData(bytes.buffer)
-          .then(buffer => {
-            if (equippedDeathSound === selected.id) activeDeathBuffer = buffer;
-            return buffer;
-          })
-          .catch(() => null);
-      }
-    }
+    activeDeathAudio = null;
+    if (!activeDeathSound) return;
+    // The media element is only a fallback if decoding fails, so don't preload it.
+    activeDeathAudio = new Audio(new URL(activeDeathSound, document.baseURI).href);
+    activeDeathAudio.preload = 'none';
+    activeDeathAudio.volume = 0.8;
+    activeDeathBufferPromise = loadDeathSoundBuffer(selected).then(buffer => {
+      if (equippedDeathSound === selected.id) activeDeathBuffer = buffer;
+      return buffer;
+    });
   }
   setActiveDeathSound();
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(preloadOwnedDeathSounds);
+  else setTimeout(preloadOwnedDeathSounds, 2000);
 
   function loadOwned(key, list) {
     let owned = ['classic'];
@@ -620,8 +645,6 @@
     for (const key of THEME_CYCLE_COLOR_KEYS) {
       synchronized[key] = mixColorValue(key);
     }
-    synchronized.pipe = from.pipe ? from.pipe.map((color, index) => mixColorValue(color, to.pipe[index])) : theme.pipe;
-    synchronized.lip = from.lip ? from.lip.map((color, index) => mixColorValue(color, to.lip[index])) : theme.lip;
     for (const key of ['particleDensity', 'pipeShade', 'emission', 'vineOpacity', 'mushroomGlow', 'hazardBrightness', 'rayStrength', 'trafficIntensity', 'streetlightIntensity', 'cityGlow']) {
       if (from[key] === undefined || to[key] === undefined) continue;
       synchronized[key] = from[key] + (to[key] - from[key]) * cycle.stageLerp;
@@ -657,6 +680,11 @@
     return parseColor(value);
   }
 
+  const steadyThemeStates = [];
+  function steadyThemeState(index) {
+    return steadyThemeStates[index] || (steadyThemeStates[index] = { ...THEMES[index], blend: 1 });
+  }
+
   function getThemeState(deltaSeconds) {
     if (currentState === STATE.PLAYING) {
       themeTimer += deltaSeconds;
@@ -664,6 +692,8 @@
     }
     themeTransition = Math.min(1, themeTransition + deltaSeconds / THEME_TRANSITION_SECONDS);
     if (themeBannerTimer > 0) themeBannerTimer = Math.max(0, themeBannerTimer - deltaSeconds);
+    // No transition running: reuse one prebuilt object instead of re-blending ~25 colours per frame.
+    if (themeTransition >= 1) return steadyThemeState(themeIndex);
     const from = THEMES[previousThemeIndex];
     const to = THEMES[themeIndex];
     const t = easeBlend(themeTransition);
@@ -683,6 +713,9 @@
 
   function advanceTheme() {
     previousThemeIndex = themeIndex;
+    // Visible particles become the fading-out layer; the new theme starts a fresh set.
+    ambientParticles[0] = ambientParticles[1];
+    ambientParticles[1] = [];
     themeOrderPosition++;
     if (themeOrderPosition >= themeOrder.length) {
       themeOrder = shuffledThemeOrder();
@@ -724,7 +757,7 @@
 
   function updateThemeAtmosphere(theme, deltaSeconds, particles) {
     const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING;
-    if (worldActive && particles === ambientParticles[0]) atmosphereTime += deltaSeconds;
+    if (worldActive && particles === ambientParticles[1]) atmosphereTime += deltaSeconds;
     const particleCount = Math.round((coarsePointer ? 10 : 12) + theme.particleDensity * (coarsePointer ? 14 : 20));
     while (particles.length < particleCount) particles.push(makeAmbientParticle(theme, true));
     while (particles.length > particleCount) particles.pop();
@@ -853,12 +886,75 @@
     return cityFacadeTexture;
   }
 
+  // Landmarks are drawn into two 440px tiles (far / near parallax layers) that are
+  // rebuilt only when the time-of-day stage moves ~2%, then scrolled with drawImage.
+  let landmarkFar = true, landmarkNear = true, landmarkHaze = true, landmarkOverlay = true;
+  const landmarkCache = { far: null, near: null, key: '', dpr: 0 };
+
+  function setLandmarkParts(far, near, haze, overlay) {
+    landmarkFar = far; landmarkNear = near; landmarkHaze = haze; landmarkOverlay = overlay;
+  }
+
   function drawThemeLandmarks(theme, opacity = 1) {
+    renderThemeLandmarks(theme, opacity);
+  }
+
+  function rebuildLandmarkCache(theme, key, dpr) {
+    const savedGround = groundScrollOffset;
+    const savedFar = farScrollOffset;
+    const previous = ctx;
+    groundScrollOffset = 0;
+    farScrollOffset = 0;
+    try {
+      for (const layer of ['far', 'near']) {
+        const tile = landmarkCache[layer] || document.createElement('canvas');
+        tile.width = Math.ceil(440 * dpr);
+        tile.height = Math.ceil(GROUND_Y * dpr);
+        const g = tile.getContext('2d');
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx = g;
+        setLandmarkParts(layer === 'far', layer === 'near', false, false);
+        renderThemeLandmarks(theme, 1);
+        landmarkCache[layer] = tile;
+      }
+    } finally {
+      ctx = previous;
+      groundScrollOffset = savedGround;
+      farScrollOffset = savedFar;
+      setLandmarkParts(true, true, true, true);
+    }
+    landmarkCache.key = key;
+    landmarkCache.dpr = dpr;
+  }
+
+  function drawLandmarkTiles(tile, scroll) {
+    const drift = scroll % 440;
+    for (let x = -drift; x < V_WIDTH; x += 440) ctx.drawImage(tile, x, 0, 440, GROUND_Y);
+  }
+
+  function drawCachedThemeLandmarks(theme) {
+    const key = `${theme.style}|${theme.cycleStage}|${Math.floor((theme.cycleStageLerp || 0) * 50)}`;
+    if (!landmarkCache.far || landmarkCache.key !== key || landmarkCache.dpr !== renderDpr) {
+      rebuildLandmarkCache(theme, key, renderDpr);
+    }
+    try {
+      setLandmarkParts(false, false, true, false);
+      renderThemeLandmarks(theme, 1);          // haze (behind everything)
+      drawLandmarkTiles(landmarkCache.far, farScrollOffset);
+      drawLandmarkTiles(landmarkCache.near, groundScrollOffset);
+      setLandmarkParts(false, false, false, true);
+      renderThemeLandmarks(theme, 1);          // water / road strips in front
+    } finally {
+      setLandmarkParts(true, true, true, true);
+    }
+  }
+
+  function renderThemeLandmarks(theme, opacity = 1) {
     const drift = groundScrollOffset % 440;
     const farDrift = farScrollOffset % 440;
     ctx.save();
     ctx.globalAlpha = opacity;
-    if (theme.style === 'City') {
+    if (landmarkHaze && theme.style === 'City') {
       const haze = ctx.createLinearGradient(0, GROUND_Y - 190, 0, GROUND_Y);
       haze.addColorStop(0, theme.cycleStage === 'NIGHT' ? 'rgba(8, 14, 25, 0)' : 'rgba(220, 220, 218, 0)');
       haze.addColorStop(0.72, theme.cycleStage === 'NIGHT' ? 'rgba(224, 169, 104, 0.08)' : 'rgba(229, 208, 185, 0.12)');
@@ -866,7 +962,7 @@
       ctx.fillStyle = haze; ctx.fillRect(0, 0, V_WIDTH, GROUND_Y);
     }
       ctx.fillStyle = theme.far;
-      for (let x = -440 - farDrift; x < V_WIDTH + 440; x += 440) {
+      for (let x = -440 - farDrift; landmarkFar && x < V_WIDTH + 440; x += 440) {
       if (theme.style === 'desert') {
         ctx.fillStyle = theme.far;
         ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 18); ctx.quadraticCurveTo(x + 120, GROUND_Y - 76, x + 240, GROUND_Y - 19); ctx.quadraticCurveTo(x + 340, GROUND_Y - 60, x + 440, GROUND_Y - 18); ctx.fill();
@@ -908,7 +1004,7 @@
     }
     ctx.fillStyle = theme.near;
     if (theme.style === 'desert') {
-      for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+      for (let x = -440 - drift; landmarkNear && x < V_WIDTH + 440; x += 440) {
         ctx.fillStyle = theme.near;
         ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 8); ctx.quadraticCurveTo(x + 115, GROUND_Y - 105, x + 240, GROUND_Y - 14); ctx.quadraticCurveTo(x + 340, GROUND_Y - 65, x + 440, GROUND_Y - 8); ctx.fill();
         // Low desert fortress with crenellated walls, corner towers and an arched gate.
@@ -948,7 +1044,7 @@
         }
       }
     } else if (theme.style === 'City') {
-      for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+      for (let x = -440 - drift; landmarkNear && x < V_WIDTH + 440; x += 440) {
         const windowGlow = 0.08 + 0.92 * (theme.emission / 20);
         // Layered office blocks, glass towers and spired rooftops.
         for (let i = 0; i < 11; i++) {
@@ -982,7 +1078,7 @@
         ctx.fillStyle = '#171329';
       }
     } else if (theme.style === 'highway') {
-      for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+      for (let x = -440 - drift; landmarkNear && x < V_WIDTH + 440; x += 440) {
         const deckY = GROUND_Y - 124;
         // Suspension cables and vertical hangers.
         ctx.strokeStyle = '#75878a'; ctx.lineWidth = 3;
@@ -1045,7 +1141,7 @@
         ctx.fillStyle = theme.near;
       }
     } else {
-      for (let x = -440 - drift; x < V_WIDTH + 440; x += 440) {
+      for (let x = -440 - drift; landmarkNear && x < V_WIDTH + 440; x += 440) {
         ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 8); ctx.quadraticCurveTo(x + 110, GROUND_Y - 96, x + 220, GROUND_Y - 12); ctx.quadraticCurveTo(x + 340, GROUND_Y - 130, x + 440, GROUND_Y - 8); ctx.fill();
         if (theme.style === 'kerala') {
           for (let palmX = x + 95; palmX < x + 400; palmX += 145) { ctx.strokeStyle = theme.near; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(palmX, GROUND_Y - 12); ctx.quadraticCurveTo(palmX - 8, GROUND_Y - 70, palmX + 5, GROUND_Y - 126); ctx.stroke(); ctx.fillStyle = theme.near; for (let a = -2; a <= 2; a++) { ctx.beginPath(); ctx.ellipse(palmX + a * 15, GROUND_Y - 128 + Math.abs(a) * 8, 22, 5, a * 0.28, 0, Math.PI * 2); ctx.fill(); } }
@@ -1062,14 +1158,14 @@
         }
       }
     }
-    if (theme.style === 'kerala') {
+    if (landmarkOverlay && theme.style === 'kerala') {
       ctx.globalAlpha = opacity;
       ctx.fillStyle = theme.accent;
       ctx.fillRect(0, GROUND_Y - 11, V_WIDTH, 9);
       ctx.fillStyle = '#a5e8d9';
       for (let x = -(worldFrame * 0.55 % 56); x < V_WIDTH; x += 56) ctx.fillRect(x, GROUND_Y - 8, 22, 1);
     }
-    if (theme.style === 'highway') {
+    if (landmarkOverlay && theme.style === 'highway') {
       ctx.globalAlpha = opacity;
       ctx.fillStyle = '#596366';
       ctx.fillRect(0, GROUND_Y - 87, V_WIDTH, 10);
@@ -1399,12 +1495,12 @@
   function drawSky(cycle, theme) {
     const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
     const skyMix = (base, themed) => {
-      const color = themeColor(themed);
-      return toCss(mixColor(base, color, theme.blend));
+      if (theme.blend >= 1) return themed;
+      return toCss(mixColor(parseColor(base), themeColor(themed), theme.blend));
     };
-    skyGrad.addColorStop(0, skyMix(parseColor(cycle.skyTop), theme.skyTop));
-    skyGrad.addColorStop(0.55, skyMix(parseColor(cycle.skyMid), theme.skyMid));
-    skyGrad.addColorStop(1, skyMix(parseColor(cycle.skyBot), theme.skyBot));
+    skyGrad.addColorStop(0, skyMix(cycle.skyTop, theme.skyTop));
+    skyGrad.addColorStop(0.55, skyMix(cycle.skyMid, theme.skyMid));
+    skyGrad.addColorStop(1, skyMix(cycle.skyBot, theme.skyBot));
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
@@ -1517,6 +1613,9 @@
   const PIPE_SPACING = 235;   // horizontal distance between pipe pairs (px)
   let pipeTimer = 0;
   let roomPipeSeed = 0;
+  const PIPE_CACHE_PAD = 16;                 // room for lip overhang, outline and drop shadow
+  const PIPE_CACHE_W = PIPE_WIDTH + 40;
+  const pipeCachePool = [];                  // recycled offscreen canvases
 
   function pipeRandom() {
     if (!roomPipeSeed) return Math.random();
@@ -1547,20 +1646,82 @@
       this.x -= gameSpeed;
     }
 
-    draw(cycle, theme) {
-      cycle = this.cycle;
-      theme = this.theme;
-      // Soft ambient drop shadow cast behind pipes
-      ctx.save();
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
-      ctx.fillRect(this.x + 8, 0, this.w, this.topHeight);
-      ctx.fillRect(this.x + 8, this.bottomY, this.w, this.bottomHeight);
-      ctx.restore();
+    // Each pipe pair's theme and time of day are frozen at spawn, so its artwork is
+    // painted once to an offscreen canvas and then just blitted every frame.
+    buildCache() {
+      const dpr = renderDpr;
+      const cache = pipeCachePool.pop() || document.createElement('canvas');
+      cache.width = Math.ceil(PIPE_CACHE_W * dpr);
+      cache.height = Math.ceil(GROUND_Y * dpr);
+      const g = cache.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const previous = ctx;
+      ctx = g;
+      try {
+        // Beacons pulse, so they are excluded here (hazardBrightness 0) and drawn live.
+        const theme = this.theme.style === 'highway' ? { ...this.theme, hazardBrightness: 0 } : this.theme;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
+        ctx.fillRect(PIPE_CACHE_PAD + 8, 0, this.w, this.topHeight);
+        ctx.fillRect(PIPE_CACHE_PAD + 8, this.bottomY, this.w, this.bottomHeight);
+        ctx.restore();
+        this.drawPipeSection(PIPE_CACHE_PAD, 0, this.w, this.topHeight, true, this.cycle, theme);
+        this.drawPipeSection(PIPE_CACHE_PAD, this.bottomY, this.w, this.bottomHeight, false, this.cycle, theme);
+      } finally {
+        ctx = previous;
+      }
+      this.cache = cache;
+      this.cacheDpr = dpr;
+    }
 
-      // Top Pipe (hanging down)
-      this.drawPipeSection(this.x, 0, this.w, this.topHeight, true, cycle, theme);
-      // Bottom Pipe (standing up)
-      this.drawPipeSection(this.x, this.bottomY, this.w, this.bottomHeight, false, cycle, theme);
+    release() {
+      if (this.cache) {
+        pipeCachePool.push(this.cache);
+        this.cache = null;
+      }
+    }
+
+    draw() {
+      if (!this.cache || this.cacheDpr !== renderDpr) {
+        this.release();
+        this.buildCache();
+      }
+      const dx = Math.round((this.x - PIPE_CACHE_PAD) * renderDpr) / renderDpr;
+      ctx.drawImage(this.cache, dx, 0, PIPE_CACHE_W, GROUND_Y);
+      this.drawLive();
+    }
+
+    // Only the blinking warning lights are animated.
+    drawLive() {
+      const theme = this.theme;
+      const lipX = this.x - 5;
+      const lipWidth = this.w + 10;
+      if (theme.style === 'highway') {
+        const lipHeight = 32;
+        const pulse = (0.45 + 0.55 * Math.sin(worldFrame * 0.22)) * theme.hazardBrightness;
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.shadowColor = '#ff332e';
+        ctx.shadowBlur = glowBlur(12 * theme.hazardBrightness);
+        ctx.fillStyle = '#ff302a';
+        for (const lipY of [this.topHeight - lipHeight, this.bottomY]) {
+          for (const beaconX of [lipX + 7, lipX + lipWidth - 7]) {
+            ctx.beginPath(); ctx.arc(beaconX, lipY + lipHeight / 2, 2.6, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        ctx.restore();
+      } else if (theme.style === 'City') {
+        const lipY = this.topHeight - 28;
+        const night = theme.cycleStage === 'NIGHT';
+        const beacon = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(worldFrame * 0.12));
+        ctx.save();
+        ctx.globalAlpha = beacon;
+        ctx.fillStyle = '#e84138';
+        ctx.shadowColor = '#ff665d';
+        ctx.shadowBlur = night ? 12 : 3;
+        ctx.beginPath(); ctx.arc(lipX + lipWidth - 8, lipY + 3, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
     }
 
     drawPipeSection(x, y, w, h, isTop, cycle, theme) {
@@ -1573,6 +1734,10 @@
       const lipY = isTop ? y + h - lipHeight : y;
       const shaftY = isTop ? y : y + lipHeight;
       const shaftHeight = Math.max(0, isTop ? h - lipHeight : h - lipHeight);
+      if (theme.style === 'City') {
+        this.drawCitySection(x, w, isTop, theme, lipX, lipY, lipWidth, lipHeight, shaftY, shaftHeight);
+        return;
+      }
 
       // --- 1. Pipe Shaft Cylindrical 3D Texture ---
       const shaftGrad = ctx.createLinearGradient(x, 0, x + w, 0);
@@ -1916,7 +2081,11 @@
       ctx.fillStyle = cavernGrad;
       ctx.fillRect(lipX + 2, isTop ? lipY + lipHeight - 6 : lipY, lipWidth - 4, 6);
 
-      if (theme.style === 'City') {
+    }
+
+    // City pipes: steel-and-glass pillar painted once (the old neon pass underneath was fully
+    // painted over, so it only cost shadowBlur time). Beacon is drawn live in drawLive().
+    drawCitySection(x, w, isTop, theme, lipX, lipY, lipWidth, lipHeight, shaftY, shaftHeight) {
         // Repaint the former neon treatment as a steel-and-glass urban pillar.
         ctx.save(); ctx.beginPath(); ctx.rect(x, shaftY, w, shaftHeight); ctx.clip();
         const steel = ctx.createLinearGradient(x, 0, x + w, 0);
@@ -1950,14 +2119,8 @@
         }
         ctx.restore();
         ctx.strokeStyle = '#131b20'; ctx.lineWidth = 2; this.roundRect(ctx, lipX, lipY, lipWidth, lipHeight, 3); ctx.stroke();
-        if (isTop) {
-          const beacon = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(worldFrame * 0.12));
-          ctx.save(); ctx.globalAlpha = beacon; ctx.fillStyle = '#e84138'; ctx.shadowColor = '#ff665d'; ctx.shadowBlur = night ? 12 : 3;
-          ctx.beginPath(); ctx.arc(lipX + lipWidth - 8, lipY + 3, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
         ctx.save(); ctx.shadowColor = '#ffe082'; ctx.shadowBlur = night ? 12 : 2;
         ctx.fillStyle = 'rgba(244, 248, 247, 0.68)'; ctx.fillRect(x + 4, shaftY, 2, shaftHeight); ctx.restore();
-      }
     }
 
     roundRect(context, rx, ry, rw, rh, radius) {
@@ -2255,7 +2418,9 @@
         visual.deathVelocity = player.velocity;
       }
       if (!visual.dead) {
-        visual.targetY = Math.max(12, Math.min(GROUND_Y - 12, player.y));
+        const age = Math.min(0.25, Math.max(0, player.age || 0));
+        const predictedY = player.y + player.velocity * 60 * age + 0.5 * 0.22 * 3600 * age * age;
+        visual.targetY = Math.max(12, Math.min(GROUND_Y - 12, predictedY));
         visual.y += (visual.targetY - visual.y) * Math.min(1, deltaSeconds * 14);
       } else {
         visual.y = visual.deathY;
@@ -2727,7 +2892,7 @@
       ctx.textBaseline = 'middle';
       ctx.fillStyle = completedDaily ? '#39751c' : '#fff0bd';
       const challengeLine = newlyUnlockedBadges.length
-        ? `BADGE: ${BADGES.find(b => b.score === newlyUnlockedBadges[newlyUnlockedBadges.length - 1]).name}`
+        ? `BADGE: ${newlyUnlockedBadges[newlyUnlockedBadges.length - 1].name}`
         : dailyBonusEarned
           ? `DAILY COMPLETE  +${DAILY_BONUS} COINS`
           : completedDaily
@@ -3172,6 +3337,7 @@
   randomDeathSoundToggle.addEventListener('change', () => {
     randomDeathSoundEnabled = randomDeathSoundToggle.checked;
     lsSet('flappy_random_death_sound', String(randomDeathSoundEnabled));
+    if (randomDeathSoundEnabled) preloadOwnedDeathSounds();
     storeMsg.textContent = randomDeathSoundEnabled
       ? 'Random owned death sounds enabled.'
       : 'Equipped death sound will play on death.';
@@ -3185,6 +3351,7 @@
     runCoins = 0;
     dailyBonusEarned = false;
     newlyUnlockedBadges = [];
+    pipes.forEach(p => p.release());
     pipes.length = 0;
     particles.length = 0;
     scorePopups.length = 0;
@@ -3288,11 +3455,30 @@
   });
 
   // --- Main Animation Loop ---
+  // The simulation is frame-based (gravity, pipe speed, timers), so it must tick at a fixed
+  // 60 Hz no matter how fast the display refreshes: 120/144 Hz screens used to run ~2x faster.
+  const STEP_SECONDS = 1 / 60;
+  let frameAccumulator = 0;
+  let lastRafTimestamp = null;
+
   function gameLoop(timestamp) {
-    const deltaSeconds = themeLastTimestamp === null
-      ? 0
-      : Math.min(0.05, Math.max(0, (timestamp - themeLastTimestamp) / 1000));
-    themeLastTimestamp = timestamp;
+    requestAnimationFrame(gameLoop);
+    if (lastRafTimestamp === null) {
+      lastRafTimestamp = timestamp;
+      frameAccumulator = STEP_SECONDS; // draw the very first frame immediately
+    }
+    frameAccumulator += Math.min(0.1, Math.max(0, (timestamp - lastRafTimestamp) / 1000));
+    lastRafTimestamp = timestamp;
+    let steps = 0;
+    while (frameAccumulator >= STEP_SECONDS - 0.002 && steps < 2) {
+      frameAccumulator = Math.max(0, frameAccumulator - STEP_SECONDS);
+      stepFrame(STEP_SECONDS);
+      steps++;
+    }
+    if (frameAccumulator > STEP_SECONDS) frameAccumulator = 0; // too slow to catch up: drop the backlog
+  }
+
+  function stepFrame(deltaSeconds) {
     globalFrame++;
     const worldActive = currentState === STATE.READY || currentState === STATE.PLAYING;
     const worldDeltaSeconds = worldActive ? deltaSeconds : 0;
@@ -3322,9 +3508,6 @@
     const theme = syncThemeToCycle(getThemeState(worldDeltaSeconds), cycle);
     drawSky(cycle, theme);
 
-    // 2. Dynamic Gradual Seasons (Color Blending)
-    getSeasonState();
-
     // 3. Parallax Textured Clouds Moving Backward
     updateClouds();
     drawClouds(cycle);
@@ -3336,16 +3519,19 @@
       drawThemeLandmarks(fromTheme, 1 - theme.blend);
       drawThemeLandmarks(toTheme, theme.blend);
     } else {
-      drawThemeLandmarks(theme);
+      drawCachedThemeLandmarks(theme);
     }
 
     // 5. Theme-specific light, filters, and ambient particles
-    const fromAtmosphereTheme = syncThemeToCycle({ ...THEMES[previousThemeIndex] }, cycle);
-    const toAtmosphereTheme = syncThemeToCycle({ ...THEMES[themeIndex] }, cycle);
-    updateThemeAtmosphere(fromAtmosphereTheme, worldDeltaSeconds, ambientParticles[0]);
+    const transitioning = theme.blend < 1 && previousThemeIndex !== themeIndex;
+    const toAtmosphereTheme = transitioning ? syncThemeToCycle({ ...THEMES[themeIndex] }, cycle) : theme;
     updateThemeAtmosphere(toAtmosphereTheme, worldDeltaSeconds, ambientParticles[1]);
-    drawThemeAtmosphere(fromAtmosphereTheme, ambientParticles[0], 1 - theme.blend);
-    drawThemeAtmosphere(toAtmosphereTheme, ambientParticles[1], theme.blend);
+    if (transitioning) {
+      const fromAtmosphereTheme = syncThemeToCycle({ ...THEMES[previousThemeIndex] }, cycle);
+      updateThemeAtmosphere(fromAtmosphereTheme, worldDeltaSeconds, ambientParticles[0]);
+      drawThemeAtmosphere(fromAtmosphereTheme, ambientParticles[0], 1 - theme.blend);
+    }
+    drawThemeAtmosphere(toAtmosphereTheme, ambientParticles[1], transitioning ? theme.blend : 1);
 
     // 6. Hand-Crafted Green Pipes
     if (currentState === STATE.PLAYING) {
@@ -3372,7 +3558,7 @@
           srAnnouncements.textContent = `Score: ${score}`;
         }
 
-        if (p.x + p.w < -30) pipes.splice(i, 1);
+        if (p.x + p.w < -30) { p.release(); pipes.splice(i, 1); }
       }
     }
     pipes.forEach(p => p.draw(p.cycle, p.theme));
@@ -3427,10 +3613,20 @@
     }
 
     ctx.restore();
-    requestAnimationFrame(gameLoop);
   }
 
-  requestAnimationFrame(gameLoop);
+  // Start once the canvas fonts are ready so the first frames don't use a fallback face.
+  const fontsReady = document.fonts && document.fonts.load
+    ? Promise.race([
+      Promise.all([
+        document.fonts.load('700 20px "Fredoka"'),
+        document.fonts.load('900 40px "Fredoka"'),
+        document.fonts.load('10px "Press Start 2P"')
+      ]),
+      new Promise(resolve => setTimeout(resolve, 1500))
+    ])
+    : Promise.resolve();
+  fontsReady.catch(() => {}).then(() => requestAnimationFrame(gameLoop));
 
   window.FlappyGame = {
     startRoomRound(seed) {
