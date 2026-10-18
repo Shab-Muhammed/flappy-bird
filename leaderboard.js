@@ -13,6 +13,7 @@
     // e.g. 'https://your-project-default-rtdb.firebaseio.com'
     databaseURL: 'https://flappy-bird-ae650-default-rtdb.asia-southeast1.firebasedatabase.app/',
     collection: 'scores',
+    weeklyCollection: 'weeklyScores',
     presenceCollection: 'presence',
     topN: 10,
     timeoutMs: 6000,
@@ -43,6 +44,8 @@
     onlineList: $('lb-online-list'),
     closeBtn: $('lb-close'),
     openBtn: $('best-btn'),
+    tabAll: $('lb-tab-all'),
+    tabWeek: $('lb-tab-week'),
     accountOpenBtn: $('account-menu-btn'),
     accountCloseBtn: $('account-close')
   };
@@ -254,6 +257,31 @@
     return rows.sort((a, b) => b.score - a.score || (a.ts || 0) - (b.ts || 0));
   }
 
+  let boardMode = 'all'; // 'all' | 'week'
+
+  function weekStart(now = Date.now()) {
+    const d = new Date(now);
+    const sinceMonday = (d.getUTCDay() + 6) % 7;
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - sinceMonday);
+  }
+
+  // ISO week key, e.g. "2026-W42"
+  function weekKey(now = Date.now()) {
+    const thursday = weekStart(now) + 3 * 86400000;
+    const year = new Date(thursday).getUTCFullYear();
+    const week = Math.floor((thursday - Date.UTC(year, 0, 1)) / (7 * 86400000)) + 1;
+    return `${year}-W${String(week).padStart(2, '0')}`;
+  }
+
+  function weekResetText() {
+    const ms = weekStart() + 7 * 86400000 - Date.now();
+    const days = Math.floor(ms / 86400000);
+    const hours = Math.floor((ms % 86400000) / 3600000);
+    return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+  }
+
+  const weeklyOwnURL = () => `${baseURL}/${CONFIG.weeklyCollection}/${weekKey()}/${playerId}.json`;
+
   function readLocal() {
     try {
       const rows = JSON.parse(safeGet(LOCAL_KEY) || '[]');
@@ -292,8 +320,9 @@
 
   const ownURL = () => `${baseURL}/${CONFIG.collection}/${playerId}.json`;
 
-  async function fetchOnline() {
-    const url = `${baseURL}/${CONFIG.collection}.json?orderBy=%22score%22&limitToLast=${CONFIG.topN}`;
+  async function fetchOnline(mode = boardMode) {
+    const path = mode === 'week' ? `${CONFIG.weeklyCollection}/${weekKey()}` : CONFIG.collection;
+    const url = `${baseURL}/${path}.json?orderBy=%22score%22&limitToLast=${CONFIG.topN}`;
     const data = await request(url);
     const rows = data
       ? Object.entries(data).map(([id, v]) => ({
@@ -392,8 +421,23 @@
     if (event.persisted) startPresence();
   });
 
-  // Saves this player's best score + name into their single entry.
-  // Only writes when something actually changed.
+  // Save this player's best score at the given path, only writing when it changes.
+  async function saveBest(url, score, name) {
+    const existing = await request(url);
+    const prev = existing ? Number(existing.score) || 0 : 0;
+    const best = Math.max(prev, score);
+    if (!existing && best <= 0) return { best: 0, improved: false };
+    if (existing && best === prev && existing.name === name) return { best, improved: false };
+
+    await request(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, score: best, ts: { '.sv': 'timestamp' } })
+    });
+    return { best, improved: score > prev };
+  }
+
+  // Keep independent per-player all-time and current-week bests.
   async function pushScore(rawScore) {
     const score = Math.min(MAX_SCORE, Math.max(0, Math.floor(rawScore || 0)));
     const name = playerName;
@@ -404,18 +448,14 @@
     if (localBest > 0) saveLocal({ id: playerId, name, score: localBest, ts: Date.now() });
     if (!isOnline) return { best: localBest, improved: score > prevLocal };
 
-    const existing = await request(ownURL()); // null when this player has no entry yet
-    const prev = existing ? Number(existing.score) || 0 : 0;
-    const best = Math.max(prev, score);
-    if (!existing && best <= 0) return { best: 0, improved: false };
-    if (existing && best === prev && existing.name === name) return { best, improved: false };
-
-    await request(ownURL(), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, score: best, ts: { '.sv': 'timestamp' } })
-    });
-    return { best, improved: score > prev };
+    const allTime = await saveBest(ownURL(), score, name);
+    let weekly = { best: 0, improved: false };
+    try {
+      weekly = await saveBest(weeklyOwnURL(), score, name);
+    } catch (e) {
+      console.warn('Weekly score not saved (publish the updated rules from README.md):', e && e.message);
+    }
+    return { ...allTime, weeklyBest: weekly.best, weeklyImproved: weekly.improved };
   }
 
   // Saves are queued so two quick runs can never race each other
@@ -428,6 +468,7 @@
         const r = await pushScore(attempt);
         unsynced = 0;
         if (r.improved) setNote(`New best saved: ${r.best}!`);
+        else if (r.weeklyImproved) setNote(`New weekly best: ${r.weeklyBest}!`);
         else if (r.best > 0) setNote(`Your best is still ${r.best}.`);
         else setNote('');
         if (visible) refresh(true);
@@ -449,7 +490,7 @@
     if (!rows.length) {
       const li = document.createElement('li');
       li.className = 'lb-empty';
-      li.textContent = 'No scores yet. Set the first one!';
+      li.textContent = boardMode === 'week' ? 'No scores this week yet. Set the first one!' : 'No scores yet. Set the first one!';
       ui.list.appendChild(li);
       return;
     }
@@ -492,7 +533,7 @@
   }
 
   async function refresh(silent = false) {
-    if (refreshing) return;
+    if (refreshing) { if (!silent) setTimeout(() => refresh(), 150); return; }
     refreshing = true;
     try {
       await loadBoard(silent);
@@ -504,16 +545,32 @@
   async function loadBoard(silent) {
     if (!silent) setStatus('Loading scores…');
     if (!isOnline) {
-      render(sortScores(readLocal()));
-      setStatus('Showing scores from this device. The online board is not set up yet.');
+      if (boardMode === 'week') {
+        render([]);
+        setStatus('The weekly board needs the online database.');
+      } else {
+        render(sortScores(readLocal()));
+        setStatus('Showing scores from this device. The online board is not set up yet.');
+      }
       return;
     }
+    const mode = boardMode;
     try {
-      render(await fetchOnline());
-      setStatus(`Global top ${CONFIG.topN} · live`);
+      const rows = await fetchOnline(mode);
+      if (mode !== boardMode) return;
+      render(rows);
+      setStatus(mode === 'week'
+        ? `Top ${CONFIG.topN} this week · resets in ${weekResetText()}`
+        : `Global top ${CONFIG.topN} all time · live`);
     } catch (e) {
-      render(sortScores(readLocal()));
-      setStatus("Can't reach the server. Showing scores from this device.");
+      if (mode !== boardMode) return;
+      if (mode === 'week') {
+        render([]);
+        setStatus("Can't load the weekly board. Check your connection.");
+      } else {
+        render(sortScores(readLocal()));
+        setStatus("Can't reach the server. Showing scores from this device.");
+      }
     }
   }
 
@@ -563,6 +620,17 @@
   }
 
   // ---------- events ----------
+  function setBoardMode(mode) {
+    if (mode === boardMode) return;
+    boardMode = mode;
+    ui.tabAll.classList.toggle('active', mode === 'all');
+    ui.tabWeek.classList.toggle('active', mode === 'week');
+    ui.tabAll.setAttribute('aria-selected', String(mode === 'all'));
+    ui.tabWeek.setAttribute('aria-selected', String(mode === 'week'));
+    refresh();
+  }
+  ui.tabAll.addEventListener('click', () => setBoardMode('all'));
+  ui.tabWeek.addEventListener('click', () => setBoardMode('week'));
   $('lb-login-btn').addEventListener('click', () => authenticate(false));
   $('lb-register-btn').addEventListener('click', () => authenticate(true));
   $('lb-signout').addEventListener('click', async () => {
@@ -599,7 +667,7 @@
     closeAccount,
     async submitSuggestion(category, suggestion) {
       if (!isOnline) throw new Error('Suggestion submissions are not configured.');
-      const allowedCategories = ['Pipe', 'Skin', 'Audio'];
+      const allowedCategories = ['General', 'Skin', 'Audio'];
       const text = String(suggestion || '').trim().slice(0, 120);
       if (!allowedCategories.includes(category) || !text) throw new Error('Enter a suggestion and choose a category.');
       const url = `${baseURL}/suggestions.json`;

@@ -92,7 +92,7 @@
           <h3>Request something</h3>
           <label for="request-category">Category</label>
           <select id="request-category" aria-label="Request category">
-            <option value="Pipe">Pipe</option>
+            <option value="General">General</option>
             <option value="Skin">Skin</option>
             <option value="Audio">Audio</option>
           </select>
@@ -111,6 +111,10 @@
     <div id="lb-overlay" class="lb-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="lb-title">
       <div class="lb-panel">
         <h2 id="lb-title">LEADERBOARD</h2>
+        <div class="store-tabs" role="tablist">
+          <button id="lb-tab-all" class="store-tab active" role="tab" aria-selected="true" type="button">All time</button>
+          <button id="lb-tab-week" class="store-tab" role="tab" aria-selected="false" type="button">This week</button>
+        </div>
         <p id="lb-status" class="lb-status" aria-live="polite"></p>
 
         <section class="lb-presence" aria-labelledby="lb-presence-title">
