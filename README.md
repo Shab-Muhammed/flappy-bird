@@ -39,7 +39,7 @@ Then visit <http://localhost:8000>.
 
 ## Store and customization
 
-Coins, purchases, and equipped items are saved in the browser's local storage. The store includes bird skins, pipe skins, and death sounds. Catalog entries and prices are defined in `game.js` in the `SKINS`, `PIPE_SKINS`, and `DEATH_SOUNDS` collections.
+Coins, owned bird skins, owned death sounds, and equipped choices sync to the signed-in player's Firebase account, so they follow the account between browsers. The browser keeps a local cache for offline play; an existing local wallet is copied to an account once if that account has no saved inventory. Guest wallets remain local. Publish the `playerInventory` rules below to enable account sync. The store includes bird skins and death sounds. Catalog entries and prices are defined in `game.js` in the `SKINS` and `DEATH_SOUNDS` collections.
 
 The store uses the built-in bird, pipe, and death sound catalogs defined in `game.js`.
 
@@ -113,8 +113,21 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
           ".read": "auth != null && (auth.uid === 'HdeFalAwwOc21oNLZY0tteSKFrj1' || auth.token.email === ($username + '@users.flappy-bird-ae650.firebaseapp.com'))",
           "$id": {
             ".write": "auth != null && auth.uid === 'HdeFalAwwOc21oNLZY0tteSKFrj1'",
-            ".validate": "newData.hasChildren(['message','from','ts']) && newData.child('message').isString() && newData.child('message').val().length >= 1 && newData.child('message').val().length <= 500 && newData.child('from').isString() && newData.child('ts').isNumber()"
+            ".validate": "newData.hasChildren(['message','from','ts']) && newData.child('message').isString() && newData.child('message').val().length >= 1 && newData.child('message').val().length <= 500 && newData.child('from').isString() && newData.child('ts').isNumber()",
+            "readBy": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid && auth.token.email === ($username + '@users.flappy-bird-ae650.firebaseapp.com') && newData.val() === true",
+                ".validate": "newData.isBoolean()"
+              }
+            }
           }
+        }
+      },
+      "playerInventory": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['coins','ownedBirds','equippedBird','ownedDeathSounds','equippedDeathSound','randomDeathSound','updatedAt']) && newData.child('coins').isNumber() && newData.child('coins').val() >= 0 && newData.child('ownedBirds').exists() && newData.child('equippedBird').isString() && newData.child('ownedDeathSounds').exists() && newData.child('equippedDeathSound').isString() && newData.child('randomDeathSound').isBoolean() && newData.child('updatedAt').isNumber()"
         }
       },
       "rooms": {
@@ -171,7 +184,7 @@ The live feed writes the authenticated player's account ID, username, and server
 
 Players sign in, create a room, and share its two-word code (for example `SOGGY-WAFFLE`). The game client limits rooms to eight players, with a ready check, host-started free-for-all matches, a full-screen ranked in-room score table, and room-only chat. After each round, players return to the room and can ready up for another match; rooms have no match limit. When a host leaves or disconnects, hosting transfers to the member with the earliest `joinedAt` timestamp. A room and its `roomMembers`, `roomStates`, and `roomChat` data are deleted when its last member leaves or disconnects. Realtime Database rules cannot count arbitrary children, so the player limit is not enforced against modified clients; use a trusted server such as a Cloud Function if the capacity limit must be security-enforced. Every round uses the same seeded pipe-gap sequence for all players. There is no public room list, random matchmaking, global chat, or one-to-one chat. The room feature uses the `rooms`, `roomMembers`, `roomStates`, and `roomChat` paths included in the rules above. Publish those complete rules in Firebase Console → Realtime Database → Rules. Members need a signed-in game account; anyone with a room code can attempt to join while the room is in its lobby.
 
-The store's suggestion form accepts General, Skin, and Audio suggestions from signed-in players. Each `suggestions` record includes the Firebase account ID, username, category, text, and server timestamp. The player login form also has a **Request password reset** button; it submits the player's username and timestamp to `resetRequests`. Both inboxes are visible in the separate admin website at `/admin/` after signing in with an admin account. The admin can also send a private message to a username; the player sees it in the game after signing in, and it appears once per browser profile.
+The store's suggestion form accepts General, Skin, and Audio suggestions from signed-in players. Each `suggestions` record includes the Firebase account ID, username, category, text, and server timestamp. The player login form also has a **Request password reset** button; it submits the player's username and timestamp to `resetRequests`. Both inboxes are visible in the separate admin website at `/admin/` after signing in with an admin account. The admin can also send a private message to a username; the player sees it in the game after signing in. Dismissing a message saves its read status under the player's Firebase account, so it only appears once across browsers.
 
 The rules above are configured for the admin UID `HdeFalAwwOc21oNLZY0tteSKFrj1`. Confirm this matches the administrator account in Firebase Authentication → Users, then publish the full rules in Realtime Database → Rules. This UID check protects the inbox and lets the admin send player messages; signing in alone does not grant admin access. Deploy the project with the `admin/` folder so the console is available at `/admin/`. Reset requests do not change passwords automatically: verify the player's identity and reset their Firebase Authentication password from the Firebase console, then mark the request handled in the dashboard. The public reset request form is rate-unlimited, so use a trusted server endpoint if stronger spam protection is needed.
 

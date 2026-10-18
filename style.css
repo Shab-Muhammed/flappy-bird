@@ -685,13 +685,6 @@ button.header-pill:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.player-message-item time {
-  display: block;
-  margin-top: 7px;
-  color: #7a6544;
-  font-size: 10px;
-}
-
 .account-input {
   width: 100%;
   min-width: 0;

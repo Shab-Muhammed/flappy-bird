@@ -460,12 +460,111 @@
     };
   })();
 
+  let accountInventoryUid = '';
+  let accountInventoryReady = false;
+  let accountInventoryLoading = false;
+  let inventoryRevision = 0;
+  let inventorySyncMessage = '';
+
+  function inventorySnapshot() {
+    return {
+      coins: wallet.coins,
+      ownedBirds: wallet.owned,
+      equippedBird: wallet.equipped,
+      ownedDeathSounds: deathSoundOwned,
+      equippedDeathSound,
+      randomDeathSound: randomDeathSoundEnabled
+    };
+  }
+
   function saveWallet() {
+    inventoryRevision++;
     lsSet('flappy_coins', String(wallet.coins));
     lsSet('flappy_owned_birds', JSON.stringify(wallet.owned));
     lsSet('flappy_equipped_bird', wallet.equipped);
     lsSet('flappy_owned_death_sounds', JSON.stringify(deathSoundOwned));
     lsSet('flappy_equipped_death_sound', equippedDeathSound);
+    lsSet('flappy_random_death_sound', String(randomDeathSoundEnabled));
+    if (accountInventoryUid && accountInventoryReady) lsSet('flappy_inventory_owner_uid', accountInventoryUid);
+    if (accountInventoryUid && accountInventoryReady && window.FlappyLeaderboard?.saveInventory) {
+      window.FlappyLeaderboard.saveInventory(inventorySnapshot()).catch(error => {
+        console.warn('Could not sync player inventory:', error && error.message);
+        inventorySyncMessage = 'Account inventory could not sync. Check your connection and Firebase playerInventory rules.';
+        if (storeVisible) storeMsg.textContent = inventorySyncMessage;
+      });
+    }
+  }
+
+  function normalizedInventory(data) {
+    const ownedBirds = Array.isArray(data && data.ownedBirds)
+      ? Array.from(new Set(['classic', ...data.ownedBirds.filter(id => SKINS.some(item => item.id === id))]))
+      : ['classic'];
+    const ownedDeathSounds = Array.isArray(data && data.ownedDeathSounds)
+      ? Array.from(new Set(['original', ...data.ownedDeathSounds.filter(id => DEATH_SOUNDS.some(item => item.id === id))]))
+      : ['original'];
+    const coins = Number(data && data.coins);
+    return {
+      coins: Number.isFinite(coins) ? Math.max(0, Math.floor(coins)) : 0,
+      ownedBirds,
+      equippedBird: ownedBirds.includes(data && data.equippedBird) ? data.equippedBird : 'classic',
+      ownedDeathSounds,
+      equippedDeathSound: ownedDeathSounds.includes(data && data.equippedDeathSound) ? data.equippedDeathSound : 'original',
+      randomDeathSound: data && data.randomDeathSound === true
+    };
+  }
+
+  function applyInventorySnapshot(data) {
+    const normalized = normalizedInventory(data);
+    wallet.coins = normalized.coins;
+    wallet.owned.splice(0, wallet.owned.length, ...normalized.ownedBirds);
+    wallet.equipped = normalized.equippedBird;
+    deathSoundOwned.splice(0, deathSoundOwned.length, ...normalized.ownedDeathSounds);
+    equippedDeathSound = normalized.equippedDeathSound;
+    randomDeathSoundEnabled = normalized.randomDeathSound;
+    setActiveDeathSound();
+    if (randomDeathSoundEnabled) preloadOwnedDeathSounds();
+    if (randomDeathSoundToggle) randomDeathSoundToggle.checked = randomDeathSoundEnabled;
+    saveWallet();
+    if (storeVisible) renderStore();
+  }
+
+  async function loadAccountInventory(uid) {
+    if (accountInventoryUid === uid && (accountInventoryReady || accountInventoryLoading)) return;
+    accountInventoryUid = uid;
+    accountInventoryReady = false;
+    accountInventoryLoading = true;
+    const revisionAtStart = inventoryRevision;
+    const localCoinsAtStart = wallet.coins;
+    const localOwnerAtStart = lsGet('flappy_inventory_owner_uid');
+    try {
+      let remote = await window.FlappyLeaderboard.loadInventory();
+      if (accountInventoryUid !== uid) return;
+      if (inventoryRevision !== revisionAtStart) remote = await window.FlappyLeaderboard.loadInventory();
+      if (accountInventoryUid !== uid) return;
+      const earnedWhileLoading = Math.max(0, wallet.coins - localCoinsAtStart);
+      if (remote) {
+        const normalized = normalizedInventory(remote);
+        normalized.coins += earnedWhileLoading;
+        applyInventorySnapshot(normalized);
+      } else if (!localOwnerAtStart || localOwnerAtStart === uid) {
+        // Bring forward an existing browser wallet only once, when the account has no cloud wallet yet.
+        applyInventorySnapshot(inventorySnapshot());
+      } else {
+        // Never copy another account's cached wallet into this account.
+        applyInventorySnapshot({ coins: earnedWhileLoading, ownedBirds: ['classic'], equippedBird: 'classic', ownedDeathSounds: ['original'], equippedDeathSound: 'original', randomDeathSound: false });
+      }
+      accountInventoryReady = true;
+      inventorySyncMessage = '';
+      saveWallet();
+    } catch (error) {
+      if (accountInventoryUid !== uid) return;
+      console.warn('Could not load player inventory:', error && error.message);
+      accountInventoryReady = false;
+      inventorySyncMessage = 'Account inventory could not sync. Check your connection and Firebase playerInventory rules.';
+      if (storeVisible) storeMsg.textContent = 'Could not sync your account inventory. Check your connection and try again.';
+    } finally {
+      if (accountInventoryUid === uid) accountInventoryLoading = false;
+    }
   }
 
   function skinById(id) { return SKINS.find(s => s.id === id) || SKINS[0]; }
@@ -3267,6 +3366,10 @@
   }
 
   function equipItem(item) {
+    if (accountInventoryLoading) {
+      storeMsg.textContent = 'Loading your account inventory…';
+      return;
+    }
     if (storeTab === 'bird') wallet.equipped = item.id;
     else {
       equippedDeathSound = item.id;
@@ -3279,6 +3382,10 @@
   }
 
   function buyItem(item) {
+    if (accountInventoryLoading) {
+      storeMsg.textContent = 'Loading your account inventory…';
+      return;
+    }
     if (wallet.coins < item.price) {
       storeMsg.textContent = `Earn ${item.price - wallet.coins} more coins to unlock ${item.name}.`;
       sound.playTone(180, 0.12, 'square');
@@ -3332,6 +3439,8 @@
     storeVisible = true;
     setStoreTab('bird');
     storeOverlay.classList.remove('hidden');
+    if (accountInventoryLoading) storeMsg.textContent = 'Loading your account inventory…';
+    else if (inventorySyncMessage) storeMsg.textContent = inventorySyncMessage;
     cancelAnimationFrame(storeRaf);
     animateStorePreviews();
   }
@@ -3380,12 +3489,30 @@
   });
   storeClose.addEventListener('click', closeStore);
   randomDeathSoundToggle.addEventListener('change', () => {
+    if (accountInventoryLoading) {
+      randomDeathSoundToggle.checked = randomDeathSoundEnabled;
+      storeMsg.textContent = 'Loading your account inventory…';
+      return;
+    }
     randomDeathSoundEnabled = randomDeathSoundToggle.checked;
-    lsSet('flappy_random_death_sound', String(randomDeathSoundEnabled));
+    saveWallet();
     if (randomDeathSoundEnabled) preloadOwnedDeathSounds();
     storeMsg.textContent = randomDeathSoundEnabled
       ? 'Random owned death sounds enabled.'
       : 'Equipped death sound will play on death.';
+  });
+  window.addEventListener('flappy-account-ready', event => {
+    const uid = event.detail && event.detail.uid;
+    if (uid) loadAccountInventory(uid);
+  });
+  window.addEventListener('flappy-account-signed-out', () => {
+    accountInventoryUid = '';
+    accountInventoryReady = false;
+    accountInventoryLoading = false;
+  });
+  window.addEventListener('online', () => {
+    if (accountInventoryUid && !accountInventoryReady) loadAccountInventory(accountInventoryUid);
+    else if (accountInventoryUid) saveWallet();
   });
   storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
   document.addEventListener('keydown', (e) => { if (storeVisible && e.key === 'Escape') closeStore(); });

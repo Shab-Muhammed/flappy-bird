@@ -62,6 +62,7 @@
   let accountBusy = false;
   let unreadPlayerMessages = [];
   let loadingPlayerMessages = false;
+  let inventoryWriteQueue = Promise.resolve();
 
   const baseURL = CONFIG.databaseURL.trim().replace(/\/+$/, '');
   const isOnline = baseURL.length > 0;
@@ -79,11 +80,7 @@
     loadingPlayerMessages = true;
     try {
       const data = await request(`${baseURL}/playerMessages/${encodeURIComponent(playerName)}.json`);
-      const seenKey = `flappy_seen_admin_messages_${playerId}`;
-      let seen = [];
-      try { seen = JSON.parse(safeGet(seenKey) || '[]'); } catch (e) { /* start with unseen messages */ }
-      const seenIds = new Set(Array.isArray(seen) ? seen : []);
-      unreadPlayerMessages = Object.entries(data || {}).filter(([id]) => !seenIds.has(id));
+      unreadPlayerMessages = Object.entries(data || {}).filter(([, item]) => !(item && item.readBy && item.readBy[playerId] === true));
       if (!unreadPlayerMessages.length || !playerMessageOverlay) return;
       const list = $('player-message-list');
       list.replaceChildren();
@@ -92,10 +89,7 @@
         article.className = 'player-message-item';
         const body = document.createElement('p');
         body.textContent = String(item && item.message || '');
-        const timestamp = document.createElement('time');
-        const ts = Number(item && item.ts);
-        timestamp.textContent = Number.isFinite(ts) && ts > 0 ? new Date(ts).toLocaleString() : '';
-        article.append(body, timestamp);
+        article.append(body);
         list.appendChild(article);
       });
       playerMessageOverlay.classList.remove('hidden');
@@ -106,17 +100,19 @@
     }
   }
 
-  function dismissPlayerMessages() {
-    if (playerId && unreadPlayerMessages.length) {
-      const key = `flappy_seen_admin_messages_${playerId}`;
-      let seen = [];
-      try { seen = JSON.parse(safeGet(key) || '[]'); } catch (e) { /* replace invalid local data */ }
-      const ids = new Set(Array.isArray(seen) ? seen : []);
-      unreadPlayerMessages.forEach(([id]) => ids.add(id));
-      safeSet(key, JSON.stringify([...ids]));
-    }
+  async function dismissPlayerMessages() {
+    const messages = unreadPlayerMessages.slice();
     unreadPlayerMessages = [];
     if (playerMessageOverlay) playerMessageOverlay.classList.add('hidden');
+    if (!auth || !auth.currentUser || !playerId || !playerName || !messages.length) return;
+    const writes = messages.map(([id]) => request(
+      `${baseURL}/playerMessages/${encodeURIComponent(playerName)}/${encodeURIComponent(id)}/readBy/${encodeURIComponent(playerId)}.json`,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: 'true' }
+    ));
+    const results = await Promise.allSettled(writes);
+    if (results.some(result => result.status === 'rejected')) {
+      console.warn('Could not sync read status for one or more admin messages.');
+    }
   }
 
   function cleanName(raw) {
@@ -152,6 +148,7 @@
     if (!user) {
       accountReady = false;
       playerName = '';
+      window.dispatchEvent(new CustomEvent('flappy-account-signed-out'));
       safeSet(NAME_KEY, '');
       stopPresence();
       updatePlayerStrip();
@@ -761,6 +758,24 @@
         body: JSON.stringify({ username: normalized, ts: { '.sv': 'timestamp' }, status: 'open' })
       });
     },
+    loadInventory() {
+      if (!isOnline || !auth || !auth.currentUser || !accountReady) return Promise.resolve(null);
+      const uid = auth.currentUser.uid;
+      const read = inventoryWriteQueue.catch(() => {}).then(() => request(`${baseURL}/playerInventory/${encodeURIComponent(uid)}.json`));
+      inventoryWriteQueue = read.then(() => undefined, () => undefined);
+      return read;
+    },
+    saveInventory(inventory) {
+      if (!isOnline || !auth || !auth.currentUser || !accountReady) return Promise.resolve(false);
+      const uid = auth.currentUser.uid;
+      const payload = { ...inventory, updatedAt: { '.sv': 'timestamp' } };
+      inventoryWriteQueue = inventoryWriteQueue.catch(() => {}).then(() => request(`${baseURL}/playerInventory/${encodeURIComponent(uid)}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }));
+      return inventoryWriteQueue;
+    },
     // Called when a run ends with a score above zero
     setPending(score) {
       lastScore = score;
@@ -804,7 +819,10 @@
         }
       }
       if (accountReady && unsynced > 0) syncScore(0);
-      if (accountReady) loadPlayerMessages();
+      if (accountReady) {
+        window.dispatchEvent(new CustomEvent('flappy-account-ready', { detail: { uid: user.uid, name: username } }));
+        loadPlayerMessages();
+      }
       if (visible) refresh();
     });
   }
