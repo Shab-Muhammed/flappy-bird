@@ -1527,7 +1527,9 @@
 
     if (mode === 'AUTO' && worldActive) {
       // Score bonus is fed in a little each frame so the sky never jumps
-      const bonusStep = cycleBoost * 0.02;
+      // Spread each score bonus across a longer interval so the sun and moon
+      // keep a steady pace when a pipe is passed.
+      const bonusStep = cycleBoost * 0.002;
       cycleBoost -= bonusStep;
       cycleProgress = (cycleProgress + CYCLE_AUTO_SPEED + bonusStep) % 1.0;
     } else if (mode !== 'AUTO' && worldActive) {
