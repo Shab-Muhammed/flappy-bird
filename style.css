@@ -664,6 +664,34 @@ button.header-pill:focus-visible {
   max-width: 320px;
 }
 
+.player-message-list {
+  display: grid;
+  gap: 9px;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+.player-message-item {
+  padding: 11px 12px;
+  border: 1.5px solid rgba(84, 54, 21, 0.25);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.player-message-item p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.player-message-item time {
+  display: block;
+  margin-top: 7px;
+  color: #7a6544;
+  font-size: 10px;
+}
+
 .account-input {
   width: 100%;
   min-width: 0;

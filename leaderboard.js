@@ -32,6 +32,7 @@
   const $ = (id) => document.getElementById(id);
   const overlay = $('lb-overlay');
   const accountOverlay = $('account-overlay');
+  const playerMessageOverlay = $('player-message-overlay');
   if (!overlay) return;
 
   const ui = {
@@ -59,6 +60,8 @@
   const USERNAME_DOMAIN = '@users.flappy-bird-ae650.firebaseapp.com';
   let accountReady = false;
   let accountBusy = false;
+  let unreadPlayerMessages = [];
+  let loadingPlayerMessages = false;
 
   const baseURL = CONFIG.databaseURL.trim().replace(/\/+$/, '');
   const isOnline = baseURL.length > 0;
@@ -69,6 +72,51 @@
   }
   function safeSet(key, value) {
     try { localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+  }
+
+  async function loadPlayerMessages() {
+    if (!isOnline || !auth || !auth.currentUser || !accountReady || loadingPlayerMessages) return;
+    loadingPlayerMessages = true;
+    try {
+      const data = await request(`${baseURL}/playerMessages/${encodeURIComponent(playerName)}.json`);
+      const seenKey = `flappy_seen_admin_messages_${playerId}`;
+      let seen = [];
+      try { seen = JSON.parse(safeGet(seenKey) || '[]'); } catch (e) { /* start with unseen messages */ }
+      const seenIds = new Set(Array.isArray(seen) ? seen : []);
+      unreadPlayerMessages = Object.entries(data || {}).filter(([id]) => !seenIds.has(id));
+      if (!unreadPlayerMessages.length || !playerMessageOverlay) return;
+      const list = $('player-message-list');
+      list.replaceChildren();
+      unreadPlayerMessages.forEach(([, item]) => {
+        const article = document.createElement('article');
+        article.className = 'player-message-item';
+        const body = document.createElement('p');
+        body.textContent = String(item && item.message || '');
+        const timestamp = document.createElement('time');
+        const ts = Number(item && item.ts);
+        timestamp.textContent = Number.isFinite(ts) && ts > 0 ? new Date(ts).toLocaleString() : '';
+        article.append(body, timestamp);
+        list.appendChild(article);
+      });
+      playerMessageOverlay.classList.remove('hidden');
+    } catch (error) {
+      console.warn('Could not load admin messages:', error && error.message);
+    } finally {
+      loadingPlayerMessages = false;
+    }
+  }
+
+  function dismissPlayerMessages() {
+    if (playerId && unreadPlayerMessages.length) {
+      const key = `flappy_seen_admin_messages_${playerId}`;
+      let seen = [];
+      try { seen = JSON.parse(safeGet(key) || '[]'); } catch (e) { /* replace invalid local data */ }
+      const ids = new Set(Array.isArray(seen) ? seen : []);
+      unreadPlayerMessages.forEach(([id]) => ids.add(id));
+      safeSet(key, JSON.stringify([...ids]));
+    }
+    unreadPlayerMessages = [];
+    if (playerMessageOverlay) playerMessageOverlay.classList.add('hidden');
   }
 
   function cleanName(raw) {
@@ -654,6 +702,10 @@
       button.disabled = false;
     }
   });
+  $('player-message-close').addEventListener('click', dismissPlayerMessages);
+  playerMessageOverlay.addEventListener('click', event => {
+    if (event.target === playerMessageOverlay) dismissPlayerMessages();
+  });
   $('lb-signout').addEventListener('click', async () => {
     await stopPresence();
     if (auth) await auth.signOut();
@@ -688,6 +740,7 @@
     closeAccount,
     async submitSuggestion(category, suggestion) {
       if (!isOnline) throw new Error('Suggestion submissions are not configured.');
+      if (!auth || !auth.currentUser || !accountReady || !playerName) throw new Error('SIGN_IN_REQUIRED');
       const allowedCategories = ['General', 'Skin', 'Audio'];
       const text = String(suggestion || '').trim().slice(0, 120);
       if (!allowedCategories.includes(category) || !text) throw new Error('Enter a suggestion and choose a category.');
@@ -695,7 +748,7 @@
       return request(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, suggestion: text, ts: { '.sv': 'timestamp' } })
+        body: JSON.stringify({ uid: auth.currentUser.uid, name: playerName, category, suggestion: text, ts: { '.sv': 'timestamp' } })
       });
     },
     async requestPasswordReset(username) {
@@ -722,6 +775,7 @@
     }
   };
   window.FlappyLeaderboard = api;
+  setInterval(loadPlayerMessages, 30000);
 
   // Restore the signed-in account or show the username/password form for new visitors.
   if (auth) {
@@ -750,6 +804,7 @@
         }
       }
       if (accountReady && unsynced > 0) syncScore(0);
+      if (accountReady) loadPlayerMessages();
       if (visible) refresh();
     });
   }

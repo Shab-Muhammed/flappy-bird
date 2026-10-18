@@ -3366,9 +3366,14 @@
       requestName.value = '';
     } catch (error) {
       console.error('Could not send store request:', error);
-      requestStatus.textContent = error && error.name === 'AbortError'
-        ? 'The request timed out. Check your connection and try again.'
-        : 'Could not send your request. Check the Firebase database rules and try again.';
+      if (error && error.message === 'SIGN_IN_REQUIRED') {
+        requestStatus.textContent = 'Sign in to your player account, then send your suggestion.';
+        window.FlappyLeaderboard.openAccount();
+      } else {
+        requestStatus.textContent = error && error.name === 'AbortError'
+          ? 'The request timed out. Check your connection and try again.'
+          : 'Could not send your request. Check the Firebase database rules and try again.';
+      }
     } finally {
       submitButton.disabled = false;
     }
