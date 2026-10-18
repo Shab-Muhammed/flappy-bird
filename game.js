@@ -2378,63 +2378,71 @@
   let ghostOverlayEnabled = lsGet('flappy_ghost_overlay') !== 'false';
 
   function getGhostSprite(skin) {
-    let sprite = ghostSpriteCache.get(skin);
-    if (sprite) return sprite;
-    sprite = document.createElement('canvas');
-    sprite.width = 52;
-    sprite.height = 42;
-    const spriteContext = sprite.getContext('2d');
-    spriteContext.translate(26, 21);
-    spriteContext.filter = 'grayscale(1) brightness(1.55)';
-    drawBirdSprite(spriteContext, skin, 0, 0);
-    spriteContext.filter = 'none';
-    ghostSpriteCache.set(skin, sprite);
+    let entry = ghostSpriteCache.get(skin);
+    if (entry && entry.dpr === renderDpr) return entry.canvas;
+    const dpr = renderDpr;
+    const sprite = entry ? entry.canvas : document.createElement('canvas');
+    sprite.width = Math.ceil(64 * dpr);
+    sprite.height = Math.ceil(44 * dpr);
+    const g = sprite.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, 64, 44);
+    g.translate(32, 22);
+    drawBirdSprite(g, skin, 0, 0);
+    // Tint instead of ctx.filter (unsupported in Safari): works in every browser.
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(190, 210, 230, 0.6)';
+    g.fillRect(0, 0, sprite.width, sprite.height);
+    ghostSpriteCache.set(skin, { canvas: sprite, dpr });
     return sprite;
+  }
+
+  // Mirrors Bird.update(): gravity first, then clamp, then move.
+  function predictGhostY(y, velocity, age) {
+    const frames = Math.round(Math.min(0.4, Math.max(0, age)) * 60);
+    let vy = velocity;
+    for (let i = 0; i < frames; i++) {
+      vy = Math.min(7, vy + 0.22);
+      y += vy;
+    }
+    return y;
   }
 
   function drawOpponentGhosts(deltaSeconds) {
     if (!ghostOverlayEnabled) return;
     const players = window.FlappyRooms && window.FlappyRooms.getGhostPlayers
-      ? window.FlappyRooms.getGhostPlayers()
+      ? window.FlappyRooms.getGhostPlayers().sort((a, b) => a.id.localeCompare(b.id))
       : [];
     const activeIds = new Set();
+    const placedLabels = [];
     players.forEach(player => {
       activeIds.add(player.id);
       let visual = ghostVisuals.get(player.id);
       if (!visual || visual.roundAt !== player.roundAt) {
-        visual = {
-          y: player.y,
-          targetY: player.y,
-          roundAt: player.roundAt,
-          dead: !player.alive,
-          deathY: player.y,
-          deathVelocity: player.velocity
-        };
+        visual = { y: player.y, roundAt: player.roundAt, dead: !player.alive, deathY: player.y };
         ghostVisuals.set(player.id, visual);
       }
       if (!visual.dead && !player.alive) {
         visual.dead = true;
         visual.deathY = Math.max(12, Math.min(GROUND_Y - 12, player.y));
-        visual.deathVelocity = player.velocity;
       }
       if (!visual.dead) {
-        const age = Math.min(0.25, Math.max(0, player.age || 0));
-        const predictedY = player.y + player.velocity * 60 * age + 0.5 * 0.22 * 3600 * age * age;
-        visual.targetY = Math.max(12, Math.min(GROUND_Y - 12, predictedY));
-        visual.y += (visual.targetY - visual.y) * Math.min(1, deltaSeconds * 14);
+        const target = Math.max(12, Math.min(GROUND_Y - 12, predictGhostY(player.y, player.velocity, player.age)));
+        visual.y += (target - visual.y) * Math.min(1, deltaSeconds * 14);
       } else {
         visual.y = visual.deathY;
       }
       const isAlive = !visual.dead && player.alive;
-
       const x = bird.x;
       const y = visual.y;
+
       if (isAlive) {
         ctx.save();
         ctx.globalAlpha = 0.62;
         ctx.translate(x, y);
         ctx.rotate(Math.max(-0.48, Math.min(1.25, Math.atan2(player.velocity, 9))));
-        ctx.drawImage(getGhostSprite(activeSkin()), -26, -21);
+        ctx.drawImage(getGhostSprite(activeSkin()), -32, -22, 64, 44);
         ctx.restore();
       }
 
@@ -2443,7 +2451,12 @@
       ctx.font = '700 9px Fredoka, sans-serif';
       const labelWidth = Math.min(116, Math.max(62, ctx.measureText(label).width + 16));
       const labelX = Math.max(labelWidth / 2 + 3, Math.min(V_WIDTH - labelWidth / 2 - 3, x));
-      const labelY = Math.max(12, y - 30);
+      let labelY = Math.max(12, y - 30);
+      // Nudge the label up while it overlaps one already placed.
+      for (let i = 0; i < 8 && placedLabels.some(l => Math.abs(l.y - labelY) < 20 && Math.abs(l.x - labelX) < (l.w + labelWidth) / 2); i++) {
+        labelY = Math.max(12, labelY - 20);
+      }
+      placedLabels.push({ x: labelX, y: labelY, w: labelWidth });
       ctx.fillStyle = isAlive ? 'rgba(16, 31, 39, 0.76)' : 'rgba(70, 37, 37, 0.76)';
       roundRect(ctx, labelX - labelWidth / 2, labelY - 9, labelWidth, 18, 7);
       ctx.fill();

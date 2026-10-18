@@ -619,6 +619,9 @@
 
   async function publishMyState() {
     if (!room || room.phase !== 'playing' || !window.FlappyGame || !roomStateRef || publishingState) return;
+    // Wait for the local round to really start (set in maybeStartRound) so the
+    // countdown never publishes an "alive: false" state for the new round.
+    if (lastStartAt !== Number(room.startAt) || serverNow() < Number(room.startAt)) return;
     const roundAt = room.startAt;
     const snapshot = window.FlappyGame.roomSnapshot();
     const last = lastPublished;
@@ -648,7 +651,7 @@
   }
 
   function getGhostPlayers() {
-    if (!room || room.phase !== 'playing') return [];
+    if (!room || room.phase !== 'playing' || serverNow() < Number(room.startAt)) return [];
     return Object.entries(states)
       .filter(([uid, state]) => state && uid !== myUid() && Number(state.roundAt) === Number(room.startAt)
         && serverNow() - Number(state.updatedAt || 0) < 12000)
