@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://flappy-bird-eight-sepia.vercel.app/sitemap.xml
+Sitemap: https://flappy-gr8.vercel.app/sitemap.xml

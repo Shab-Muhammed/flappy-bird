@@ -159,7 +159,7 @@ The leaderboard uses the Firebase Realtime Database REST API. To configure your 
    }
    ```
 
-3. Add the site's hosting domain under **Authentication → Settings → Authorized domains** if Firebase rejects sign-in from the deployed site. The Firebase web app configuration and SDK are already included in `index.html`.
+3. Add `flappy-gr8.vercel.app` under **Authentication → Settings → Authorized domains** in Firebase. The Firebase web app configuration and SDK are already included in `index.html`.
 
 Players enter usernames and passwords; the game maps usernames to internal Firebase email-shaped identifiers, so players do not need email addresses. Username availability is checked against Firebase Authentication and the `usernames` reservation collection, independently of leaderboard rows. Returning players should open the game in the same browser they used before, create an account with their old username (the field is prefilled), and the game will move their best local or online score to the account. Players who cleared their browser data or changed devices need an administrator to migrate their account and score. To create accounts for players yourself, create a Firebase Authentication user with `<lowercase_username>@users.flappy-bird-ae650.firebaseapp.com` as the email and give the player their username and password. Firebase handles password storage. Publish the rules above in Realtime Database → Rules before enabling the online leaderboard.
 
