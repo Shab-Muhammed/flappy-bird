@@ -673,42 +673,47 @@
   let themeBannerTimer = 0;
   let themeLastTimestamp = null;
   const THEME_SWITCH_SECONDS = 45;
-  const THEME_TRANSITION_SECONDS = 2.5;
+  const THEME_TRANSITION_SECONDS = 4;
   const THEME_BANNER_SECONDS = 2.5;
 
   function themeColor(value) {
     return parseColor(value);
   }
 
-  const steadyThemeStates = [];
-  function steadyThemeState(index) {
-    return steadyThemeStates[index] || (steadyThemeStates[index] = { ...THEMES[index], blend: 1 });
+  const THEME_BLEND_NUMERIC_KEYS = ['particleDensity', 'pipeShade', 'emission', 'vineOpacity', 'mushroomGlow', 'hazardBrightness', 'rayStrength', 'trafficIntensity', 'streetlightIntensity', 'cityGlow'];
+
+  // Smootherstep: zero velocity and zero acceleration at both ends, so the scene eases
+  // in and out of a transition instead of starting or stopping abruptly.
+  function easeThemeBlend(t) {
+    t = Math.max(0, Math.min(1, t));
+    return t * t * t * (t * (t * 6 - 15) + 10);
   }
 
-  function getThemeState(deltaSeconds) {
+  function updateThemeTimers(deltaSeconds) {
     if (currentState === STATE.PLAYING) {
       themeTimer += deltaSeconds;
       if (themeTimer >= THEME_SWITCH_SECONDS) advanceTheme();
     }
     themeTransition = Math.min(1, themeTransition + deltaSeconds / THEME_TRANSITION_SECONDS);
     if (themeBannerTimer > 0) themeBannerTimer = Math.max(0, themeBannerTimer - deltaSeconds);
-    // No transition running: reuse one prebuilt object instead of re-blending ~25 colours per frame.
-    if (themeTransition >= 1) return steadyThemeState(themeIndex);
-    const from = THEMES[previousThemeIndex];
-    const to = THEMES[themeIndex];
-    const t = easeBlend(themeTransition);
-    const blendHex = (a, b) => {
-      const ca = themeColor(a), cb = themeColor(b);
-      return `rgb(${Math.round(ca[0] + (cb[0] - ca[0]) * t)},${Math.round(ca[1] + (cb[1] - ca[1]) * t)},${Math.round(ca[2] + (cb[2] - ca[2]) * t)})`;
-    };
-    const blendList = (a, b) => a.map((color, index) => blendHex(color, b[index]));
-    return {
-      ...to,
-      skyTop: blendHex(from.skyTop, to.skyTop), skyMid: blendHex(from.skyMid, to.skyMid), skyBot: blendHex(from.skyBot, to.skyBot),
-      far: blendHex(from.far, to.far), near: blendHex(from.near, to.near), groundTop: blendHex(from.groundTop, to.groundTop), groundBody: blendHex(from.groundBody, to.groundBody),
-      pipe: blendList(from.pipe, to.pipe), lip: blendList(from.lip, to.lip), outline: blendHex(from.outline, to.outline), accent: blendHex(from.accent, to.accent),
-      style: t < 0.5 ? from.style : to.style, blend: t
-    };
+  }
+
+  // Both themes are already synced to the current time of day, so every colour and
+  // intensity can be mixed directly. Nothing switches at the halfway point.
+  function blendThemeStates(from, to, t) {
+    const blended = { ...to };
+    for (const key of THEME_CYCLE_COLOR_KEYS) {
+      blended[key] = toCss(mixColor(parseColor(from[key]), parseColor(to[key]), t));
+    }
+    for (const key of THEME_BLEND_NUMERIC_KEYS) {
+      if (from[key] === undefined && to[key] === undefined) continue;
+      const a = from[key] === undefined ? 0 : from[key];
+      const b = to[key] === undefined ? 0 : to[key];
+      blended[key] = a + (b - a) * t;
+    }
+    blended.style = t < 0.5 ? from.style : to.style;
+    blended.blend = t;
+    return blended;
   }
 
   function advanceTheme() {
@@ -850,26 +855,31 @@
     ctx.restore();
   }
 
-  function drawThemeLighting(theme) {
+  function drawCityNightGlow(theme, opacity) {
+    if (opacity <= 0.002 || theme.style !== 'City' || theme.cycleStage !== 'NIGHT') return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = Math.max(0.35, (theme.emission || 0) / 20) * opacity;
+    for (const glow of [
+      [48, GROUND_Y - 150, '#ffe082', 112],
+      [168, GROUND_Y - 205, '#f4e2b0', 145],
+      [302, GROUND_Y - 165, '#ffb36b', 122]
+    ]) {
+      const [gx, gy, color, radius] = glow;
+      const volume = ctx.createRadialGradient(gx, gy, 2, gx, gy, radius);
+      volume.addColorStop(0, color === '#ffe082' ? 'rgba(255,224,130,0.16)' : color === '#ffb36b' ? 'rgba(255,179,107,0.14)' : 'rgba(244,226,176,0.12)');
+      volume.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = volume; ctx.fillRect(gx - radius, gy - radius, radius * 2, radius * 2);
+    }
+    ctx.restore();
+  }
+
+  function drawThemeLighting(theme, layers) {
     ctx.save();
     ctx.fillStyle = theme.lighting;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
-    if (theme.style === 'City' && theme.cycleStage === 'NIGHT') {
-      ctx.globalCompositeOperation = 'screen';
-      ctx.globalAlpha = Math.max(0.35, (theme.emission || 0) / 20);
-      for (const glow of [
-        [48, GROUND_Y - 150, '#ffe082', 112],
-        [168, GROUND_Y - 205, '#f4e2b0', 145],
-        [302, GROUND_Y - 165, '#ffb36b', 122]
-      ]) {
-        const [gx, gy, color, radius] = glow;
-        const volume = ctx.createRadialGradient(gx, gy, 2, gx, gy, radius);
-        volume.addColorStop(0, color === '#ffe082' ? 'rgba(255,224,130,0.16)' : color === '#ffb36b' ? 'rgba(255,179,107,0.14)' : 'rgba(244,226,176,0.12)');
-        volume.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = volume; ctx.fillRect(gx - radius, gy - radius, radius * 2, radius * 2);
-      }
-    }
     ctx.restore();
+    (layers || [[theme, 1]]).forEach(([layer, opacity]) => drawCityNightGlow(layer, opacity));
   }
 
   let cityFacadeTexture = null;
@@ -889,7 +899,7 @@
   // Landmarks are drawn into two 440px tiles (far / near parallax layers) that are
   // rebuilt only when the time-of-day stage moves ~2%, then scrolled with drawImage.
   let landmarkFar = true, landmarkNear = true, landmarkHaze = true, landmarkOverlay = true;
-  const landmarkCache = { far: null, near: null, key: '', dpr: 0 };
+  const landmarkCaches = new Map(); // style -> { far, near, key, dpr }, least recently used first
 
   function setLandmarkParts(far, near, haze, overlay) {
     landmarkFar = far; landmarkNear = near; landmarkHaze = haze; landmarkOverlay = overlay;
@@ -899,7 +909,23 @@
     renderThemeLandmarks(theme, opacity);
   }
 
-  function rebuildLandmarkCache(theme, key, dpr) {
+  function getLandmarkCache(style) {
+    let entry = landmarkCaches.get(style);
+    if (entry) landmarkCaches.delete(style);
+    else entry = { far: null, near: null, key: '', dpr: 0 };
+    landmarkCaches.set(style, entry);
+    while (landmarkCaches.size > 2) {
+      const oldest = landmarkCaches.keys().next().value;
+      const stale = landmarkCaches.get(oldest);
+      landmarkCaches.delete(oldest);
+      for (const layer of ['far', 'near']) {
+        if (stale[layer]) { stale[layer].width = 0; stale[layer].height = 0; }
+      }
+    }
+    return entry;
+  }
+
+  function rebuildLandmarkCache(theme, entry, key, dpr) {
     const savedGround = groundScrollOffset;
     const savedFar = farScrollOffset;
     const previous = ctx;
@@ -907,7 +933,7 @@
     farScrollOffset = 0;
     try {
       for (const layer of ['far', 'near']) {
-        const tile = landmarkCache[layer] || document.createElement('canvas');
+        const tile = entry[layer] || document.createElement('canvas');
         tile.width = Math.ceil(440 * dpr);
         tile.height = Math.ceil(GROUND_Y * dpr);
         const g = tile.getContext('2d');
@@ -915,7 +941,7 @@
         ctx = g;
         setLandmarkParts(layer === 'far', layer === 'near', false, false);
         renderThemeLandmarks(theme, 1);
-        landmarkCache[layer] = tile;
+        entry[layer] = tile;
       }
     } finally {
       ctx = previous;
@@ -923,8 +949,8 @@
       farScrollOffset = savedFar;
       setLandmarkParts(true, true, true, true);
     }
-    landmarkCache.key = key;
-    landmarkCache.dpr = dpr;
+    entry.key = key;
+    entry.dpr = dpr;
   }
 
   function drawLandmarkTiles(tile, scroll) {
@@ -932,18 +958,22 @@
     for (let x = -drift; x < V_WIDTH; x += 440) ctx.drawImage(tile, x, 0, 440, GROUND_Y);
   }
 
-  function drawCachedThemeLandmarks(theme) {
+  function drawCachedThemeLandmarks(theme, opacity = 1) {
+    const entry = getLandmarkCache(theme.style);
     const key = `${theme.style}|${theme.cycleStage}|${Math.floor((theme.cycleStageLerp || 0) * 50)}`;
-    if (!landmarkCache.far || landmarkCache.key !== key || landmarkCache.dpr !== renderDpr) {
-      rebuildLandmarkCache(theme, key, renderDpr);
+    if (!entry.far || entry.key !== key || entry.dpr !== renderDpr) {
+      rebuildLandmarkCache(theme, entry, key, renderDpr);
     }
     try {
       setLandmarkParts(false, false, true, false);
-      renderThemeLandmarks(theme, 1);          // haze (behind everything)
-      drawLandmarkTiles(landmarkCache.far, farScrollOffset);
-      drawLandmarkTiles(landmarkCache.near, groundScrollOffset);
+      renderThemeLandmarks(theme, opacity);          // haze (behind everything)
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      drawLandmarkTiles(entry.far, farScrollOffset);
+      drawLandmarkTiles(entry.near, groundScrollOffset);
+      ctx.restore();
       setLandmarkParts(false, false, false, true);
-      renderThemeLandmarks(theme, 1);          // water / road strips in front
+      renderThemeLandmarks(theme, opacity);          // water / road strips in front
     } finally {
       setLandmarkParts(true, true, true, true);
     }
@@ -1189,6 +1219,7 @@
       ctx.fillStyle = theme.accent; ctx.fillRect(0, GROUND_Y, V_WIDTH, 3);
     }
     ctx.globalAlpha = opacity;
+    if (opacity <= 0.002) { ctx.restore(); return; }
     if (theme.style === 'highway') {
       ctx.fillStyle = '#d2d8d6';
       // Road paint follows the same near-layer offset as the highway bridge.
@@ -1494,13 +1525,9 @@
 
   function drawSky(cycle, theme) {
     const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-    const skyMix = (base, themed) => {
-      if (theme.blend >= 1) return themed;
-      return toCss(mixColor(parseColor(base), themeColor(themed), theme.blend));
-    };
-    skyGrad.addColorStop(0, skyMix(cycle.skyTop, theme.skyTop));
-    skyGrad.addColorStop(0.55, skyMix(cycle.skyMid, theme.skyMid));
-    skyGrad.addColorStop(1, skyMix(cycle.skyBot, theme.skyBot));
+    skyGrad.addColorStop(0, theme.skyTop);
+    skyGrad.addColorStop(0.55, theme.skyMid);
+    skyGrad.addColorStop(1, theme.skyBot);
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
 
@@ -3518,7 +3545,13 @@
 
     // 1. Dynamic Gradual Day & Night Sky (Sun & Moon Arc)
     const cycle = getCycleState();
-    const theme = syncThemeToCycle(getThemeState(worldDeltaSeconds), cycle);
+    updateThemeTimers(worldDeltaSeconds);
+    const toTheme = syncThemeToCycle({ ...THEMES[themeIndex] }, cycle);
+    toTheme.blend = 1;
+    const transitioning = themeTransition < 1 && previousThemeIndex !== themeIndex;
+    const fromTheme = transitioning ? syncThemeToCycle({ ...THEMES[previousThemeIndex] }, cycle) : null;
+    const themeBlend = transitioning ? easeThemeBlend(themeTransition) : 1;
+    const theme = transitioning ? blendThemeStates(fromTheme, toTheme, themeBlend) : toTheme;
     drawSky(cycle, theme);
 
     // 3. Parallax Textured Clouds Moving Backward
@@ -3526,25 +3559,22 @@
     drawClouds(cycle);
 
     // 4. Theme-specific landscape silhouettes
-    if (theme.blend < 1 && previousThemeIndex !== themeIndex) {
-      const fromTheme = { ...theme, style: THEMES[previousThemeIndex].style };
-      const toTheme = { ...theme, style: THEMES[themeIndex].style };
-      drawThemeLandmarks(fromTheme, 1 - theme.blend);
-      drawThemeLandmarks(toTheme, theme.blend);
+    if (transitioning) {
+      // Outgoing scenery stays fully opaque underneath while the incoming scenery
+      // fades in on top, so the sky never shows through mid-transition.
+      drawCachedThemeLandmarks(fromTheme, 1);
+      drawCachedThemeLandmarks(toTheme, themeBlend);
     } else {
-      drawCachedThemeLandmarks(theme);
+      drawCachedThemeLandmarks(toTheme, 1);
     }
 
     // 5. Theme-specific light, filters, and ambient particles
-    const transitioning = theme.blend < 1 && previousThemeIndex !== themeIndex;
-    const toAtmosphereTheme = transitioning ? syncThemeToCycle({ ...THEMES[themeIndex] }, cycle) : theme;
-    updateThemeAtmosphere(toAtmosphereTheme, worldDeltaSeconds, ambientParticles[1]);
+    updateThemeAtmosphere(toTheme, worldDeltaSeconds, ambientParticles[1]);
     if (transitioning) {
-      const fromAtmosphereTheme = syncThemeToCycle({ ...THEMES[previousThemeIndex] }, cycle);
-      updateThemeAtmosphere(fromAtmosphereTheme, worldDeltaSeconds, ambientParticles[0]);
-      drawThemeAtmosphere(fromAtmosphereTheme, ambientParticles[0], 1 - theme.blend);
+      updateThemeAtmosphere(fromTheme, worldDeltaSeconds, ambientParticles[0]);
+      drawThemeAtmosphere(fromTheme, ambientParticles[0], 1 - themeBlend);
     }
-    drawThemeAtmosphere(toAtmosphereTheme, ambientParticles[1], transitioning ? theme.blend : 1);
+    drawThemeAtmosphere(toTheme, ambientParticles[1], transitioning ? themeBlend : 1);
 
     // 6. Hand-Crafted Green Pipes
     if (currentState === STATE.PLAYING) {
@@ -3577,15 +3607,15 @@
     pipes.forEach(p => p.draw(p.cycle, p.theme));
 
     // 7. Theme-specific ground
-    if (theme.blend < 1 && previousThemeIndex !== themeIndex) {
-      const fromTheme = { ...theme, style: THEMES[previousThemeIndex].style };
-      const toTheme = { ...theme, style: THEMES[themeIndex].style };
-      drawThemeGround(fromTheme, 1 - theme.blend);
-      drawThemeGround(toTheme, theme.blend, false);
+    if (transitioning) {
+      drawThemeGround(theme, 0, true);                  // solid base in blended colours
+      drawThemeGround(fromTheme, 1 - themeBlend, false); // old decorations fade out
+      drawThemeGround(toTheme, themeBlend, false);       // new decorations fade in
+      drawThemeLighting(theme, [[fromTheme, 1 - themeBlend], [toTheme, themeBlend]]);
     } else {
-      drawThemeGround(theme);
+      drawThemeGround(toTheme);
+      drawThemeLighting(toTheme);
     }
-    drawThemeLighting(theme);
 
     // 8. Authentic Hand-Crafted Original Flappy Bird
     bird.update();
